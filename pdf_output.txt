@@ -1,0 +1,741 @@
+--- PAGE 0 ---
+World Gateball Union
+Official Gateball Rules
+Official
+Gateball
+Rules
+Guide
+for
+Referees
+Appendix
+--- PAGE 1 ---
+Chapter 1. Ground and Equipment
+Chapter 1. Ground and Equipment
+Article 1. Ground
+Clause 1. Court (Figure 1)
+1. Court
+(1) The court shall be a flat surface that is bounded by the outside line and
+rectangular in shape and clear of any obstacles.
+2. Field
+(1) The field refers to the surface inside the court. The field is divided into
+the inner field and the outer field.
+(i) The inner field shall be rectangular in shape, 15m in length and 20m
+in width. Its outer edge shall be bounded by the inside line.
+a. The width of the inside line shall be set at 5cm in principle. The
+color of the line shall be a color that easily contrasts with the court
+surface. The inside line shall be set inside the inner field along the
+outer edge of the inner field.
+b. In an anticlockwise direction from one 15m side, each side of the
+inner field shall be referred to as follows: the first line, the second
+line, the third line, and the fourth line.
+c. Each corner of the inner field shall be referred to as follows: the
+corner where the first and fourth lines intersect is referred to as the
+first corner, and, in an anticlockwise direction, is followed by the
+second corner, the third corner, and the fourth corner.
+(ii) The outer field is a fixed area 1m in width, in principle, that lies
+outside the inner field. Its outer edge shall be bounded by the
+outside line and its inner edge shall be bounded by the inside line.
+The width of the outer field shall be set between 50cm and 1m.
+a. The outside line should be wide enough to be clearly visible, while
+the color of the line should be easily identifiable on the court
+surface. The outside line shall be set inside the outer field along the
+outer edge of the outer field.
+2
+--- PAGE 2 ---
+Chapter 1. Ground and Equipment
+The direction of a successful pass
+Free zone
+20m Second line
+8m 12m Second corner
+Third corner
+2m 1m
+（50cm〜1m）
+15m Second Gate 11m
+Outside
+line Goal-pole First
+1m line
+Inside （50cm〜1m）
+line
+2m
+Third First Gate
+line
+Third Gate Start area
+4m
+2m
+2m
+10m
+Fourth line 1m
+Fourth corner First corner
+Third gate
+Inside line First
+corner
+Front side Back side Start area
+1m
+3m
+Gate line（ imaginary） Outside line
+Figure 1, The Court
+3. The Start Area
+(1) The start area is a rectangle created by four points - two points that
+are 1m and 3m from the first corner on the fourth line, and two points
+where two vertical lines drawn outward from the first two points
+intersect the outer edge of the outer field.
+(i) The two longer sides of the start area are formed by a section of the
+inside line and the outside line.
+3
+--- PAGE 3 ---
+Chapter 1. Ground and Equipment
+(ii) The outer edges of the two shorter sides of the start area are formed
+by the following line:
+a. The line which forms the shorter side of the start area should be
+wide enough to be clearly visible, while the color of the line should
+be easily identifiable on the court surface. The line shall be set
+inside the start area along the outer edge of the start area.
+4. Gate (Figures 1 and 2)
+(1) A gate shall consist of a U-shaped, 1cm (+/- 1mm) diameter cylinder
+rod in a color that is easily identifiable on the court.
+(2) The two legs of the gate shall be secured vertically on the ground so
+that the inner space between the two legs is 22cm wide and 19cm
+high.
+(3) The gates include the first gate, the second gate and the third gate. The
+position of each gate shall be as follows.
+(i) The point exactly between both legs of the first gate is positioned at
+a point 2m from the inside line and at a right angle to the third line
+from a point 4m from the first corner, in the direction of the second
+corner. The gate shall be set so that the (imaginary) gate line, which
+passes through this center point and runs parallel to the fourth line,
+is in contact with the outermost edge of both legs of the gate facing
+the second line.
+(ii) The point exactly between both legs of the second gate is positioned
+at a point 2m from the inside line and at a right angle to the fourth
+line from a point 12m from the second corner, in the direction of the
+third corner. The gate shall be set so that the (imaginary) gate line,
+which passes through this center point and runs parallel to the first
+line, is in contact with the outermost edge of both legs of the gate
+facing the third line.
+(iii) The point exactly between both legs of the third gate is positioned
+at a point 2m from the inside line and at a right angle to the second
+line from the center of the fourth line. The gate shall be set so that
+the (imaginary) gate line, which passes through this center point and
+runs parallel to the third line, is in contact with the outermost edge
+of both legs of the gate facing the first line.
+4
+--- PAGE 4 ---
+Chapter 1. Ground and Equipment
+(4) The top of each gate shall be marked by a gate number.
+(i) Each gate number should not be greater than 10cm in both height
+and width.
+(5) The areas surrounding each gate shall be referred to as the front side
+and the back side, separated by the gate line.
+(i) The front side of the first gate refers to the side of the gate facing the
+fourth line, while the back side of the first gate refers to the side of
+the gate facing the second line.
+(ii) The front side of the second gate refers to the side of the gate facing
+the first line, while the back side of the second gate refers to the side
+of the gate facing the third line.
+(iii) The front side of the third gate refers to the side of the gate facing
+the third line, while the back side of the third gate refers to the side
+of the gate facing the first line.
+5. Goal-pole (Figures 1 and 2)
+(1) The goal-pole shall consist of a 2cm (+/- 1mm) diameter cylinder rod in
+a color that is easily identifiable on the court surface.
+(2) The goal-pole shall be secured vertically at a height of 20cm above
+ground.
+(3) The goal-pole shall be set in the center of the court.
+(cid:21)(cid:70)(cid:80)
+(cid:20)(cid:70)(cid:80)
+(cid:20)(cid:28)(cid:70)(cid:80) (cid:21)(cid:19)(cid:70)(cid:80)
+(cid:21)(cid:21)(cid:70)(cid:80)
+(cid:41)(cid:85)(cid:82)(cid:81)(cid:87)(cid:3)(cid:86)(cid:76)(cid:71)(cid:72) (cid:37)(cid:68)(cid:70)(cid:78)(cid:3)(cid:86)(cid:76)(cid:71)(cid:72)
+(cid:42)(cid:68)(cid:87)(cid:72)(cid:3)(cid:79)(cid:76)(cid:81)(cid:72)(cid:15910)(cid:76)(cid:80)(cid:68)(cid:74)(cid:76)(cid:81)(cid:68)(cid:85)(cid:92)(cid:15911)
+Figure 2, Gate and Goal-pole
+Clause 2. Free Zone
+1. A free zone shall be set outside the court.
+(1) During a game, only the players, managers, referees and persons
+invited into the zone shall be allowed to enter.
+5
+--- PAGE 8 ---
+Chapter 2. Team
+Chapter 3. Preparing for the Game
+5. The manager and players must wear athletic shoes.
+(1) The soles of athletic shoes must not be modified in any way that would
+affect play.
+6. The players must not have anything on their person that might impede
+the game.
+Clause 4. Basic Conditions to be Observed by the Manager and Players
+1. The manager and players shall understand and observe the Official
+Gateball Game Rules (hereinafter “Game Rules”).
+2. Those who are involved in the game must accept the decisions of the
+referee in the spirit of true sportsmanship.
+3. The manager and players must treat the other teams, teammates,
+referees and spectators in the spirit of fair play, and communicate with
+courtesy.
+4. The manager and players must not take action aimed at influencing the
+decision of the referee or hide a foul made by the team.
+5. The manager and players must not take action aimed at extending the game.
+Chapter 3. Preparing for the Game
+Article 5. Preparing for the Game
+Clause 1. Submitting the Playing Order Sheet
+1. The captain shall submit a playing order sheet to the referee before the
+start of the game.
+(1) The playing order cannot be changed once the playing order sheet has
+been submitted.
+Clause 2. Deciding Who Goes First
+1. After the playing order sheets are submitted by the captains of the
+respective teams, the referee conducts a coin toss to decide which
+captain has the right to choose whether to be the leading team or the
+following team.
+(1) The captain of the team that wins the right to choose whether to be
+the leading or the following team then chooses whether his/her team
+will be the leading or following team.
+9
+--- PAGE 11 ---
+Chapter 4. How to Play the Game
+Chapter 5. Winning and Losing
+(2) The substitution shall be approved as follows:
+(i) The manager shall indicate a substitution to the recorder.
+(ii) The recorder confirms the substitution and advises the chief referee
+of the substitution.
+(iii) The chief referee approves and announces the substitution.
+(3) The substitution will not be approved in the following cases:
+(i) If the substitution is indicated after the player who will be substituted
+has stroked as a stroker but before his/her rights as a stroker have
+ended.
+(ii) If the substitute player is not wearing the appropriate playing order
+number when the player who will be substituted is called to stroke.
+Clause 7. Absence of Players
+1. Should a player become absent from a team during a game, the following
+shall apply:
+(1) This must be immediately reported to the referee by the manager.
+(2) The playing order of the player who has become absent will be an
+absent number, and the game will continue without that player.
+(i) The ball of the absent player shall remain as is in the game.
+(ii) Any points made by the absent player’s ball through the play of the
+other players shall be valid.
+Chapter 5. Winning and Losing
+Article 7. Deciding the Winner
+Clause 1. Score and Result
+1. The score is determined by the following:
+(1) When a successful pass is made through the first gate, one point is
+given.
+(2) When a successful pass is made through the second gate, another
+point is given, for a total of two points.
+(3) When a successful pass is made through the third gate, another point
+is given, for a total of three points.
+12
+--- PAGE 12 ---
+Chapter 5. Winning and Losing
+(4) Upon successfully finishing, another two points are given, for a total of
+five points.
+2. At the end of the game, the points of each team’s players are added, and
+the team with the greater total points is the winner.
+Clause 2. Deciding the Winner When Points are Tied
+1. In the case where the two teams are tied with an equal number of
+points, the details of the points determine the winner, in the following
+order:
+(1) The team with more players finishing becomes the winner.
+(2) If the same number of players finished, the team with more players
+successfully passing through the third gate becomes the winner.
+(3) If the same number of players finished, and the same number of players
+successfully passed through the third gate, the team with more players
+successfully passing through the second gate becomes the winner.
+2. In the case where a winner cannot be determined according to 1 above,
+tiebreakers are used to determine the winner, in the following order:
+(1) The players at the end of the game will line up in order from 1 to 10,
+and will compete in successfully passing through the first gate. The
+team with more successful passes becomes the winner.
+(i) If one team mathematically clinches the win at any point, the game
+ends at that point.
+(ii) Even if one or more players are absent at the end of the game, these
+openings cannot be filled.
+(2) If a winner cannot be determined according to 2 (1) above, the
+players first and second in the playing order will compete one-on-one
+in attempting to successfully pass through the first gate. The team
+with a successful pass becomes the winner. If a winner still cannot
+be determined, the next two players according to playing order will
+compete one-on-one in attempting to successfully pass through the
+first gate. The process continues until a winner can be determined.
+(i) If a stroker is absent, the other team can win simply by successfully
+passing through the first gate.
+3. If a winner cannot be determined according to 1 above, rather than
+determining a winner by way of 2 above, the game may be recorded as a
+tie.
+13
+--- PAGE 14 ---
+Chapter 5. Winning and Losing
+Chapter 6. The Game
+(3) If a player who was replaced by a substitute then plays again in the
+same game.
+2. Non-eligible participation by a team will result in the other team winning
+the game by forfeit.
+Chapter 6. The Game
+Article 9. Play and Rights as a Stroker
+Clause 1. Play and Rights as a Stroker
+1. The stroker is the player who has been called to stroke.
+(1) The stroker can enter the court to play.
+2. The rights as a stroker begin and end as follows:
+(1) The rights as a stroker begin when a player is called to stroke.
+(2) The rights as a stroker end at the following time points:
+(i) After the stroke, when the stroker has not gained the right for
+continuous stroke (Article 12, Clause 3) nor the right to spark (Article
+15, Clause 2), and all the balls inside the inner field have stopped
+making valid moves.
+(ii) When a stroker carries out a move that constitutes a foul play.
+3. A stroker must stroke or spark (Article 16, Clause 1) within ten seconds
+after the referee starts counting ten seconds.
+(1) The ten seconds are counted from either of the following:
+(i) When a stroker is called to stroke next.
+(ii) When the right for continuous stroke is gained.
+(iii) When the right to spark is gained.
+4. When the rights as a stroker end, the stroker shall promptly exit the
+court.
+Clause 2. Time Over
+1. It is a time-over foul if the stroker does not stroke or spark within ten
+seconds.
+2. The following applies in the case of a time-over foul.
+15
+--- PAGE 15 ---
+Chapter 6. The Game
+(i) Any balls that move following the time-over foul shall be returned to
+the positions they were in before moving.
+(ii) If a time-over foul takes place during a start stroking, the stroker’s
+ball shall be placed outside the field.
+(iii) If a time-over foul takes place during a stroker’s action on sparking,
+Article 16, Clause 4 ‘Sparking Foul 2’ shall apply, depending on the
+situation at the time.
+Clause 3. Confirmation by the Stroker
+1. A stroker may confirm the following points with the chief referee or
+assistant referee. The time used for such confirmation by the stroker will
+not be counted as referee time.
+(1) Regarding a successful pass through a gate.
+(i) When the outer edge of a stationary ball is on a gate line, whether
+or not it will make a successful pass through the gate if it moves
+towards the back side of the gate to completely cross over the gate
+line.
+(ii) Whether or not the outer edge of the other ball set for sparking
+(Article 16, Clause 1, 2) is on the gate line.
+(2) Regarding a successful finish.
+(i) Whether or not a ball which has successfully passed through the
+third gate is in contact with the goal-pole.
+(3) Regarding a successful Touch (Article 15, Clause 1).
+(i) Whether or not the stroker’s ball is in contact with the other ball(s)
+before stroking.
+(ii) Which ball the Touch was successfully made with.
+(4) Regarding a contact situation following a successful Touch between
+the stroker’s ball and the touched other ball(s) and a contact situation
+between the touched ball(s) and other ball(s).
+(i) Whether or not there is a contact situation between the stroker’s ball
+and touched other ball(s) after a Touch.
+(ii) Whether or not there is a contact situation between the touched
+ball(s) and other ball(s) after a Touch.
+16
+--- PAGE 16 ---
+Chapter 6. The Game
+Article 10. Effective Plays and Ineffective Plays
+Clause 1. Effective Plays
+1. Effective plays refer to the following:
+(1) Proper plays
+(i) Proper plays refer to the following plays and actions:
+a. A proper stroking by a stroker and his/her actions taken leading up
+to his/her play.
+b. A proper sparking by a stroker and his/her actions taken leading up
+to his/her play.
+(2) Foul plays
+(i) Foul plays refer to plays made by a stroker that result in a foul.
+Clause 2. Ineffective Plays
+1. Ineffective plays refer to the following plays and actions:
+(1) Plays made by a stroker during referee time.
+(2) Actions of a person other than the stroker.
+Article 11. Movement of the Ball
+Clause 1. Valid Moves
+1. Aside from invalid moves, all movements of balls as a result of a proper
+play by a stroker shall be valid.
+Clause 2. Invalid Moves
+1. The following moves shall all be regarded as invalid moves, and balls
+moved shall be returned to their positions before the move:
+(1) The movement of a ball following a foul play.
+(2) The movement of a ball following an ineffective play.
+(3) The movement of other ball(s) made by the ball which has not yet
+passed through the first gate.
+(4) The movement of a ball in contact with a gate or the goal-pole as a
+result of stroking an out-ball.
+(5) The movement of an out-ball that does not end up within the inner
+field.
+17
+--- PAGE 17 ---
+Chapter 6. The Game
+(6) Moving a ball that has finished, and other ball(s) moved as a result of
+this move.
+(7) The movement of a ball as a result of the stroker’s body coming in
+contact with a gate or the goal-pole.
+(8) The movement of a ball as a result of a sparked other ball hitting
+another ball that was temporarily moved by the stroker.
+(9) The following movement of the stroker’s ball or other ball during a
+stroker’s action on sparking while the play is recognized as a proper
+play:
+(i) When the stroker’s ball stops in contact with another touched ball,
+and the stroker’s ball moves as the result of the stroker picking up
+the touched ball as part of a stroker’s action on sparking.
+(ii) When a touched ball comes into contact with yet another ball and
+stops, and that other ball moves as the result of the stroker picking
+up the touched ball as part of a stroker’s action on sparking.
+(iii) When the stroker’s ball stops in contact with several touched balls,
+and the stroker’s ball or one of the touched balls are moved as the
+result of the stroker picking up another touched ball in order to
+temporarily move that ball.
+(iv) When, during an action on sparking, the stroker drops a touched
+other ball that he/she picked up, and that ball touches a gate or goal-
+pole, as a result of which the stroker’s ball or another ball, which is in
+contact with that gate or goal-pole, is indirectly moved.
+(v) When the stroker’s ball and a touched other ball stop in contact with
+a gate or the goal-pole and, during an action on sparking, the stroker
+picks up the touched other ball to indirectly move his/her ball.
+(vi) When a touched other ball stops in contact with a gate or goal-pole
+with which another ball is also in contact, and the stroker picks up
+that touched ball during an action on sparking, resulting in the other
+ball in contact with the gate or goal-pole to be indirectly moved.
+(vii) If, when resetting the balls, the stroker’s ball is moved as a result of
+the stroker picking up the set other ball while he/she is not stepping
+on his/her ball.
+(10) Other than (1) through (9) above, the following moves that the referee
+designates as an invalid move:
+18
+--- PAGE 18 ---
+Chapter 6. The Game
+(i) When a ball has gone to the outer field, the ball hits another ball
+which has already been placed as an out-ball and causes this ball to
+move.
+(ii) When a ball is moved indirectly by hitting soil or grass with the stick.
+(iii) When a ball in contact with a gate or the goal-pole is moved
+indirectly as a result of the stick coming in contact with the gate or
+the goal-pole.
+(iv) When the uniform, number or any of a stroker’s belongings (including
+glove, cap, hat, glasses and the captain’s identification) touches a
+ball.
+(v) When a stationary ball moves as the result of weather conditions, or
+as the result of the way the gate, the goal-pole, the inside line, or the
+lines forming the start area have been set.
+2. When a ball(s) move(s) as the result of an invalid move, that ball(s) shall
+be returned to its position before the move except for the ball(s) making
+the valid move.
+(1) If a ball making an invalid move touches a ball making a valid move,
+then the ball making the valid move shall remain in the position at
+which it stopped following that move.
+Article 12. Stroking
+Clause 1. Stroking
+1. Stroking refers to the act of a stroker stroking his/her own ball with the
+face of the stick.
+(1) The stroker cannot refuse his/her own turn to stroke.
+Clause 2. Start Stroking
+1. The start stroking refers to the act of a stroker placing his/her own ball
+which has not made a successful pass through the first gate with his/her
+hand in the start area and stroking it.
+(1) The stroker can use his/her hand to reposition his/her ball which has
+been once placed in the start area.
+(2) A stroker may ask the referee to have a ball temporarily moved if it is
+obstructing the path to complete a pass through the first gate.
+19
+--- PAGE 19 ---
+Chapter 6. The Game
+(3) A player who was not able to make a successful pass through the first
+gate again carries out a start stroking at his/her next turn to stroke.
+Clause 3. Gaining the Right for Continuous Stroke
+1. The right for continuous stroke is gained in the following cases where all
+the balls inside the inner field stop:
+(1) When the stroker’s ball makes a successful pass through a gate and
+stops as an in-ball (Article 17, Clause 1), the stroker can stroke his/her
+ball once more. The number of continuous strokes gained by making
+one or more successful passes through one or more gates is limited to
+one.
+(2) When a Spark is made successfully, the stroker can stroke his/her ball
+once more. The number of continuous strokes gained by making one or
+more successful Sparks is limited to one.
+(3) When a successful pass through a gate and a successful Touch are
+made with the same stroke, the stroker can stroke his/her ball two
+times more after making a successful Spark.
+Clause 4. Stroking Foul
+1. Any of the following actions by a stroker is a stroking foul:
+(1) Stroking by pushing (when the face of the stick pushes the stroker’s
+ball forward while keeping the stick face in contact with the ball).
+(2) When a ball is stroked twice (when the stick face touches the stroker’s
+ball twice or more during the same swing).
+(3) When the stroker’s ball is stroked with a part of the stick other than
+the stick face.
+(4) When the stroker kicks his/her stick to stroke his/her ball.
+(5) When the stroker’s ball is stroked by using the hand to hit the stick.
+(6) When the stroker’s ball is stroked while the hand is in contact with the
+head of the stick.
+(7) After a Touch but before the right to spark is gained, when stroking the
+stroker’s ball which remains still.
+(8) When stroking the stroker’s ball without sparking although the right to
+spark is gained.
+(9) Following a successful Spark, when stroking the stroker’s ball before all
+the balls inside the inner field come to a stop.
+20
+--- PAGE 21 ---
+Chapter 6. The Game
+Article 13. Passing the Gate (Gate Tsuka)
+Clause 1. Successful Pass Through a Gate
+1. A successful pass through a gate, or “Gate Tsuka,” takes place when the
+ball moves in the direction from the front side to the back side, through
+the first, second and third gates, in that order, to completely cross over
+the gate line for the first time (Figures 1 and 2).
+(1) A pass through the first gate is successful if the stroker’s ball completely
+passes over the gate line of the first gate with the start stroke.
+(i) If a pass through the first gate has not been made successfully, the
+stroker’s ball is removed from the field.
+(2) The following balls have not made a successful pass through the
+second and third gates yet.
+(i) A ball which moves from the back side to the front side of a gate and
+stops with its outer edge on the gate line.
+(ii) A ball with its outer edge is on the gate line as a result of stroking an
+out-ball.
+(iii) A ball which has been a set other ball in a Spark and which is placed
+in a position where its outer edge is on the gate line as the result of
+a sparking foul which has occurred after setting the balls but before
+making a successful Spark.
+(iv) A ball which is set to spark so that its outer edge is on the gate line.
+(v) A ball which passes through a gate as a result of stroking an out-ball.
+Article 14. Finishing (Agari)
+Clause 1. A Successful Finish
+1. A successful finish, or “Agari,” occurs when an in-ball that has already
+successfully passed through the third gate hits the goal-pole.
+(1) A successful finish of a touched other ball as the result of a Spark
+requires that this other ball is set up so that it is not in contact with the
+goal-pole.
+(2) If a ball that has successfully passed the third gate is in contact with the
+goal-pole, the ball will be recognized as having successfully finished in
+the following moves:
+22
+--- PAGE 22 ---
+Chapter 6. The Game
+(i) If the stroker whose own ball is in contact with the goal-pole strokes
+that ball.
+(ii) If an in-ball makes a valid move to come in contact with the ball that
+is in contact with the goal-pole.
+2. A ball that has successfully finished shall be removed from the field.
+Article 15. Touch
+Clause 1. A Successful Touch
+1. A Touch occurs when the stroker’s ball that is an in-ball is stroked and
+moves to touch another ball.
+(1) If the stroker’s ball is already in contact with another ball, a successful
+Touch can be made just by stroking the stroker’s ball.
+(2) If the stroker’s ball touches another ball before successfully passing
+through the first gate, it is not regarded as a successful Touch.
+Clause 2. Gaining the Right to Spark
+1. The stroker gains the right to spark when a successful Touch is made,
+both the stroker’s ball and the touched ball stop as in-balls, and all the
+other balls in the inner field stop.
+(1) If the stroker gains the right to spark a number of other balls,
+regardless of the order the balls were touched, all other balls can be
+sparked.
+Clause 3. Priorities on Sparking
+1. If a stroker gains both the right for continuous stroke and the right to
+spark, the stroker must spark first.
+Clause 4. Touching the Same Ball Twice
+1. It is a “touching the same ball twice” foul if, during his/her continuous
+stroke, the stroker makes a Touch with a ball which he/she has already
+sparked.
+2. Touching the same ball twice shall result in the following.
+(i) A ball that has moved as the result of being touched a second time is
+returned to the position it was in before it moved.
+(ii) The stroker’s ball becomes an out-ball from the position it was in
+when it touched twice.
+23
+--- PAGE 24 ---
+Chapter 6. The Game
+(4) Resetting the ball.
+(5) The stroker strokes his/her foot at the same time he/she strokes the ball.
+(6) The stroker’s ball moves underneath his/her foot.
+(i) When the stroker’s ball moves underneath his/her foot, and if this
+movement affects a play such as passing a gate, finishing, or making
+a Touch, the referee shall place the stroker’s ball back in its original
+position.
+3. After touching a number of balls, if the stroker’s ball is in contact with a
+number of balls that it touched, the stroker shall, in the following order,
+temporarily move the balls that will be sparked second and thereafter.
+(1) If touching two other balls, pick up and temporarily move the ball to be
+sparked second to a location that will not impede the game.
+(2) If touching three other balls, pick up and temporarily move the balls
+one at a time to a location that will not impede the game. Picking up
+both balls at the same time is also allowed.
+Clause 3. Completions of Sparking
+1. A successful Spark refers to the following:
+(1) When the outer edge of the other sparked ball is 10cm or more away
+from the outer edge of the stroker’s ball.
+(2) When the other sparked ball successfully finishes.
+(3) When the other sparked ball becomes an out-ball.
+Clause 4. Sparking Foul
+1. Any of the following plays by a stroker will be regarded as a sparking foul.
+(1) After picking up a touched ball, and before the Spark, the stroker’s ball
+or another ball is directly moved by the touched ball.
+(2) If the stroker’s ball moves away from under the stroker’s foot.
+(3) If the stroker hits his/her ball without moving the hand from the set
+other ball.
+(4) If the stroker hits only the foot.
+(5) If, following a Spark, the outer edge of the sparked other ball stops
+without moving at least 10cm away from the outer edge of the stroker’s
+ball, and the sparked other ball and the stroker’s ball stop as in-balls.
+(6) Following a successful Spark, if the other sparked ball hits a gate or the
+goal-pole and returns to stop in contact with the stroker’s ball as an in-
+ball.
+25
+--- PAGE 26 ---
+Chapter 6. The Game
+(4) Following a successful Spark, if the sparked ball hits a gate or the goal-
+pole and returns to stop in contact with the stroker’s ball as in-balls:
+(i) The sparked ball shall be placed where it stopped in contact with the
+stroker’s ball after the Spark.
+(ii) The stroker’s ball becomes an out-ball from the position it stopped in
+contact with the sparked ball after the Spark.
+(5) If the stroker hits his/her ball with the touched other ball placed in the
+outer field.
+(i) A ball that has moved as the result of a sparking foul is returned to
+the position it was in before it moved.
+(ii) The touched other ball is returned to the position where it stopped
+after the Touch.
+(iii) The stroker’s ball becomes an out-ball from the position where it
+stopped after the Touch.
+Article 17. In-ball and Out-ball
+Clause 1. In-ball
+1. An in-ball refers to a ball successfully passing through the first gate, and
+remaining within the inner field.
+2. An out-ball becomes an in-ball when it stops inside the inner field as the
+result of the stroker’s stroke.
+Clause 2. Out-ball
+1. An out-ball refers to the following balls which have successfully passed
+through the first gate and are in the outer field:
+(1) A ball which is placed in the outer field for a proper play as follows:
+(i) A ball which goes to the outer field after successfully passing through
+the first gate as a result of a start stroking.
+(ii) A ball which goes to the outer field as a result of stroking an in-ball or
+by sparking.
+(iii) A ball which goes to the outer field again as a result of stroking an
+out-ball.
+(iv) A ball which does not go into the inner field by stroking an out-ball.
+(2) A ball which is placed in the outer field for a foul.
+27
+--- PAGE 28 ---
+Chapter 6. The Game
+2. The following applies in the case of a ball touch foul, depending on the
+situation at the time:
+(1) If the stroker touches a ball other than his/her ball:
+(i) A ball that has moved as the result of a ball touch foul shall be
+returned to the position it was in before it moved.
+(ii) The other ball involved in the ball touch foul shall be returned to the
+position it was in when touched.
+(iii) The stroker’s ball becomes an out-ball from the position it stopped
+in.
+(2) If the stroker touches his/her own ball:
+(i) A ball that has moved as the result of a ball touch foul shall be
+returned to the position it was in before it moved.
+(ii) The stroker’s ball becomes an out-ball from the position it was in
+when touched.
+(3) If a ball touch foul occurs during the stroker’s actions on sparking, the
+process outlined in Article 16, Clause 4 ‘Sparking Foul 2’ on sparking
+foul shall be followed, depending on the situation at the time.
+Article 19. Play Interference
+Clause 1. Play Interference
+1. The following will be regarded as play interference:
+(1) When a manager or player does not comply with the essential rules
+governing the manager and player as prescribed in Article 4, Clause 4,
+and, even though the referee gives warnings, a member of the same
+team does not follow the instructions of the referee.
+(2) When the referee determines that a manager or player is interfering
+with the game.
+2. When play interference occurs, the following steps will be taken,
+depending on the situation at the time, to ensure the interference does
+not benefit the team which has committed the play interference:
+(1) Take away the rights as a stroker from the stroker.
+(2) Relevant ball(s) becomes an out-ball.
+(3) Disallow successful passes through gates and finishes.
+29
+--- PAGE 29 ---
+Chapter 6. The Game
+(4) Eject a manager or player from the game.
+(i) The ball of a player who has been ejected will be removed from the
+court.
+(ii) The number of the player who has been ejected will be an absent
+number.
+(iii) Points of the player who has been ejected obtained prior to the
+ejection shall be valid.
+(5) Declare the team disqualified.
+Article 20. Referee Time
+Clause 1. Referee Time
+1. Referee time refers to the time required, during the game, for the action
+that has been approved by the referee.
+2. Referee time is not included in the 10 second count, but included in the
+game time.
+Article 21. Exchange of Equipment
+Clause 1. Exchanging the Stick
+1. A stroker may exchange the stick upon informing the referee.
+(1) A stroker may only bring one stick into the field.
+(2) The sticks that can be exchanged are limited to sticks that have already
+been inspected before starting the game.
+Clause 2. Exchanging the Ball
+1. If any defect is found in a ball, the referee shall swiftly exchange it.
+30
+--- PAGE 31 ---
+Chapter 7. Referees
+Clause 3. Duties of the Chief Referee
+1. Toss the coin and confirm the leading and following teams.
+2. Announce “Play Ball” and “Game Set.”
+3. Announce the playing order.
+4. Approve and announce any player substitution.
+5. Announce “Time” when a game is interrupted, as well as announce the
+restart of the game.
+6. Implement appropriate measures against play interference.
+7. Disqualify the game.
+8. Confirm the record game results following the game.
+9. Decide the winner (receive signatures from the captains of the both
+teams).
+Clause 4. Duties of the Chief Referee and Assistant Referee
+1. Inspect the ground.
+2. Confirm the details on the playing order form and playing order.
+3. Inspect the equipment and uniforms.
+4. Decide and announce successful passes through gates and successful
+finishes.
+5. Decide and announce successful Touches.
+6. Decide and announce out-balls. Place the balls in an appropriate
+position.
+7. Decide and announce fouls. Implement appropriate measures.
+8. Give warnings to a manager or player who does not comply with the
+essential rules governing the manager and players.
+9. Respond to questions on the game.
+10. Respond to confirmations by a stroker.
+11. Temporarily move balls.
+12. Respond to invalid movements of a ball.
+13. Determine play interference.
+Clause 5. Duties of the Assistant Referee
+1. Jointly assume the duties stated above with the chief referee.
+2. Assist the chief referee, and, should the chief referee be unable to
+continue his/her responsibilities, take on the responsibilities of the chief
+referee.
+32
+--- PAGE 32 ---
+Chapter 7. Referees
+Clause 6. Duties of the Recorder
+1. Inspect the ground.
+2. Record the necessary items on the record sheet.
+3. Confirm and then call out successful passes through gates and successful
+finishes.
+4. Provide answers to items that the chief referee or assistant referee may
+need to confirm.
+5. Assist and advise the chief referee and assistant referee in their
+decisions, announcement, and implementation of measures.
+6. Confirm a player substitute and advise the chief referee.
+7. Keep time during the game.
+8. Announce the time segments during a game (15 minutes left, 10 minutes
+left, 5 minutes left, time up).
+9. Decide and announce out-balls. Place the balls in an appropriate
+position.
+10. Give warnings to a manager or player who does not comply with the
+essential rules governing the manager and players.
+Clause 7. Duties of the Linesman
+1. Inspect the ground.
+2. Assist and advise the chief referee and assistant referee in their
+decisions, announcement, and implementation of measures.
+3. Decide and announce out-balls. Place the balls in an appropriate
+position.
+4. Give warnings to a manager or player who does not comply with the
+essential rules governing the manager and players.
+33

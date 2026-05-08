@@ -1,0 +1,957 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Hand, Sun } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+interface Point { x: number; y: number; }
+type Path = Point[];
+interface Ball { x: number; y: number; vx: number; vy: number; radius: number; color: string; id: 'striker' | 'target' | 'yellow' | 'black'; }
+interface RecordedShot { id: number; activeBallId: 'striker' | 'target' | 'yellow' | 'black'; angle: number; speed: number; positions: { striker: Ball; target: Ball; yellow: Ball; black: Ball; }; }
+
+const BALL_RADIUS = 6; 
+const SCALE = 20; 
+const EDGING = 1.5 * SCALE; 
+
+// ROTATED: Width is now 35 yards, Height is 28 yards
+const FIELD_WIDTH = 35 * SCALE + 2 * EDGING; 
+const FIELD_HEIGHT = 28 * SCALE + 2 * EDGING; 
+
+const DOCK_WIDTH = 90; 
+const CANVAS_WIDTH = FIELD_WIDTH + DOCK_WIDTH;
+const DOCK_CENTER = FIELD_WIDTH + 45; 
+
+const ZOOM_LEVELS = [1, 1.5, 2.5]; 
+
+const RACK_BOTTOM = FIELD_HEIGHT - 40; 
+const RACK_TOP = RACK_BOTTOM - 190;
+const INITIAL_BLACK_POS =   { x: DOCK_CENTER, y: RACK_TOP + 26 }; 
+const INITIAL_TARGET_POS =  { x: DOCK_CENTER, y: RACK_TOP + 72 }; 
+const INITIAL_YELLOW_POS =  { x: DOCK_CENTER, y: RACK_TOP + 118 }; 
+const INITIAL_STRIKER_POS = { x: DOCK_CENTER, y: RACK_TOP + 164 }; 
+
+const HOOP_WIDTH = 20; 
+const PEG_RADIUS = 3;
+
+// ROTATED: Hoops and Peg mapped 90 degrees clockwise
+const HOOPS = [
+  { id: 1, x: EDGING + 7 * SCALE, y: EDGING + 7 * SCALE, label: '1', topColor: '#2563eb' },
+  { id: 2, x: EDGING + 28 * SCALE, y: EDGING + 7 * SCALE, label: '2' },
+  { id: 3, x: EDGING + 28 * SCALE, y: EDGING + 21 * SCALE, label: '3', topColor: '#dc2626' },
+  { id: 4, x: EDGING + 7 * SCALE, y: EDGING + 21 * SCALE, label: '4' },
+  { id: 5, x: EDGING + 10.5 * SCALE, y: EDGING + 14 * SCALE, label: '5' },
+  { id: 6, x: EDGING + 24.5 * SCALE, y: EDGING + 14 * SCALE, label: '6' },
+];
+const PEG_POS = { x: EDGING + 17.5 * SCALE, y: EDGING + 14 * SCALE };
+
+const SOUNDS = {
+  mallet: 'https://cdn.freesound.org/previews/108/108615_1159841-lq.mp3', collision: 'https://cdn.freesound.org/previews/108/108615_1159841-lq.mp3',
+  cheer: 'https://cdn.freesound.org/previews/337/337000_5121236-lq.mp3', miss: 'https://cdn.freesound.org/previews/175/175409_3235613-lq.mp3'
+};
+const playSound = (url: string, volume = 0.5) => { const audio = new Audio(url); audio.volume = volume; audio.play().catch(() => {}); };
+
+const BALL_SETS = {
+  primary: {
+    striker: { hex: '#1e3a8a', label: 'BLU', name: 'Blue', ui: '#3b82f6' },
+    black:   { hex: '#18181b', label: 'BLK', name: 'Black', ui: '#e4e4e7' },
+    target:  { hex: '#991b1b', label: 'RED', name: 'Red', ui: '#ef4444' },
+    yellow:  { hex: '#fbbf24', label: 'YEL', name: 'Yellow', ui: '#fde047' }
+  },
+  secondary: {
+    striker: { hex: '#22c55e', label: 'GRN', name: 'Green', ui: '#4ade80' },
+    black:   { hex: '#5c4033', label: 'BRN', name: 'Brown', ui: '#f59e0b' },
+    target:  { hex: '#f472b6', label: 'PNK', name: 'Pink', ui: '#fbcfe8' },
+    yellow:  { hex: '#f8fafc', label: 'WHT', name: 'White', ui: '#ffffff' }
+  }
+};
+const getActiveColor = (id: string | null, currentSet: 'primary' | 'secondary') => {
+  if (!id) return '#fbbf24'; return BALL_SETS[currentSet][id as keyof typeof BALL_SETS['primary']].ui;
+};
+
+const PrecisionWheel = ({ value, onChange, isPlaying, min = 0, max = 360, sensitivity = 0.2, range = 60, wrap = true, unit = "°", label = "Wheel", showLabels = false, lightMode = false }: any) => {
+  const [isDragging, setIsDragging] = useState(false); const lastPosRef = useRef<number | null>(null); const containerRef = useRef<HTMLDivElement>(null);
+  const handleStart = (e: React.MouseEvent | React.TouchEvent) => { if (isPlaying) return; setIsDragging(true); lastPosRef.current = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX; };
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging || isPlaying || lastPosRef.current === null) return;
+      const currentPos = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX; const delta = lastPosRef.current - currentPos;
+      let newValue = value + delta * sensitivity;
+      if (wrap) { const span = max - min; newValue = ((newValue - min) % span + span) % span + min; } else { newValue = Math.max(min, Math.min(max, newValue)); }
+      onChange(newValue); lastPosRef.current = currentPos;
+    };
+    const handleEnd = () => { setIsDragging(false); lastPosRef.current = null; };
+    if (isDragging) { window.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleEnd); window.addEventListener('touchmove', handleMove); window.addEventListener('touchend', handleEnd); }
+    return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleEnd); window.removeEventListener('touchmove', handleMove); window.removeEventListener('touchend', handleEnd); };
+  }, [isDragging, value, onChange, isPlaying, min, max, sensitivity, wrap]);
+
+  const ticks = []; const startVal = value - range / 2; const endVal = value + range / 2;
+  for (let i = Math.floor(startVal); i <= Math.ceil(endVal); i++) {
+    const span = max - min; const displayVal = wrap ? ((i - min) % span + span) % span + min : i; const pos = ((i - startVal) / range) * 100;
+    if (pos >= -5 && pos <= 105 && (!wrap ? (i >= min && i <= max) : true)) { ticks.push({ val: displayVal, pos }); }
+  }
+  const getTickLabel = (val: number) => {
+    if (!showLabels) return `${Math.round(val)}`; const v = Math.round(val);
+    if (v === 0 || v === 360) return 'N'; if (v === 90) return 'E'; if (v === 180) return 'S'; if (v === 270) return 'W'; return `${v}`;
+  };
+
+  return (
+      <div className="flex flex-col gap-1 w-full">
+        <div className="flex justify-between items-end">
+           <span className={`text-[9px] font-bold uppercase tracking-widest ${lightMode ? 'text-zinc-600' : 'text-zinc-400'}`}>{label}</span>
+           <div className="flex items-center gap-0.5">
+              <button onMouseDown={(e) => { e.stopPropagation(); let n = value - (wrap ? 1 : 5); if(wrap) n = (n+360)%360; else n = Math.max(min, n); onChange(n); }} className={`rounded cursor-pointer p-0.5 border shadow-sm transition-colors ${lightMode ? 'text-zinc-600 hover:text-emerald-700 bg-white/60 border-white/80 hover:bg-white/90' : 'text-zinc-500 hover:text-emerald-400 bg-zinc-900 border-zinc-800'}`}><ChevronLeft size={10}/></button>
+              <span className={`font-mono text-[10px] font-bold px-1 py-0.5 rounded border shadow-sm w-[46px] text-center ${lightMode ? 'text-emerald-700 bg-white/80 border-white/90' : 'text-emerald-400 bg-zinc-950/80 border-zinc-700'}`}>{value.toFixed(wrap ? 1 : 0)}{unit}</span>
+              <button onMouseDown={(e) => { e.stopPropagation(); let n = value + (wrap ? 1 : 5); if(wrap) n = (n)%360; else n = Math.min(max, n); onChange(n); }} className={`rounded cursor-pointer p-0.5 border shadow-sm transition-colors ${lightMode ? 'text-zinc-600 hover:text-emerald-700 bg-white/60 border-white/80 hover:bg-white/90' : 'text-zinc-500 hover:text-emerald-400 bg-zinc-900 border-zinc-800'}`}><ChevronRight size={10}/></button>
+           </div>
+        </div>
+        <div ref={containerRef} onMouseDown={handleStart} onTouchStart={handleStart} className={`relative rounded-lg overflow-hidden select-none touch-none transition-all shadow-inner h-8 w-full border ${isPlaying ? 'opacity-50' : 'cursor-pointer hover:border-emerald-500/50'} ${lightMode ? 'bg-white/50 border-white/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)]' : 'bg-zinc-950/80 border-zinc-700'}`}>
+          <div className="absolute inset-0 flex items-center">
+           {ticks.map((tick, idx) => (
+            <div key={idx} className="absolute flex flex-col items-center justify-center" style={{ left: `${tick.pos}%`, transform: 'translateX(-50%)' }}>
+              <div className={`w-px ${tick.val % 10 === 0 ? (lightMode ? 'h-3 bg-zinc-400' : 'h-3 bg-zinc-300') : tick.val % 5 === 0 ? (lightMode ? 'h-2 bg-zinc-300' : 'h-2 bg-zinc-500') : (lightMode ? 'h-1 bg-zinc-300/50' : 'h-1 bg-zinc-700')}`} />
+              {tick.val % 10 === 0 && ( <span className={`text-[8px] font-bold font-mono mt-1 absolute whitespace-nowrap ${lightMode ? 'text-zinc-600' : 'text-zinc-400'}`}>{getTickLabel(tick.val)}</span> )}
+            </div>
+          ))}
+        </div>
+        <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
+          <div className="w-0.5 h-full bg-emerald-500 relative z-10 shadow-[0_0_8px_rgba(16,185,129,0.8)]"><div className="absolute bg-emerald-500 top-0 left-1/2 -translate-x-1/2 w-1.5 h-1 rounded-b-sm" /><div className="absolute bg-emerald-500 bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1 rounded-t-sm" /></div>
+        </div>
+        <div className={`absolute inset-0 pointer-events-none z-0 bg-gradient-to-r ${lightMode ? 'from-white/40 via-transparent to-white/40' : 'from-zinc-950 via-transparent to-zinc-950'}`} />
+      </div>
+    </div>
+  );
+};
+
+const ToolButton = ({ icon, label, active, onClick, danger, lightMode }: any) => {
+  const baseClasses = "flex flex-col items-center justify-center gap-1.5 p-2 min-w-[64px] rounded-xl border-2 transition-all duration-200 shadow-sm active:scale-95 cursor-pointer";
+  let stateClasses = "";
+  if (active) {
+    stateClasses = lightMode 
+      ? "bg-emerald-50 text-emerald-700 border-emerald-500 shadow-[0_4px_15px_rgba(16,185,129,0.25)] hover:bg-emerald-100" 
+      : "bg-emerald-500/10 text-emerald-400 border-emerald-500 shadow-[0_4px_15px_rgba(16,185,129,0.2)] hover:bg-emerald-500/20";
+  } else if (danger) {
+    stateClasses = lightMode
+      ? "bg-white text-rose-600 border-rose-200 hover:border-rose-400 hover:bg-rose-50 hover:shadow-md hover:-translate-y-0.5"
+      : "bg-slate-800/80 text-rose-400 border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 hover:-translate-y-0.5";
+  } else {
+    stateClasses = lightMode
+      ? "bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md hover:-translate-y-0.5"
+      : "bg-slate-800/80 text-slate-400 border-slate-700 hover:border-emerald-500/50 hover:text-emerald-300 hover:shadow-lg hover:-translate-y-0.5";
+  }
+
+  return (
+    <button onClick={onClick} title={label} className={`${baseClasses} ${stateClasses}`}>
+      {icon}
+      <span className="text-[9px] font-bold uppercase tracking-widest">{label}</span>
+    </button>
+  );
+};
+
+export default function App() {
+  const canvasRef = useRef<HTMLCanvasElement>(null); const viewportRef = useRef<HTMLDivElement>(null);
+  const [lightMode, setLightMode] = useState(false);
+  const [showOptions, setShowOptions] = useState(false); const [ballSet, setBallSet] = useState<'primary' | 'secondary'>('primary');
+  const [features, setFeatures] = useState({ recording: false, draw: false, zoom: false });
+  const [filenamePrefix, setFilenamePrefix] = useState("sequence");
+  const [zoom, setZoom] = useState(1); const lastPanRef = useRef({ x: 0, y: 0, scrollL: 0, scrollT: 0 });
+  const [angle, setAngle] = useState(315); const [speed, setSpeed] = useState(100);
+  const [placementMode, setPlacementMode] = useState(false); const [drawMode, setDrawMode] = useState(false);
+  const [targetSpot, setTargetSpot] = useState<{ x: number; y: number } | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false); const [hasScoredThisTurn, setHasScoredThisTurn] = useState(false);
+  const [activeBallId, setActiveBallId] = useState<'striker' | 'target' | 'yellow' | 'black' | null>(null);
+  const [showScoreMsg, setShowScoreMsg] = useState<string | null>(null);
+  const [showInstruction, setShowInstruction] = useState(true);
+  const [ghostBallEnabled, setGhostBallEnabled] = useState(true);
+  const [draggingItem, setDraggingItem] = useState<'striker' | 'target' | 'yellow' | 'black' | 'ghost' | 'pan' | 'draw' | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false); const [cleanFeed, setCleanFeed] = useState(false);
+  const [drawings, setDrawings] = useState<Path[]>([]); const [currentPath, setCurrentPath] = useState<Path | null>(null);
+  const [isRecording, setIsRecording] = useState(false); const [sequence, setSequence] = useState<RecordedShot[]>([]);
+  const [currentShotIndex, setCurrentShotIndex] = useState(0);
+
+  const [history, setHistory] = useState<{s: Ball, t: Ball, y: Ball, b: Ball}[]>([]);
+  const saveStateRef = useRef<{s: Ball, t: Ball, y: Ball, b: Ball} | null>(null);
+
+  const [striker, setStriker] = useState<Ball>({ ...INITIAL_STRIKER_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS.primary.striker.hex, id: 'striker' });
+  const [target, setTarget] = useState<Ball>({ ...INITIAL_TARGET_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS.primary.target.hex, id: 'target' });
+  const [yellow, setYellow] = useState<Ball>({ ...INITIAL_YELLOW_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS.primary.yellow.hex, id: 'yellow' });
+  const [black, setBlack] = useState<Ball>({ ...INITIAL_BLACK_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS.primary.black.hex, id: 'black' });
+
+  const anyBallsInDock = striker.x > FIELD_WIDTH || target.x > FIELD_WIDTH || yellow.x > FIELD_WIDTH || black.x > FIELD_WIDTH;
+
+  const strikerRef = useRef<Ball>(striker); const targetRef = useRef<Ball>(target); const yellowRef = useRef<Ball>(yellow); const blackRef = useRef<Ball>(black);
+  useEffect(() => { strikerRef.current = striker; }, [striker]); useEffect(() => { targetRef.current = target; }, [target]); useEffect(() => { yellowRef.current = yellow; }, [yellow]); useEffect(() => { blackRef.current = black; }, [black]);
+
+  useEffect(() => {
+    setStriker(prev => ({ ...prev, color: BALL_SETS[ballSet].striker.hex })); setTarget(prev => ({ ...prev, color: BALL_SETS[ballSet].target.hex }));
+    setBlack(prev => ({ ...prev, color: BALL_SETS[ballSet].black.hex })); setYellow(prev => ({ ...prev, color: BALL_SETS[ballSet].yellow.hex }));
+  }, [ballSet]);
+
+  const handleZoomChange = (newZoom: number) => {
+    if (!viewportRef.current || newZoom === zoom) return; const viewport = viewportRef.current;
+    const centerX = viewport.scrollLeft + viewport.clientWidth / 2; const centerY = viewport.scrollTop + viewport.clientHeight / 2; const zoomRatio = newZoom / zoom;
+    setZoom(newZoom); setTimeout(() => { if (viewportRef.current) { viewportRef.current.scrollLeft = centerX * zoomRatio - viewportRef.current.clientWidth / 2; viewportRef.current.scrollTop = centerY * zoomRatio - viewportRef.current.clientHeight / 2; } }, 0);
+  };
+
+  const stateRefs = useRef({ activeBallId, angle, speed, isRecording });
+  useEffect(() => { stateRefs.current = { activeBallId, angle, speed, isRecording }; }, [activeBallId, angle, speed, isRecording]);
+
+  const handleCaptureFrame = () => {
+    setSequence(prev => {
+      const newSeq = [...prev, { id: Date.now() + Math.random(), activeBallId: stateRefs.current.activeBallId || 'striker', angle: stateRefs.current.angle, speed: stateRefs.current.speed, positions: { striker: { ...strikerRef.current, vx: 0, vy: 0 }, target: { ...targetRef.current, vx: 0, vy: 0 }, yellow: { ...yellowRef.current, vx: 0, vy: 0 }, black: { ...blackRef.current, vx: 0, vy: 0 } } }];
+      setCurrentShotIndex(newSeq.length - 1); return newSeq;
+    });
+  };
+
+  const wasPlayingRef = useRef(isPlaying);
+  useEffect(() => { if (wasPlayingRef.current && !isPlaying && stateRefs.current.isRecording) handleCaptureFrame(); wasPlayingRef.current = isPlaying; }, [isPlaying]);
+
+  useEffect(() => {
+    if (placementMode && targetSpot && activeBallId) {
+      const activeBall = activeBallId === 'striker' ? striker : activeBallId === 'target' ? target : activeBallId === 'yellow' ? yellow : black;
+      const dx = targetSpot.x - activeBall.x; const dy = targetSpot.y - activeBall.y; const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0) { setAngle((Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360); setSpeed((dist / (35 * SCALE)) * 100); }
+    }
+  }, [placementMode, targetSpot, striker.x, striker.y, target.x, target.y, yellow.x, yellow.y, black.x, black.y, activeBallId]);
+
+  const animationRef = useRef<number>(null);
+  const isBallOnLawn = (ball: Ball) => { return ball.x >= EDGING && ball.x <= EDGING + 35 * SCALE && ball.y >= EDGING && ball.y <= EDGING + 28 * SCALE; };
+
+  const handleUndo = () => {
+      if (history.length === 0 || isPlaying) return;
+      const lastState = history[history.length - 1];
+      setStriker(lastState.s); setTarget(lastState.t); setYellow(lastState.y); setBlack(lastState.b);
+      setHistory(prev => prev.slice(0, -1)); setTargetSpot(null); setPlacementMode(false);
+  };
+
+  const resetPositions = useCallback(() => {
+    setIsPlaying(false); setShowScoreMsg(null); setShowInstruction(true); setActiveBallId(null); setTargetSpot(null); setDrawings([]); setZoom(1); setPlacementMode(false); setHistory([]);
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    setStriker({ ...INITIAL_STRIKER_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS[ballSet].striker.hex, id: 'striker' });
+    setTarget({ ...INITIAL_TARGET_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS[ballSet].target.hex, id: 'target' });
+    setYellow({ ...INITIAL_YELLOW_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS[ballSet].yellow.hex, id: 'yellow' });
+    setBlack({ ...INITIAL_BLACK_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS[ballSet].black.hex, id: 'black' });
+  }, [ballSet]);
+
+  const loadShot = (index: number) => {
+    if (index < 0 || index >= sequence.length || isPlaying) return; const shot = sequence[index];
+    setCurrentShotIndex(index); setActiveBallId(shot.activeBallId); setAngle(shot.angle); setSpeed(shot.speed); setTargetSpot(null); setDrawings([]); setHistory([]);
+    setStriker({ ...shot.positions.striker, color: BALL_SETS[ballSet].striker.hex }); setTarget({ ...shot.positions.target, color: BALL_SETS[ballSet].target.hex }); setYellow({ ...shot.positions.yellow, color: BALL_SETS[ballSet].yellow.hex }); setBlack({ ...shot.positions.black, color: BALL_SETS[ballSet].black.hex }); 
+  };
+
+  const clearSequence = () => { setSequence([]); setCurrentShotIndex(0); setDrawings([]); };
+  
+  const exportSequence = () => { 
+      const d = new Date();
+      const timestamp = `${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}`;
+      const safePrefix = filenamePrefix.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'sequence';
+      const filename = `${safePrefix}_${timestamp}.json`;
+      
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sequence)); 
+      const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", filename); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); 
+  };
+  
+  const importSequence = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const loaded = JSON.parse(event.target?.result as string); if (Array.isArray(loaded)) { setSequence(loaded); setCurrentShotIndex(0); setIsRecording(false); setDrawings([]); setHistory([]); } } catch (err) { console.error("Failed to load sequence"); } }; reader.readAsText(file); };
+
+  useEffect(() => { if (activeBallId) setShowInstruction(false); }, [activeBallId]);
+
+  const playShot = () => {
+    if (isPlaying || !activeBallId) return; const activeBall = activeBallId === 'striker' ? striker : activeBallId === 'target' ? target : activeBallId === 'yellow' ? yellow : black;
+    if (!isBallOnLawn(activeBall)) return; 
+    
+    setHistory(prev => [...prev, { s: {...striker}, t: {...target}, y: {...yellow}, b: {...black} }]);
+    
+    if (isRecording) handleCaptureFrame();
+    playSound(SOUNDS.mallet, 0.6); setHasScoredThisTurn(false); setShowScoreMsg(null);
+    const rad = (angle * Math.PI) / 180; const decel = 0.06; const distance = (speed / 100) * 35 * SCALE; const initialSpeed = Math.sqrt(2 * decel * distance);
+    const vx = Math.sin(rad) * initialSpeed; const vy = -Math.cos(rad) * initialSpeed;
+    if (activeBallId === 'striker') setStriker(prev => ({ ...prev, vx, vy })); else if (activeBallId === 'target') setTarget(prev => ({ ...prev, vx, vy })); else if (activeBallId === 'yellow') setYellow(prev => ({ ...prev, vx, vy })); else if (activeBallId === 'black') setBlack(prev => ({ ...prev, vx, vy }));
+    setIsPlaying(true);
+  };
+
+  const toggleFullscreen = () => { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(() => {}); } else { document.exitFullscreen(); } };
+  useEffect(() => { const handleFullscreenChange = () => { setIsFullscreen(!!document.fullscreenElement); }; document.addEventListener('fullscreenchange', handleFullscreenChange); return () => document.removeEventListener('fullscreenchange', handleFullscreenChange); }, []);
+
+  const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return null;
+    let clientX, clientY; if ('touches' in e) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; } else { clientX = (e as React.MouseEvent).clientX; clientY = (e as React.MouseEvent).clientY; }
+    const x = (clientX - rect.left) * (CANVAS_WIDTH / rect.width); const y = (clientY - rect.top) * (FIELD_HEIGHT / rect.height);
+    return { x, y };
+  };
+
+  const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (isPlaying) return; const coords = getCanvasCoords(e); if (!coords) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX; const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    const { x, y } = coords;
+
+    saveStateRef.current = { s: {...striker}, t: {...target}, y: {...yellow}, b: {...black} };
+
+    if (drawMode && !cleanFeed) { setCurrentPath([{ x, y }]); setDraggingItem('draw'); return; }
+    const activeBall = activeBallId ? (activeBallId === 'striker' ? striker : activeBallId === 'target' ? target : activeBallId === 'yellow' ? yellow : black) : null;
+    let hitSomething = false;
+
+    const hitTest = (ball: Ball) => { 
+      const isDocked = ball.x > FIELD_WIDTH;
+      const displayRadius = isDocked ? ball.radius * 3.5 : ball.radius; 
+      const hitTolerance = isDocked ? 2.5 : 5.0; 
+      return Math.sqrt((x - ball.x) ** 2 + (y - ball.y) ** 2) < displayRadius * hitTolerance; 
+    };
+
+    if (hitTest(striker) && !cleanFeed) { setActiveBallId('striker'); setDraggingItem('striker'); hitSomething = true; }
+    else if (hitTest(target) && !cleanFeed) { setActiveBallId('target'); setDraggingItem('target'); hitSomething = true; }
+    else if (hitTest(yellow) && !cleanFeed) { setActiveBallId('yellow'); setDraggingItem('yellow'); hitSomething = true; }
+    else if (hitTest(black) && !cleanFeed) { setActiveBallId('black'); setDraggingItem('black'); hitSomething = true; }
+
+    if (!hitSomething && ghostBallEnabled && !cleanFeed && activeBall) {
+        const rad = (angle * Math.PI) / 180; const dx = Math.sin(rad); const dy = -Math.cos(rad);
+        let firstImpact: any = null;
+        const otherBalls = [striker, target, yellow, black].filter(b => b.id !== activeBallId && b.x <= FIELD_WIDTH);
+        
+        otherBalls.forEach(b => {
+          const R2 = (2 * BALL_RADIUS) ** 2; const a_q = dx * dx + dy * dy; 
+          const b_q = 2 * (dx * (activeBall.x - b.x) + dy * (activeBall.y - b.y)); 
+          const c_q = (activeBall.x - b.x) ** 2 + (activeBall.y - b.y) ** 2 - R2; 
+          const discriminant = b_q * b_q - 4 * a_q * c_q;
+          if (discriminant >= 0) { const t = (-b_q - Math.sqrt(discriminant)) / (2 * a_q); if (t > 0 && (!firstImpact || t < firstImpact.t)) firstImpact = { ball: b, t }; }
+        });
+        
+        if (firstImpact) {
+            const ghostX = activeBall.x + firstImpact.t * dx;
+            const ghostY = activeBall.y + firstImpact.t * dy;
+            const distGhost = Math.sqrt((x - ghostX) ** 2 + (y - ghostY) ** 2);
+            if (distGhost < BALL_RADIUS * 4) { 
+                setDraggingItem('ghost'); 
+                hitSomething = true; 
+            }
+        }
+    }
+
+    if (!hitSomething && !cleanFeed) {
+      if (placementMode) {
+        if (!activeBall) return; setTargetSpot({ x, y }); const dx = x - activeBall.x; const dy = y - activeBall.y; const dist = Math.sqrt(dx * dx + dy * dy);
+        setAngle((Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360); setSpeed(Math.min(200, Math.max(1, (dist / (35 * SCALE)) * 100)));
+        setPlacementMode(false); setGhostBallEnabled(true);
+      } else {
+        setActiveBallId(null);
+        setDraggingItem('pan'); lastPanRef.current = { x: clientX, y: clientY, scrollL: viewportRef.current?.scrollLeft || 0, scrollT: viewportRef.current?.scrollTop || 0 };
+      }
+    }
+  };
+
+  const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const coords = getCanvasCoords(e); 
+    if (coords) setHoverPos(coords);
+
+    if (!draggingItem || isPlaying) return;
+    if (draggingItem === 'pan') {
+      if (viewportRef.current) { const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX; const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY; viewportRef.current.scrollLeft = lastPanRef.current.scrollL - (clientX - lastPanRef.current.x); viewportRef.current.scrollTop = lastPanRef.current.scrollT - (clientY - lastPanRef.current.y); }
+      return;
+    }
+    if (!coords) return; const { x, y } = coords;
+    if (draggingItem === 'draw' && currentPath) { setCurrentPath(prev => prev ? [...prev, { x, y }] : null); return; }
+
+    const constrainedX = Math.max(BALL_RADIUS, Math.min(CANVAS_WIDTH - BALL_RADIUS, x)); const constrainedY = Math.max(BALL_RADIUS, Math.min(FIELD_HEIGHT - BALL_RADIUS, y));
+
+    if (draggingItem === 'striker') setStriker(prev => ({ ...prev, x: constrainedX, y: constrainedY }));
+    else if (draggingItem === 'target') setTarget(prev => ({ ...prev, x: constrainedX, y: constrainedY }));
+    else if (draggingItem === 'yellow') setYellow(prev => ({ ...prev, x: constrainedX, y: constrainedY }));
+    else if (draggingItem === 'black') setBlack(prev => ({ ...prev, x: constrainedX, y: constrainedY }));
+    else if (draggingItem === 'ghost' && !cleanFeed) {
+        const activeBall = activeBallId === 'striker' ? striker : activeBallId === 'target' ? target : activeBallId === 'yellow' ? yellow : black;
+        
+        let closestBall = null; let minDist = Infinity;
+        [striker, target, yellow, black].filter(b => b.id !== activeBallId && b.x <= FIELD_WIDTH).forEach(b => {
+             const dist = Math.sqrt((x - b.x)**2 + (y - b.y)**2);
+             if (dist < minDist) { minDist = dist; closestBall = b; }
+        });
+        
+        if (closestBall && minDist < BALL_RADIUS * 8) { 
+             const bdx = x - closestBall.x; const bdy = y - closestBall.y; const bdist = Math.sqrt(bdx * bdx + bdy * bdy);
+             if (bdist > 0) { 
+                 const ghostX = closestBall.x + (bdx / bdist) * 2 * BALL_RADIUS;
+                 const ghostY = closestBall.y + (bdy / bdist) * 2 * BALL_RADIUS;
+                 const adx = ghostX - activeBall.x; const ady = ghostY - activeBall.y;
+                 setAngle((Math.atan2(ady, adx) * 180 / Math.PI + 90 + 360) % 360);
+             }
+        } else {
+             const dx = x - activeBall.x; const dy = y - activeBall.y;
+             setAngle((Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360);
+        }
+    }
+  };
+
+  const handleMouseUp = () => { 
+    if (draggingItem && draggingItem !== 'pan' && draggingItem !== 'draw' && saveStateRef.current) {
+        const moved = striker.x !== saveStateRef.current.s.x || striker.y !== saveStateRef.current.s.y || target.x !== saveStateRef.current.t.x || target.y !== saveStateRef.current.t.y || yellow.x !== saveStateRef.current.y.x || yellow.y !== saveStateRef.current.y.y || black.x !== saveStateRef.current.b.x || black.y !== saveStateRef.current.b.y;
+        if (moved) setHistory(prev => [...prev, saveStateRef.current!]);
+    }
+    if (draggingItem === 'draw' && currentPath) { setDrawings(prev => [...prev, currentPath]); setCurrentPath(null); } 
+    setDraggingItem(null); 
+  };
+  const handleMouseLeave = () => { setHoverPos(null); handleMouseUp(); };
+
+  // ROTATED: Collision checks now use vertically oriented hoops
+  const checkHoopPass = (x1: number, y1: number, x2: number, y2: number) => {
+    for (const hoop of HOOPS) {
+      const hy1 = hoop.y - HOOP_WIDTH / 2; const hy2 = hoop.y + HOOP_WIDTH / 2; const hx = hoop.x;
+      if ((x1 > hx && x2 <= hx) || (x1 < hx && x2 >= hx)) { 
+        const intersectY = y1 + ((hx - x1) / (x2 - x1)) * (y2 - y1); 
+        if (intersectY >= hy1 && intersectY <= hy2) return true; 
+      }
+    } return false;
+  };
+
+   const drawField = (ctx: CanvasRenderingContext2D) => {
+    ctx.fillStyle = '#166534'; ctx.fillRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT);
+
+    if (!cleanFeed && anyBallsInDock) {
+       const dockX = FIELD_WIDTH; 
+       ctx.fillStyle = lightMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)'; 
+       ctx.fillRect(dockX, 0, DOCK_WIDTH, FIELD_HEIGHT);
+       
+       const rackStartX = dockX + 15; 
+       const rackStartY = RACK_TOP; 
+       const rackEndY = RACK_BOTTOM; 
+
+       ctx.fillStyle = '#f4f4f5'; ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 5;
+       ctx.fillRect(rackStartX - 5, rackStartY - 30, 70, 30); 
+       ctx.fillRect(rackStartX - 5, rackEndY, 70, 30); 
+       
+       ctx.fillStyle = '#3f3f46';
+       ctx.beginPath(); ctx.arc(rackStartX + 5, rackStartY - 15, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(rackStartX + 55, rackStartY - 15, 4, 0, Math.PI*2); ctx.fill();
+       ctx.beginPath(); ctx.arc(rackStartX + 5, rackEndY + 15, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(rackStartX + 55, rackEndY + 15, 4, 0, Math.PI*2); ctx.fill();
+
+       ctx.fillStyle = '#18181b'; ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 0;
+       ctx.fillRect(rackStartX, rackStartY, 15, rackEndY - rackStartY); 
+       ctx.fillRect(rackStartX + 45, rackStartY, 15, rackEndY - rackStartY);
+
+       ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.shadowColor = 'transparent';
+       ctx.fillRect(rackStartX + 3, rackStartY, 3, rackEndY - rackStartY); ctx.fillRect(rackStartX + 48, rackStartY, 3, rackEndY - rackStartY);
+    }
+
+    const boundaryWidth = (60 / 914.4) * SCALE; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = boundaryWidth; ctx.lineJoin = 'miter'; 
+    ctx.strokeRect(EDGING, EDGING, 35 * SCALE, 28 * SCALE); // ROTATED
+    
+    const stripeWidth = 40; for (let x = 0; x < FIELD_WIDTH; x += stripeWidth) { ctx.fillStyle = (x / stripeWidth) % 2 === 0 ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)'; ctx.fillRect(x, 0, stripeWidth, FIELD_HEIGHT); }
+
+    if (!cleanFeed) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; ctx.font = '10px "Inter", sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('West Boundary', FIELD_WIDTH / 2, EDGING - 5); 
+      ctx.fillText('East Boundary', FIELD_WIDTH / 2, EDGING + 28 * SCALE + 15);
+      ctx.save(); ctx.translate(EDGING - 12, FIELD_HEIGHT / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('South Boundary', 0, 0); ctx.restore();
+      ctx.save(); ctx.translate(EDGING + 35 * SCALE + 12, FIELD_HEIGHT / 2); ctx.rotate(Math.PI / 2); ctx.fillText('North Boundary', 0, 0); ctx.restore();
+    }
+
+    ctx.save(); ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; ctx.shadowBlur = 4; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(PEG_POS.x, PEG_POS.y, PEG_RADIUS, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+
+    // ROTATED: Hoops are drawn vertically (North-South becomes Left-Right visually)
+    HOOPS.forEach(hoop => {
+      ctx.save(); ctx.shadowColor = 'rgba(0, 0, 0, 0.4)'; ctx.shadowBlur = 3; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+      const hy1 = hoop.y - HOOP_WIDTH / 2; const hy2 = hoop.y + HOOP_WIDTH / 2;
+      ctx.fillStyle = '#fff'; ctx.fillRect(hoop.x - 2, hy1 - 2, 4, 4); ctx.fillRect(hoop.x - 2, hy2 - 2, 4, 4);
+      ctx.strokeStyle = (hoop as any).topColor || '#fff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hoop.x, hy1); ctx.lineTo(hoop.x, hy2); ctx.stroke(); ctx.restore();
+      if (!cleanFeed) { ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.font = 'bold 12px "Inter", sans-serif'; ctx.fillText(hoop.label, hoop.x - 12, hoop.y + 4); }
+    });
+
+    // ROTATED: Flags mapped to the correct corners visually
+    const flags = [ 
+        { x: EDGING, y: EDGING, color: '#1e3a8a', label: 'SW' }, // Blue
+        { x: EDGING + 35 * SCALE, y: EDGING, color: '#991b1b', label: 'NW' }, // Red
+        { x: EDGING, y: EDGING + 28 * SCALE, color: '#fbbf24', label: 'SE' }, // Yellow
+        { x: EDGING + 35 * SCALE, y: EDGING + 28 * SCALE, color: '#18181b', label: 'NE' } // Black
+    ];
+    flags.forEach(flag => {
+      ctx.save(); ctx.shadowColor = 'rgba(0, 0, 0, 0.4)'; ctx.shadowBlur = 3; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(flag.x, flag.y); ctx.lineTo(flag.x, flag.y - 15); ctx.stroke();
+      ctx.fillStyle = flag.color; ctx.beginPath(); ctx.moveTo(flag.x, flag.y - 15); ctx.lineTo(flag.x + 10, flag.y - 11); ctx.lineTo(flag.x, flag.y - 7); ctx.closePath(); ctx.fill(); ctx.restore();
+    });
+
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(FIELD_WIDTH / 2, EDGING, SCALE, 0, Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(FIELD_WIDTH / 2, EDGING + 28 * SCALE, SCALE, Math.PI, 2 * Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(EDGING, EDGING + 28 * SCALE, SCALE, -Math.PI/2, 0); ctx.stroke();
+  };
+
+  const drawAnnotations = (ctx: CanvasRenderingContext2D) => {
+    ctx.save(); ctx.strokeStyle = '#eab308'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; ctx.shadowBlur = 4;
+    const renderPath = (path: Path) => { if (path.length < 2) return; ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y); for (let i = 1; i < path.length; i++) { ctx.lineTo(path[i].x, path[i].y); } ctx.stroke(); };
+    drawings.forEach(renderPath); if (currentPath) renderPath(currentPath); ctx.restore();
+  };
+
+  const drawBall = (ctx: CanvasRenderingContext2D, ball: Ball, shadow = false, isActive = false) => {
+    ctx.save(); 
+    const isDocked = ball.x > FIELD_WIDTH; 
+    const displayRadius = isDocked ? ball.radius * 3.5 : ball.radius; 
+    
+    if (isActive && !shadow && !cleanFeed) {
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, displayRadius + (isDocked ? 12 : 5), 0, Math.PI * 2);
+        ctx.strokeStyle = getActiveColor(ball.id, ballSet); ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (!shadow) { ctx.shadowColor = 'rgba(0, 0, 0, 0.6)'; ctx.shadowBlur = isDocked ? 15 : 6; ctx.shadowOffsetY = isDocked ? 8 : 3; }
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, displayRadius, 0, Math.PI * 2);
+    ctx.fillStyle = shadow ? 'rgba(220, 220, 220, 0.6)' : ball.color; ctx.fill(); ctx.shadowColor = 'transparent';
+    
+    if (!shadow && isDocked) {
+      ctx.save(); ctx.beginPath(); ctx.arc(ball.x, ball.y, displayRadius, 0, Math.PI * 2); ctx.clip(); ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      for(let dy = -displayRadius; dy <= displayRadius; dy += 5) {
+          for(let dx = -displayRadius; dx <= displayRadius; dx += 5) {
+              if (dx*dx + dy*dy < displayRadius*displayRadius * 0.9) { ctx.beginPath(); ctx.arc(ball.x + dx, ball.y + dy, 1.2, 0, Math.PI*2); ctx.fill(); }
+          }
+      }
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(ball.x - displayRadius * 0.3, ball.y - displayRadius * 0.3, displayRadius * 0.25, 0, Math.PI * 2); ctx.fillStyle = shadow ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)'; ctx.fill();
+    ctx.restore();
+  };
+
+  const drawPrediction = (ctx: CanvasRenderingContext2D) => {
+    if (isPlaying || draggingItem || !activeBallId || cleanFeed || !ghostBallEnabled) return;
+    const rad = (angle * Math.PI) / 180; const dx = Math.sin(rad); const dy = -Math.cos(rad);
+    let activeBall: Ball; if (activeBallId === 'striker') activeBall = striker; else if (activeBallId === 'target') activeBall = target; else if (activeBallId === 'yellow') activeBall = yellow; else activeBall = black;
+    if (!isBallOnLawn(activeBall)) return;
+    const x0 = activeBall.x; const y0 = activeBall.y; let lineEndT = 1000;
+    if (dx > 0) lineEndT = Math.min(lineEndT, (FIELD_WIDTH - BALL_RADIUS - x0) / dx); if (dx < 0) lineEndT = Math.min(lineEndT, (BALL_RADIUS - x0) / dx);
+    if (dy > 0) lineEndT = Math.min(lineEndT, (FIELD_HEIGHT - BALL_RADIUS - y0) / dy); if (dy < 0) lineEndT = Math.min(lineEndT, (BALL_RADIUS - y0) / dy);
+
+    ctx.save(); ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 2; ctx.moveTo(x0, y0); ctx.lineTo(x0 + dx * lineEndT, y0 + dy * lineEndT); ctx.stroke(); ctx.restore();
+
+    let firstImpact: any = null;
+    const otherBalls = [striker, target, yellow, black].filter(b => b.id !== activeBallId && b.x <= FIELD_WIDTH);
+    otherBalls.forEach(b => {
+      const R2 = (2 * BALL_RADIUS) ** 2; const a_q = dx * dx + dy * dy; const b_q = 2 * (dx * (x0 - b.x) + dy * (y0 - b.y)); const c_q = (x0 - b.x) ** 2 + (y0 - b.y) ** 2 - R2; const discriminant = b_q * b_q - 4 * a_q * c_q;
+      if (discriminant >= 0) { const t = (-b_q - Math.sqrt(discriminant)) / (2 * a_q); if (t > 0 && (!firstImpact || t < firstImpact.t)) firstImpact = { ball: b, t }; }
+    });
+
+    const obstacles: { x: number, y: number, radius: number, color: string }[] = [ { x: PEG_POS.x, y: PEG_POS.y, radius: PEG_RADIUS, color: '#fff' } ];
+    // ROTATED prediction hoops
+    HOOPS.forEach(h => { obstacles.push({ x: h.x, y: h.y - HOOP_WIDTH / 2, radius: 2, color: '#fff' }); obstacles.push({ x: h.x, y: h.y + HOOP_WIDTH / 2, radius: 2, color: '#fff' }); });
+    obstacles.forEach(obs => {
+      const R2 = (BALL_RADIUS + obs.radius) ** 2; const a_q = dx * dx + dy * dy; const b_q = 2 * (dx * (x0 - obs.x) + dy * (y0 - obs.y)); const c_q = (x0 - obs.x) ** 2 + (y0 - obs.y) ** 2 - R2; const discriminant = b_q * b_q - 4 * a_q * c_q;
+      if (discriminant >= 0) { const t = (-b_q - Math.sqrt(discriminant)) / (2 * a_q); if (t > 0 && (!firstImpact || t < firstImpact.t)) firstImpact = { ball: { ...activeBall, x: obs.x, y: obs.y, radius: obs.radius, color: obs.color, vx: 0, vy: 0, id: 'striker' }, t }; }
+    });
+    
+    if (firstImpact) {
+      const { ball: hitBall, t } = firstImpact; const impactX = x0 + t * dx; const impactY = y0 + t * dy;
+      ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(impactX, impactY); ctx.stroke(); ctx.restore();
+      drawBall(ctx, { ...activeBall, x: impactX, y: impactY }, true);
+      
+      const e_coeff = 0.92; const nx = (hitBall.x - impactX) / (2 * BALL_RADIUS); const ny = (hitBall.y - impactY) / (2 * BALL_RADIUS); const initialShotSpeed = speed * 10; const decel_val = 0.06;
+      const vImpactSq = Math.max(0, initialShotSpeed * initialShotSpeed - 2 * decel_val * t); const vImpact = Math.sqrt(vImpactSq);
+      
+      if (vImpact > 0) {
+        const vx = dx * vImpact; const vy = dy * vImpact; const v_dot_n = vx * nx + vy * ny;
+        const target_vx_init = ((1 + e_coeff) / 2) * v_dot_n * nx; const target_vy_init = ((1 + e_coeff) / 2) * v_dot_n * ny;
+        const striker_vx_init = vx - ((1 + e_coeff) / 2) * v_dot_n * nx; const striker_vy_init = vy - ((1 + e_coeff) / 2) * v_dot_n * ny;
+        const arrowLen = 25; const sMag = Math.sqrt(striker_vx_init**2 + striker_vy_init**2); const tMag = Math.sqrt(target_vx_init**2 + target_vy_init**2);
+        if (sMag > 0.1) drawArrow(ctx, impactX, impactY, impactX + (striker_vx_init/sMag) * arrowLen, impactY + (striker_vy_init/sMag) * arrowLen, activeBall.color + 'CC');
+        if (tMag > 0.1) drawArrow(ctx, hitBall.x, hitBall.y, hitBall.x + (target_vx_init/tMag) * arrowLen, hitBall.y + (target_vy_init/tMag) * arrowLen, hitBall.color + 'CC');
+      }
+    }
+  };
+
+  const drawArrow = (ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number, color: string) => {
+    const headLength = 10; const angle = Math.atan2(toY - fromY, toX - fromX); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toX, toY); ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6)); ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6)); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  };
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let lastTime: number | null = null; let frameCount = 0;
+    const loop = (time: number) => {
+      if (lastTime === null) { lastTime = time; animationRef.current = requestAnimationFrame(loop); return; }
+      const deltaTime = Math.min((time - lastTime) / 16.67, 5); lastTime = time; frameCount++;
+
+      let nextS = { ...strikerRef.current }; let nextT = { ...targetRef.current }; let nextY = { ...yellowRef.current }; let nextB = { ...blackRef.current };
+      let remainingTime = deltaTime; const decel = 0.06; const subStepDt = 0.5;
+
+      while (remainingTime > 0) {
+        const dt = Math.min(remainingTime, subStepDt); remainingTime -= dt;
+        const balls = [nextS, nextT, nextY, nextB];
+
+        balls.forEach((ball) => {
+          if (ball.x > FIELD_WIDTH) return;
+          const prevX = ball.x; const prevY = ball.y; ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+          if (checkHoopPass(prevX, prevY, ball.x, ball.y)) { const ballColorName = BALL_SETS[ballSet][ball.id as keyof typeof BALL_SETS['primary']].name; setHasScoredThisTurn(true); setShowScoreMsg(`${ballColorName} Scored!`); playSound(SOUNDS.cheer, 0.4); }
+        });
+
+        balls.forEach(ball => { if (ball.x > FIELD_WIDTH) return; const s = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy); if (s > 0) { const ns = Math.max(0, s - decel * dt); ball.vx = (ball.vx / s) * ns; ball.vy = (ball.vy / s) * ns; } });
+
+        balls.forEach(ball => {
+          if (ball.x > FIELD_WIDTH) { ball.vx = 0; ball.vy = 0; return; }
+          if (ball.x < ball.radius) { ball.x = ball.radius; ball.vx = 0; ball.vy = 0; } if (ball.x > FIELD_WIDTH - ball.radius) { ball.x = FIELD_WIDTH - ball.radius; ball.vx = 0; ball.vy = 0; }
+          if (ball.y < ball.radius) { ball.y = ball.radius; ball.vx = 0; ball.vy = 0; } if (ball.y > FIELD_HEIGHT - ball.radius) { ball.y = FIELD_HEIGHT - ball.radius; ball.vx = 0; ball.vy = 0; }
+        });
+
+        balls.forEach(ball => {
+          if (ball.x > FIELD_WIDTH) return;
+          const dxPeg = ball.x - PEG_POS.x; const dyPeg = ball.y - PEG_POS.y; const distPeg = Math.sqrt(dxPeg * dxPeg + dyPeg * dyPeg); const minPegDist = ball.radius + PEG_RADIUS;
+          if (distPeg < minPegDist) {
+            const nx = dxPeg / distPeg; const ny = dyPeg / distPeg; const velAlongNormal = ball.vx * nx + ball.vy * ny;
+            if (velAlongNormal < 0) { const j = -(1 + 0.5) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; playSound(SOUNDS.collision, 0.2); }
+            ball.x = PEG_POS.x + nx * minPegDist; ball.y = PEG_POS.y + ny * minPegDist;
+          }
+          HOOPS.forEach(hoop => {
+            // ROTATED loop collision posts
+            const posts = [{ x: hoop.x, y: hoop.y - HOOP_WIDTH / 2 }, { x: hoop.x, y: hoop.y + HOOP_WIDTH / 2 }];
+            posts.forEach(post => {
+              const dx = ball.x - post.x; const dy = ball.y - post.y; const dist = Math.sqrt(dx * dx + dy * dy); const minDist = ball.radius + 2;
+              if (dist < minDist) {
+                const nx = dx / dist; const ny = dy / dist; const velAlongNormal = ball.vx * nx + ball.vy * ny;
+                if (velAlongNormal < 0) { const j = -(1 + 0.6) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; playSound(SOUNDS.collision, 0.2); }
+                ball.x = post.x + nx * minDist; ball.y = post.y + ny * minDist;
+              }
+            });
+          });
+        });
+
+        for (let i = 0; i < balls.length; i++) {
+          for (let j = i + 1; j < balls.length; j++) {
+            const b1 = balls[i]; const b2 = balls[j]; if (b1.x > FIELD_WIDTH || b2.x > FIELD_WIDTH) continue;
+            const relX = b1.x - b2.x; const relY = b1.y - b2.y; const distSq = relX * relX + relY * relY; const minContactDistSq = (2 * BALL_RADIUS) ** 2;
+            if (distSq < minContactDistSq) {
+              const relVX = b1.vx - b2.vx; const relVY = b1.vy - b2.vy; const dotProduct = relX * relVX + relY * relVY;
+              if (dotProduct < 0) {
+                const nx = (b1.x - b2.x) / (2 * BALL_RADIUS); const ny = (b1.y - b2.y) / (2 * BALL_RADIUS);
+                const v_dot_n = (b1.vx - b2.vx) * nx + (b1.vy - b2.vy) * ny; const j_impulse = (-(1 + 0.92) * v_dot_n) / 2;
+                b1.vx += j_impulse * nx; b1.vy += j_impulse * ny; b2.vx -= j_impulse * nx; b2.vy -= j_impulse * ny; playSound(SOUNDS.collision, 0.3);
+              } else {
+                const dist = Math.sqrt(distSq); if (dist > 0) { const overlap = (2 * BALL_RADIUS) - dist; const nx = relX / dist; const ny = relY / dist; b1.x += nx * overlap / 2; b1.y += ny * overlap / 2; b2.x -= nx * overlap / 2; b2.y -= ny * overlap / 2; }
+              }
+            }
+          }
+        }
+      }
+
+      const balls = [nextS, nextT, nextY, nextB];
+      balls.forEach(ball => { if (Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) { ball.vx = 0; ball.vy = 0; } });
+      if (frameCount > 5 && balls.every(b => b.vx === 0 && b.vy === 0)) { setIsPlaying(false); if (!hasScoredThisTurn) playSound(SOUNDS.miss, 0.3); }
+      
+      strikerRef.current = nextS; targetRef.current = nextT; yellowRef.current = nextY; blackRef.current = nextB; setStriker(nextS); setTarget(nextT); setYellow(nextY); setBlack(nextB);
+      animationRef.current = requestAnimationFrame(loop);
+    };
+    animationRef.current = requestAnimationFrame(loop); return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
+  }, [isPlaying, ballSet]);
+
+  useEffect(() => { if (showScoreMsg && !cleanFeed) { const timer = setTimeout(() => { setShowScoreMsg(null); }, 1000); return () => clearTimeout(timer); } }, [showScoreMsg, cleanFeed]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); if (!ctx) return;
+    ctx.clearRect(0, 0, CANVAS_WIDTH, FIELD_HEIGHT); drawField(ctx);
+    
+    if (placementMode && !cleanFeed && activeBallId && hoverPos && !targetSpot) {
+        const activeBall = activeBallId === 'striker' ? striker : activeBallId === 'target' ? target : activeBallId === 'yellow' ? yellow : black;
+        if (activeBall.x <= FIELD_WIDTH) {
+            ctx.save(); ctx.beginPath(); ctx.moveTo(activeBall.x, activeBall.y); ctx.lineTo(hoverPos.x, hoverPos.y);
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke();
+            ctx.beginPath(); ctx.arc(hoverPos.x, hoverPos.y, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.fill(); ctx.stroke(); ctx.restore();
+        }
+    }
+
+    if (placementMode && targetSpot && !cleanFeed && activeBallId) {
+      ctx.save(); ctx.strokeStyle = getActiveColor(activeBallId, ballSet); ctx.lineWidth = 2; ctx.setLineDash([4, 2]); ctx.beginPath(); ctx.arc(targetSpot.x, targetSpot.y, 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(targetSpot.x - 6, targetSpot.y); ctx.lineTo(targetSpot.x + 6, targetSpot.y); ctx.moveTo(targetSpot.x, targetSpot.y - 6); ctx.lineTo(targetSpot.x, targetSpot.y + 6); ctx.stroke(); ctx.restore();
+    }
+    drawPrediction(ctx); drawAnnotations(ctx);
+    drawBall(ctx, striker, false, activeBallId === 'striker'); drawBall(ctx, target, false, activeBallId === 'target'); drawBall(ctx, yellow, false, activeBallId === 'yellow'); drawBall(ctx, black, false, activeBallId === 'black');
+  }, [striker, target, yellow, black, angle, isPlaying, draggingItem, ghostBallEnabled, cleanFeed, activeBallId, placementMode, targetSpot, hoverPos, zoom, drawings, currentPath, ballSet, lightMode]);
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        * { font-family: 'Inter', sans-serif !important; }
+      `}} />
+      <div className={`h-screen w-screen flex flex-row overflow-hidden relative selection:bg-emerald-500/30 bg-cover bg-center bg-no-repeat select-none ${lightMode ? 'text-zinc-900' : 'text-zinc-100'}`} style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', backgroundImage: `linear-gradient(to bottom, ${lightMode ? 'rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.6)' : 'rgba(9, 9, 11, 0.4), rgba(9, 9, 11, 0.7)'}), url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2560&auto=format&fit=crop")` }}>
+        {!cleanFeed && (
+          <aside className={`w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-r p-5 overflow-y-auto custom-scrollbar z-10 shadow-[8px_0_30px_rgba(0,0,0,0.5)] ${lightMode ? 'bg-white/50 border-white/40' : 'bg-zinc-700/90 border-zinc-600/50'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative flex items-center justify-center w-8 h-8"><div className="absolute top-[6px] left-[6px] w-4 h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md" size={32} /></div>
+              <div>
+                <p className="text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
+                <h1 className={`text-xl font-bold tracking-tight ${lightMode ? 'text-zinc-900 drop-shadow-sm' : 'text-zinc-100'}`}>Croquet Visualiser</h1>
+                <p className={`text-[9px] uppercase tracking-widest mt-0.5 font-bold ${lightMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Imagine and Share the Game</p>
+              </div>
+            </div>
+
+            <div className={`flex gap-2 mb-4 pb-4 border-b [&>*]:flex-1 ${lightMode ? 'border-white/60' : 'border-zinc-800/50'}`}>
+                <ToolButton 
+                    icon={!placementMode ? <Eye size={18}/> : <MousePointer2 size={18}/>} 
+                    active={placementMode} 
+                    label={!placementMode ? "AIM" : "PLACE"} 
+                    lightMode={lightMode}
+                    onClick={() => { 
+                        const newMode = !placementMode;
+                        setPlacementMode(newMode); 
+                        setGhostBallEnabled(!newMode); 
+                        if(newMode) { setTargetSpot(null); setDrawMode(false); } 
+                    }} 
+                />
+                <ToolButton icon={<Pencil size={18}/>} active={drawMode} label="Draw" lightMode={lightMode} onClick={() => { setDrawMode(!drawMode); if(!drawMode) { setPlacementMode(false); setTargetSpot(null); } }} />
+                {drawings.length > 0 && (
+                    <ToolButton icon={<Eraser size={18}/>} danger label="Clear" lightMode={lightMode} onClick={() => setDrawings([])} />
+                )}
+                <ToolButton icon={<Settings size={18}/>} active={showOptions} label="Prefs" lightMode={lightMode} onClick={() => setShowOptions(true)} />
+                <ToolButton icon={isFullscreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>} label={isFullscreen ? "Reduce" : "Expand"} lightMode={lightMode} onClick={toggleFullscreen} />
+                <ToolButton icon={<HelpCircle size={18}/>} label="Help" lightMode={lightMode} onClick={() => setShowHelp(true)} />
+            </div>
+
+            {features.zoom && (
+                <div className={`flex items-center justify-between p-2 rounded-xl border mb-4 shadow-sm ${lightMode ? 'bg-white/60 border-white/80' : 'bg-zinc-950/60 border-zinc-800/50'}`}>
+                   <span className={`text-[10px] font-bold uppercase tracking-widest px-2 ${lightMode ? 'text-zinc-700' : 'text-zinc-400'}`}>Zoom</span>
+                   <div className="flex items-center gap-1">
+                       <button onClick={() => { const idx = ZOOM_LEVELS.indexOf(zoom); if (idx > 0) handleZoomChange(ZOOM_LEVELS[idx - 1]); }} className={`p-1.5 rounded border transition-colors shadow-sm ${lightMode ? 'text-zinc-600 hover:text-emerald-700 bg-white/80 border-white/90 hover:bg-white' : 'text-zinc-300 hover:text-emerald-400 bg-zinc-900 border-zinc-800'}`}><ZoomOut size={14}/></button>
+                       <span className={`text-[10px] font-mono font-bold w-12 text-center px-2 py-1 rounded border shadow-sm ${lightMode ? 'bg-white/90 text-emerald-700 border-white/90' : 'text-emerald-400 bg-zinc-950 border-zinc-800'}`}>{Math.round(zoom * 100)}%</span>
+                       <button onClick={() => { const idx = ZOOM_LEVELS.indexOf(zoom); if (idx < ZOOM_LEVELS.length - 1) handleZoomChange(ZOOM_LEVELS[idx + 1]); }} className={`p-1.5 rounded border transition-colors shadow-sm ${lightMode ? 'text-zinc-600 hover:text-emerald-700 bg-white/80 border-white/90 hover:bg-white' : 'text-zinc-300 hover:text-emerald-400 bg-zinc-900 border-zinc-800'}`}><ZoomIn size={14}/></button>
+                   </div>
+                </div>
+            )}
+
+            {features.recording && (
+               <div className={`flex flex-col gap-2 mb-4 pb-4 border-b ${lightMode ? 'border-white/60' : 'border-zinc-800/50'}`}>
+                 <div className="flex items-center justify-between">
+                   <h3 className={`text-[9px] font-bold uppercase tracking-[0.1em] flex items-center gap-1.5 ${lightMode ? 'text-zinc-700' : 'text-zinc-300'}`}><Clapperboard size={12} className="text-emerald-500" /> Seq Record</h3>
+                   <div className="flex gap-1">
+                     <button onClick={handleCaptureFrame} className={`px-1.5 py-1 rounded text-[8px] font-bold uppercase transition-all border flex items-center gap-1 shadow-sm ${lightMode ? 'bg-white/60 border-white/80 text-zinc-700 hover:bg-white/90 hover:text-zinc-900' : 'bg-zinc-900/60 border-zinc-700/50 text-zinc-200 hover:bg-zinc-800/80'}`}><Camera size={10} className={lightMode ? 'text-zinc-500' : 'text-zinc-400'} /> Frame</button>
+                     <button onClick={() => setIsRecording(!isRecording)} className={`px-1.5 py-1 rounded text-[8px] font-bold uppercase transition-all border flex items-center gap-1 shadow-sm ${ isRecording ? (lightMode ? 'bg-red-500/10 text-red-600 border-red-500/30 animate-pulse' : 'bg-red-900/50 text-red-400 border-red-500/50 animate-pulse') : (lightMode ? 'bg-white/60 border-white/80 text-zinc-700 hover:bg-white/90 hover:text-zinc-900' : 'bg-zinc-900/60 border-zinc-700/50 text-zinc-200 hover:bg-zinc-800/80') }`}><div className={`w-1.5 h-1.5 rounded-full shadow-inner border border-black/10 ${isRecording ? 'bg-red-500' : 'bg-zinc-500'}`} /> {isRecording ? 'Rec' : 'Rec'}</button>
+                   </div>
+                 </div>
+                 {sequence.length === 0 ? ( <div className={`text-[9px] italic text-center py-2 rounded border border-dashed ${lightMode ? 'text-zinc-500 bg-white/40 border-white/80' : 'text-zinc-500 bg-zinc-900/40 border-zinc-800'}`}>No frames captured</div> ) : (
+                   <div className={`flex flex-col gap-1.5 p-2 rounded-lg border shadow-sm ${lightMode ? 'bg-white/50 border-white/60' : 'bg-zinc-900/40 border-zinc-700/50'}`}>
+                     <div className="flex items-center gap-1">
+                       <div className={`flex items-center justify-between rounded border shadow-sm flex-1 px-1 ${lightMode ? 'bg-white/80 border-white/90' : 'bg-zinc-950/60 border-zinc-800'}`}>
+                         <button onClick={() => loadShot(currentShotIndex - 1)} disabled={currentShotIndex <= 0 || isPlaying} className={`p-1 disabled:opacity-30 ${lightMode ? 'text-zinc-500 hover:text-emerald-700' : 'text-zinc-300 hover:text-emerald-400'}`}><ChevronLeft size={12}/></button>
+                         <span className={`text-[9px] font-bold uppercase tracking-wider font-mono ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}>Fr {currentShotIndex + 1}/{sequence.length}</span>
+                         <button onClick={() => loadShot(currentShotIndex + 1)} disabled={currentShotIndex >= sequence.length - 1 || isPlaying} className={`p-1 disabled:opacity-30 ${lightMode ? 'text-zinc-500 hover:text-emerald-700' : 'text-zinc-300 hover:text-emerald-400'}`}><ChevronRight size={12}/></button>
+                       </div>
+                       <button onClick={() => loadShot(currentShotIndex)} disabled={isPlaying} className={`px-2 py-1 disabled:opacity-50 text-[8px] rounded font-bold uppercase tracking-wider border shadow-sm ${lightMode ? 'bg-white/80 border-white/90 text-zinc-800 hover:bg-white' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-100 border-zinc-700'}`}>Load</button>
+                       <button onClick={clearSequence} disabled={isPlaying} className={`p-1 disabled:opacity-50 rounded border shadow-sm transition-colors ${lightMode ? 'bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20' : 'bg-zinc-900/60 hover:bg-red-900/40 text-red-400 border-zinc-700/50'}`}><Trash2 size={12}/></button>
+                     </div>
+                     <div className="flex gap-1">
+                       <button onClick={exportSequence} disabled={isPlaying} className={`flex-1 flex items-center justify-center gap-1 disabled:opacity-50 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${lightMode ? 'bg-white/80 border-white/90 text-zinc-700 hover:bg-white' : 'bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50'}`}><Save size={10} className="text-emerald-600"/> Export</button>
+                       <label className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isPlaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${lightMode ? 'bg-white/80 border-white/90 text-zinc-700 hover:bg-white' : 'bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50'}`}>
+                           <FolderUp size={10} className="text-emerald-600"/> Import
+                           <input type="file" accept=".json" onChange={importSequence} disabled={isPlaying} className="hidden" />
+                       </label>
+                     </div>
+                   </div>
+                 )}
+               </div>
+            )}
+
+            <div className={`relative flex flex-col gap-4 transition-opacity min-h-[90px] ${!activeBallId ? 'opacity-30 pointer-events-none' : ''}`}>
+               {!placementMode ? (
+                   <>
+                       <PrecisionWheel lightMode={lightMode} value={speed} onChange={setSpeed} isPlaying={isPlaying} min={1} max={200} sensitivity={0.5} range={40} wrap={false} unit="%" label="Velocity / Power" />
+                       <PrecisionWheel lightMode={lightMode} value={angle} onChange={setAngle} isPlaying={isPlaying} min={0} max={360} sensitivity={0.2} range={60} wrap={true} unit="°" label="Aim / Bearing" showLabels={true} />
+                   </>
+               ) : (
+                   <div className={`absolute inset-0 flex items-center justify-center rounded-xl border p-4 text-center ${lightMode ? 'bg-white/80 border-emerald-400/50 shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]' : 'bg-zinc-950/80 border-emerald-500/30 shadow-[inset_0_0_20px_rgba(16,185,129,0.1)] z-10'}`}>
+                       <p className={`text-xs font-bold uppercase tracking-widest leading-relaxed ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                           Select the Striker's Ball<br/>
+                           <span className={`text-[9px] mt-1.5 block font-bold ${lightMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Then click your target location on the court</span>
+                       </p>
+                   </div>
+               )}
+            </div>
+
+            <div className={`flex flex-row items-center justify-center gap-4 mt-auto pt-2`}>
+               
+               <button onClick={handleUndo} disabled={history.length === 0 || isPlaying} className={`p-2.5 rounded-full transition-all border shadow-sm disabled:opacity-30 disabled:cursor-not-allowed ${lightMode ? 'bg-white/80 hover:bg-white text-zinc-600 hover:text-emerald-600 border-white/90' : 'bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 border-zinc-800'}`} title="Undo"><Undo2 size={18}/></button>
+
+               {(() => {
+                  const activeBall = activeBallId ? (activeBallId === 'striker' ? striker : activeBallId === 'target' ? target : activeBallId === 'yellow' ? yellow : black) : null;
+                  const onLawn = activeBall ? isBallOnLawn(activeBall) : false;
+                  
+                  let outerRing = "";
+                  let innerRing = "";
+                  if (isPlaying || !activeBallId || !onLawn) {
+                      outerRing = lightMode ? 'bg-gradient-to-b from-white/80 to-zinc-200/80 cursor-not-allowed shadow-[0_8px_20px_rgba(0,0,0,0.1)]' : 'bg-gradient-to-b from-zinc-800/80 to-zinc-950/80 cursor-not-allowed shadow-[0_8px_20px_rgba(0,0,0,0.6)]';
+                      innerRing = lightMode ? 'bg-gradient-to-b from-white to-zinc-100 shadow-inner text-zinc-400' : 'bg-gradient-to-b from-zinc-800/80 to-zinc-900/80 shadow-[inset_0_2px_4px_rgba(255,255,255,0.05),inset_0_-4px_8px_rgba(0,0,0,0.4)] text-zinc-500';
+                  } else {
+                      outerRing = lightMode ? 'bg-gradient-to-b from-zinc-200 to-zinc-400 active:translate-y-1 cursor-pointer shadow-[0_8px_20px_rgba(0,0,0,0.2)]' : 'bg-gradient-to-b from-zinc-400 to-zinc-600 active:translate-y-1 cursor-pointer shadow-[0_8px_20px_rgba(0,0,0,0.6),inset_0_2px_2px_rgba(255,255,255,0.1)]';
+                      innerRing = lightMode ? 'bg-gradient-to-b from-white to-zinc-100 shadow-[inset_0_2px_6px_rgba(255,255,255,1),inset_0_-6px_12px_rgba(0,0,0,0.1)] text-zinc-800 hover:from-white hover:to-white' : 'bg-gradient-to-b from-zinc-100 to-zinc-300 shadow-[inset_0_2px_6px_rgba(255,255,255,0.8),inset_0_-6px_12px_rgba(0,0,0,0.2),0_0_10px_rgba(255,255,255,0.1)] hover:from-white hover:to-zinc-200 text-zinc-950';
+                  }
+
+                  return (
+                    <button onClick={playShot} disabled={isPlaying || !activeBallId || !onLawn} className={`relative group w-32 h-14 rounded-full p-1.5 transition-all select-none ${outerRing}`}>
+                      <div className={`w-full h-full rounded-full flex items-center justify-center transition-all ${innerRing}`}>
+                        <span className="text-2xl font-black tracking-widest leading-none drop-shadow-sm">{activeBallId && !onLawn ? 'MOVE' : 'PLAY'}</span>
+                      </div>
+                    </button>
+                  );
+               })()}
+
+               <button onClick={resetPositions} disabled={isPlaying} className={`p-2.5 rounded-full transition-all border shadow-sm disabled:opacity-30 disabled:cursor-not-allowed ${lightMode ? 'bg-white/80 hover:bg-white text-zinc-600 hover:text-emerald-600 border-white/90' : 'bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 border-zinc-800'}`} title="Reset Court"><RotateCcw size={18}/></button>
+
+            </div>
+          </aside>
+        )}
+
+        <main className={`flex-1 h-full relative overflow-auto custom-scrollbar`} ref={viewportRef}>
+            <div className="w-full h-full flex items-center justify-center p-4 relative" style={zoom > 1 ? { width: `${100 * zoom}%`, height: `${100 * zoom}%` } : {}}>
+                
+                <div 
+                    style={{ 
+                        maxWidth: zoom === 1 ? '100%' : 'none', 
+                        maxHeight: zoom === 1 ? '100%' : 'none', 
+                        width: zoom === 1 ? 'auto' : '100%', 
+                        height: zoom === 1 ? 'auto' : '100%', 
+                        aspectRatio: `${CANVAS_WIDTH} / ${FIELD_HEIGHT}`
+                    }}
+                    className={`relative shadow-[0_0_40px_rgba(0,0,0,0.5)] border ${cleanFeed ? 'border-transparent' : (lightMode ? 'border-white/40' : 'border-zinc-800/80')} rounded-lg ${draggingItem === 'pan' ? 'cursor-grabbing touch-auto' : (!isPlaying && !cleanFeed ? (drawMode ? 'cursor-crosshair touch-none' : (placementMode ? 'cursor-crosshair touch-none' : 'cursor-grab touch-none')) : 'cursor-default touch-none')}`}
+                >
+                    <canvas 
+                      ref={canvasRef} width={CANVAS_WIDTH} height={FIELD_HEIGHT} 
+                      className="w-full h-full block rounded-lg"
+                      onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseLeave} 
+                      onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleMouseUp} 
+                    />
+
+                    {/* OVERLAY COLOR SELECTOR ON CADDY */}
+                    {!cleanFeed && anyBallsInDock && (
+                      <div className="absolute z-50 pointer-events-auto" style={{ left: `${(DOCK_CENTER / CANVAS_WIDTH) * 100}%`, top: `calc(${(RACK_TOP / FIELD_HEIGHT) * 100}% - 40px)`, transform: 'translateX(-50%)', width: '60px' }}>
+                        <button 
+                           onMouseDown={(e) => e.stopPropagation()} 
+                           onClick={(e) => { e.stopPropagation(); setBallSet(prev => prev === 'primary' ? 'secondary' : 'primary'); }} 
+                           className={`w-full flex flex-col items-center justify-center gap-1.5 p-1.5 border rounded-lg transition-all shadow-xl group cursor-pointer backdrop-blur-md ${lightMode ? 'bg-white/80 border-white/90 hover:border-emerald-400' : 'bg-zinc-950/80 hover:bg-zinc-800 border-zinc-700 hover:border-emerald-500/50'}`}
+                           title="Swap Primary/Secondary Colors"
+                        >
+                           <div className={`grid grid-cols-2 gap-[1px] w-3.5 h-3.5 rounded-[3px] overflow-hidden transition-all ${lightMode ? 'ring-1 ring-zinc-400 group-hover:ring-emerald-500' : 'ring-1 ring-zinc-600 group-hover:ring-emerald-500'}`}>
+                             <div style={{ backgroundColor: BALL_SETS[ballSet].striker.ui }} />
+                             <div style={{ backgroundColor: BALL_SETS[ballSet].target.ui }} />
+                             <div style={{ backgroundColor: BALL_SETS[ballSet].black.ui }} />
+                             <div style={{ backgroundColor: BALL_SETS[ballSet].yellow.ui }} />
+                           </div>
+                           <span className={`text-[6px] font-bold uppercase tracking-wider ${lightMode ? 'text-zinc-500 group-hover:text-emerald-600' : 'text-zinc-400 group-hover:text-emerald-400'}`}>{ballSet === 'primary' ? 'Pri' : 'Sec'}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {showInstruction && !cleanFeed && anyBallsInDock && zoom === 1 && (
+                      <motion.div initial={{ opacity: 0, x: 20, y: '-50%' }} animate={{ opacity: 1, x: 0, y: '-50%' }} exit={{ opacity: 0, x: -20, y: '-50%' }} className="absolute z-50 pointer-events-none" style={{ right: '14%', top: '50%' }}>
+                        <div className={`px-4 py-2 rounded-xl border shadow-xl backdrop-blur-md uppercase tracking-widest text-[9px] font-bold text-center leading-snug whitespace-nowrap ${lightMode ? 'bg-white/90 text-emerald-700 border-white/60' : 'bg-zinc-950/80 text-emerald-400 border-emerald-500/30'}`}>
+                          Drag Ball(s)<br/>from the Caddy to Begin
+                        </div>
+                      </motion.div>
+                    )}
+                </div>
+            </div>
+        </main>
+
+        {cleanFeed && (
+          <div className="absolute bottom-4 right-4 z-[200] flex gap-2 pointer-events-auto">
+            <button onClick={() => {
+              const url = canvasRef.current?.toDataURL('image/png');
+              if (url) {
+                const a = document.createElement('a'); a.href = url;
+                const d = new Date();
+                a.download = `croquet_capture_${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}.png`;
+                a.click();
+              }
+            }} className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-emerald-500 transition-all shadow-lg flex items-center gap-2">
+              <Camera size={14} /> Capture Screen
+            </button>
+            <button onClick={() => setCleanFeed(false)} className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all shadow-lg backdrop-blur-md ${lightMode ? 'bg-white/90 hover:bg-white text-zinc-800 border-white/50' : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border-zinc-700'}`}>
+              Exit Freeze Frame
+            </button>
+          </div>
+        )}
+
+        {/* === UPDATED HELP MENU === */}
+        {showHelp && !cleanFeed && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 z-[150] backdrop-blur-md flex items-center justify-center p-4 ${lightMode ? 'bg-white/30' : 'bg-zinc-950/90'}`}>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`rounded-2xl w-full max-w-4xl shadow-2xl border backdrop-blur-xl ${lightMode ? 'bg-white/90 border-white/50' : 'bg-zinc-900 border-zinc-800'}`}>
+              <div className={`p-6 border-b flex items-center justify-between rounded-t-2xl ${lightMode ? 'bg-white/50 border-white/50' : 'bg-zinc-900 border-zinc-800'}`}>
+                <h2 className={`text-2xl font-bold flex items-center gap-3 ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}><HelpCircle size={28} /> Studio Guide</h2>
+                <button onClick={() => setShowHelp(false)} className={`p-2 rounded-full transition-colors ${lightMode ? 'hover:bg-white/80 text-zinc-500 hover:text-zinc-800' : 'hover:bg-zinc-800 text-zinc-400 hover:text-white'}`}><X size={20} /></button>
+              </div>
+              
+              <div className={`p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-sm leading-relaxed ${lightMode ? 'text-zinc-700' : 'text-zinc-300'}`}>
+                <div className="space-y-6">
+                    <div>
+                        <h3 className={`font-bold mb-3 flex items-center gap-2 uppercase tracking-widest text-[11px] ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}><Hand size={16}/> Getting Started</h3>
+                        <p className="mb-2"><strong>Spawn Balls:</strong> Click and drag balls from the Caddy on the right onto the green. They will scale down automatically.</p>
+                        <p><strong>Selection:</strong> Click any ball to make it active. Click the empty grass to clear your selection.</p>
+                    </div>
+
+                    <div>
+                        <h3 className={`font-bold mb-3 flex items-center gap-2 uppercase tracking-widest text-[11px] ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}><Play size={16}/> Aiming & Shooting</h3>
+                        <p className="mb-3 flex items-start gap-2"><Eye size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>AIM Mode:</strong> Use the precision wheels to adjust Velocity and Bearing. The ghost ball shows your impact point.</span></p>
+                        <p className="mb-3 flex items-start gap-2"><MousePointer2 size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>PLACE Mode:</strong> Select a ball, then click anywhere on the lawn. The app calculates the exact angle and power for you.</span></p>
+                        <p className="flex items-start gap-2"><Undo2 size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>Undo & Reset:</strong> Use the <RotateCcw size={14} className="inline mx-1"/> button to clear the court, or the <Undo2 size={14} className="inline mx-1"/> button to step backwards if you make a mistake.</span></p>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div>
+                        <h3 className={`font-bold mb-3 flex items-center gap-2 uppercase tracking-widest text-[11px] ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}><Pencil size={16}/> Tactics & Drawing</h3>
+                        <p className="mb-2 flex items-start gap-2"><Pencil size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>Telestrator:</strong> Click the Draw tool to sketch tactical lines directly onto the grass.</span></p>
+                        <p className="flex items-start gap-2"><Eraser size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>Clear Ink:</strong> Use the Eraser to instantly remove all drawings.</span></p>
+                    </div>
+
+                    <div>
+                        <h3 className={`font-bold mb-3 flex items-center gap-2 uppercase tracking-widest text-[11px] ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}><Clapperboard size={16}/> Broadcast Tools</h3>
+                        <p className="mb-3 flex items-start gap-2"><Sun size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>Outdoor Overlay:</strong> Enable in <Settings size={14} className="inline mx-1 text-zinc-400"/> Prefs. Switches to a premium frosted glass UI so you can read the app outside in the sun.</span></p>
+                        <p className="mb-3 flex items-start gap-2"><MonitorPlay size={16} className={`shrink-0 mt-0.5 ${lightMode ? 'text-zinc-400' : 'text-zinc-500'}`} /> <span><strong>Freeze Frame:</strong> Enable in Prefs. Hides all menus for recording. You can also capture a PNG screenshot from here.</span></p>
+                        <p><strong>Sequence Record:</strong> Capture "Frames" with the camera icon to animate complex tactical breaks.</p>
+                    </div>
+                </div>
+
+              </div>
+              
+              <div className={`p-6 border-t rounded-b-2xl text-center ${lightMode ? 'bg-white/50 border-white/50' : 'bg-zinc-950/50 border-zinc-800'}`}>
+                <button onClick={() => setShowHelp(false)} className="px-10 py-3 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-colors shadow-lg">Close Guide</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        <AnimatePresence>
+          {showOptions && !cleanFeed && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={`absolute inset-0 z-[150] backdrop-blur-md flex items-center justify-center p-4 ${lightMode ? 'bg-white/30' : 'bg-zinc-950/90'}`}>
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`rounded-2xl w-full max-w-md shadow-2xl border backdrop-blur-xl ${lightMode ? 'bg-white/90 border-white/50' : 'bg-zinc-900 border-zinc-800'}`}>
+                <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-10 rounded-t-2xl ${lightMode ? 'bg-white/50 border-white/50' : 'bg-zinc-900 border-zinc-800'}`}>
+                  <h2 className={`text-xl font-bold flex items-center gap-2 ${lightMode ? 'text-emerald-700' : 'text-emerald-400'}`}><Settings size={24} />Studio Options</h2>
+                  <button onClick={() => setShowOptions(false)} className={`p-2 rounded-full transition-colors ${lightMode ? 'hover:bg-white/80 text-zinc-500 hover:text-zinc-800' : 'hover:bg-zinc-800 text-zinc-400 hover:text-white'}`}><X size={20} /></button>
+                </div>
+                <div className="p-6 space-y-3">
+                  
+                  <div className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${lightMode ? 'bg-white/60 border-white/60' : 'bg-zinc-950 border-zinc-800'}`}>
+                     <div className={`flex items-center gap-3 font-bold text-sm uppercase tracking-wider ${lightMode ? 'text-zinc-700' : 'text-zinc-300'}`}><Sun size={16} /> Outdoor Mode</div>
+                     <button onClick={() => setLightMode(!lightMode)} className={`w-12 h-6 rounded-full relative transition-colors shadow-inner border ${lightMode ? 'bg-emerald-500 border-emerald-600' : 'bg-zinc-700 border-zinc-900'}`}>
+                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${lightMode ? 'left-7' : 'left-1'}`} />
+                     </button>
+                  </div>
+
+                  <div className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${lightMode ? 'bg-white/60 border-white/60' : 'bg-zinc-950 border-zinc-800'}`}>
+                     <div className={`flex items-center gap-3 font-bold text-sm uppercase tracking-wider ${lightMode ? 'text-zinc-700' : 'text-zinc-300'}`}><Save size={16} /> File Prefix</div>
+                     <input type="text" value={filenamePrefix} onChange={(e) => setFilenamePrefix(e.target.value)} className={`text-xs font-bold px-3 py-1.5 rounded outline-none focus:ring-1 focus:ring-emerald-500 w-32 text-right select-auto border shadow-inner ${lightMode ? 'bg-white/80 border-white/90 text-zinc-800' : 'bg-zinc-900 border-zinc-700 text-zinc-300'}`} style={{ WebkitTouchCallout: 'default', WebkitUserSelect: 'auto', userSelect: 'auto' }} placeholder="sequence" />
+                  </div>
+
+                  <div className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${lightMode ? 'bg-white/60 border-white/60' : 'bg-zinc-950 border-zinc-800'}`}>
+                     <div className={`flex items-center gap-3 font-bold text-sm uppercase tracking-wider ${lightMode ? 'text-zinc-700' : 'text-zinc-300'}`}><MonitorPlay size={16} /> Freeze Frame Mode</div>
+                     <button onClick={() => { setCleanFeed(true); setShowOptions(false); }} className={`px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-widest border transition-colors shadow-sm ${lightMode ? 'bg-emerald-500/20 text-emerald-700 border-emerald-500/50 hover:bg-emerald-500/30' : 'bg-emerald-900/40 text-emerald-400 border-emerald-500/50 hover:bg-emerald-800/60'}`}>Activate</button>
+                  </div>
+
+                  {[ { key: 'recording', label: 'Sequence Record', icon: <Clapperboard size={16} /> }, { key: 'zoom', label: 'Pan & Zoom Controls', icon: <ZoomIn size={16} /> } ].map(f => (
+                    <div key={f.key} className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${lightMode ? 'bg-white/60 border-white/60' : 'bg-zinc-950 border-zinc-800'}`}>
+                       <div className={`flex items-center gap-3 font-bold text-sm uppercase tracking-wider ${lightMode ? 'text-zinc-700' : 'text-zinc-300'}`}>{f.icon} {f.label}</div>
+                       <button onClick={() => { setFeatures(prev => { const newState = !prev[f.key as keyof typeof features]; if (f.key === 'zoom' && !newState) { setZoom(1); setTimeout(() => { if (viewportRef.current) { viewportRef.current.scrollLeft = (viewportRef.current.scrollWidth - viewportRef.current.clientWidth) / 2; viewportRef.current.scrollTop = viewportRef.current.scrollHeight; } }, 10); } return { ...prev, [f.key]: newState }; }); }} className={`w-12 h-6 rounded-full relative transition-colors shadow-inner border ${features[f.key as keyof typeof features] ? (lightMode ? 'bg-emerald-500 border-emerald-600' : 'bg-emerald-500 border-emerald-700') : (lightMode ? 'bg-white/80 border-zinc-300' : 'bg-zinc-700 border-zinc-900')}`}>
+                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${features[f.key as keyof typeof features] ? 'left-7' : 'left-1'}`} />
+                       </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
+  );
+}

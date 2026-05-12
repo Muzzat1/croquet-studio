@@ -167,7 +167,7 @@ export const HelpScreen = ({ onClose }: { onClose: () => void }) => {
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Gateball Visualiser Help</h2>
             <div className="text-xs font-bold tracking-wide text-zinc-400 mt-1 ml-[40px]">
-              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.63 (BETA)
+              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.81 (BETA)
             </div>
           </div>
           <button onClick={onClose} className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-colors shadow-lg">Close Guide</button>
@@ -1415,7 +1415,7 @@ export default function App() {
               <div>
                 <p className="text-[10px] md:text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
                 <h1 className="text-lg md:text-xl font-bold tracking-tight text-zinc-100 leading-tight">Gateball<br className="md:hidden" /> Visualiser</h1>
-                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.63 (BETA)</p>
+                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.81 (BETA)</p>
               </div>
             </div>
 

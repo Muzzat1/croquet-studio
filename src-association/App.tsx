@@ -84,7 +84,7 @@ export const HelpScreen = ({ onClose }: { onClose: () => void }) => {
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Association Croquet Visualiser</h2>
             <div className="text-xs font-bold tracking-wide text-zinc-400 mt-1 ml-[40px]">
-              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.41 (BETA)
+              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.81 (BETA)
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full transition-colors hover:bg-zinc-800 text-zinc-400 hover:text-white"><X size={20} /></button>
@@ -1168,7 +1168,7 @@ useEffect(() => {
               <div>
                 <p className="text-[10px] md:text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
                 <h1 className="text-lg md:text-xl font-bold tracking-tight text-zinc-100 leading-tight">Association Croquet<br className="md:hidden" /> Visualiser</h1>
-                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.41 (BETA)</p>
+                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.81 (BETA)</p>
               </div>
             </div>
             <div className="shrink-0 grid grid-cols-4 gap-1.5 md:gap-2 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-zinc-800/50">

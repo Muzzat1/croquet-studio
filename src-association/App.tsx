@@ -1164,7 +1164,7 @@ useEffect(() => {
         {!cleanFeed && (
           <aside className={`relative z-10 w-[240px] md:w-[320px] lg:w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-r p-3 md:p-5 overflow-y-auto custom-scrollbar shadow-[8px_0_30px_rgba(0,0,0,0.5)] transition-colors duration-300 ${brightMode ? 'bg-[#666666]/95 border-[#888888]' : 'bg-zinc-900/90 border-zinc-700/50'}`}>
             <div className="shrink-0 flex items-center gap-2 md:gap-3 mb-4">
-              <div className="relative flex items-center justify-center w-6 h-6 md:w-8 md:h-8"><div className="absolute top-[4px] left-[4px] md:top-[6px] md:left-[6px] w-3 h-3 md:w-4 md:h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md w-5 h-5 md:w-8 md:h-8" /></div>
+              <a href="/" title="Return to Croquet Studio" className="relative flex items-center justify-center w-6 h-6 md:w-8 md:h-8 hover:scale-110 transition-transform cursor-pointer"><div className="absolute top-[4px] left-[4px] md:top-[6px] md:left-[6px] w-3 h-3 md:w-4 md:h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md w-5 h-5 md:w-8 md:h-8" /></a>
               <div>
                 <p className="text-[10px] md:text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
                 <h1 className="text-lg md:text-xl font-bold tracking-tight text-zinc-100 leading-tight">Association Croquet<br className="md:hidden" /> Visualiser</h1>

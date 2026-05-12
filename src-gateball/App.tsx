@@ -94,42 +94,37 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
     };
   }, []);
 
-  useEffect(() => {
-    const domElement = mountRef.current;
-    if (!domElement) return;
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPlaying) return;
+    e.preventDefault();
+    isDragging.current = true;
+    previousMousePosition.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
 
-    const handlePointerDown = (e: PointerEvent) => {
-      if (isPlaying) return;
-      isDragging.current = true;
-      previousMousePosition.current = { x: e.clientX, y: e.clientY };
-    };
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current || isPlaying) return;
+    const deltaMove = { x: e.clientX - previousMousePosition.current.x, y: e.clientY - previousMousePosition.current.y };
+    if (sphereRef.current) {
+      const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(deltaMove.y * 0.01, deltaMove.x * 0.01, 0, 'XYZ'));
+      sphereRef.current.quaternion.multiplyQuaternions(deltaRotationQuaternion, sphereRef.current.quaternion);
+    }
+    let newAngle = valuesRef.current.angle + deltaMove.x * 0.5;
+    newAngle = ((newAngle % 360) + 360) % 360;
+    let newSpeed = valuesRef.current.speed - deltaMove.y * 0.5;
+    newSpeed = Math.max(0, Math.min(200, newSpeed));
+    setAngle(newAngle); setSpeed(newSpeed);
+    previousMousePosition.current = { x: e.clientX, y: e.clientY };
+  };
 
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!isDragging.current || isPlaying) return;
-      const deltaMove = { x: e.clientX - previousMousePosition.current.x, y: e.clientY - previousMousePosition.current.y };
-      if (sphereRef.current) {
-        const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(deltaMove.y * 0.01, deltaMove.x * 0.01, 0, 'XYZ'));
-        sphereRef.current.quaternion.multiplyQuaternions(deltaRotationQuaternion, sphereRef.current.quaternion);
-      }
-      let newAngle = valuesRef.current.angle + deltaMove.x * 0.5;
-      newAngle = ((newAngle % 360) + 360) % 360;
-      let newSpeed = valuesRef.current.speed - deltaMove.y * 0.5;
-      newSpeed = Math.max(0, Math.min(200, newSpeed));
-      setAngle(newAngle); setSpeed(newSpeed);
-      previousMousePosition.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const handlePointerUp = () => { isDragging.current = false; };
-    domElement.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-
-    return () => {
-      domElement.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [isPlaying, setAngle, setSpeed]);
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDragging.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (err) {
+      // Ignore if pointer capture was already released
+    }
+  };
 
   return (
     <div className="flex flex-col items-center w-full gap-2 relative p-2">
@@ -153,6 +148,10 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
       </div>
       <div
         ref={mountRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         className={`w-[160px] h-[160px] cursor-grab active:cursor-grabbing rounded-full ${isPlaying ? 'opacity-50 pointer-events-none' : ''}`}
         style={{ touchAction: 'none' }}
       />
@@ -1412,7 +1411,7 @@ export default function App() {
         {!cleanFeed && (
           <aside className={`relative z-10 w-[240px] md:w-[320px] lg:w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-l p-3 md:p-5 overflow-y-auto custom-scrollbar shadow-[-8px_0_30px_rgba(0,0,0,0.5)] transition-colors duration-300 ${brightMode ? 'bg-[#666666]/95 border-[#888888]' : 'bg-zinc-900/90 border-zinc-700/50'}`}>
             <div className="shrink-0 flex items-center gap-2 md:gap-3 mb-4">
-              <div className="relative flex items-center justify-center w-6 h-6 md:w-8 md:h-8"><div className="absolute top-[4px] left-[4px] md:top-[6px] md:left-[6px] w-3 h-3 md:w-4 md:h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md w-5 h-5 md:w-8 md:h-8" /></div>
+              <a href="/" title="Return to Croquet Studio" className="relative flex items-center justify-center w-6 h-6 md:w-8 md:h-8 hover:scale-110 transition-transform cursor-pointer"><div className="absolute top-[4px] left-[4px] md:top-[6px] md:left-[6px] w-3 h-3 md:w-4 md:h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md w-5 h-5 md:w-8 md:h-8" /></a>
               <div>
                 <p className="text-[10px] md:text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
                 <h1 className="text-lg md:text-xl font-bold tracking-tight text-zinc-100 leading-tight">Gateball<br className="md:hidden" /> Visualiser</h1>

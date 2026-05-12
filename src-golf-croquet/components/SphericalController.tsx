@@ -98,58 +98,52 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
     };
   }, []);
 
-  useEffect(() => {
-    const domElement = mountRef.current;
-    if (!domElement) return;
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPlaying) return;
+    e.preventDefault();
+    isDragging.current = true;
+    previousMousePosition.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
 
-    const handlePointerDown = (e: PointerEvent) => {
-      if (isPlaying) return;
-      isDragging.current = true;
-      previousMousePosition.current = { x: e.clientX, y: e.clientY };
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging.current || isPlaying) return;
+    const deltaMove = {
+      x: e.clientX - previousMousePosition.current.x,
+      y: e.clientY - previousMousePosition.current.y
     };
 
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!isDragging.current || isPlaying) return;
-      const deltaMove = {
-        x: e.clientX - previousMousePosition.current.x,
-        y: e.clientY - previousMousePosition.current.y
-      };
+    if (sphereRef.current) {
+      const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(deltaMove.y * 0.01, deltaMove.x * 0.01, 0, 'XYZ')
+      );
+      sphereRef.current.quaternion.multiplyQuaternions(deltaRotationQuaternion, sphereRef.current.quaternion);
+    }
 
-      if (sphereRef.current) {
-        const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(
-          new THREE.Euler(deltaMove.y * 0.01, deltaMove.x * 0.01, 0, 'XYZ')
-        );
-        sphereRef.current.quaternion.multiplyQuaternions(deltaRotationQuaternion, sphereRef.current.quaternion);
-      }
+    let dynamicMultiplier = 1.0;
+    const domRect = e.currentTarget.getBoundingClientRect();
+    const centerX = domRect.left + domRect.width / 2;
+    const centerY = domRect.top + domRect.height / 2;
+    const startDist = Math.sqrt((previousMousePosition.current.x - centerX) ** 2 + (previousMousePosition.current.y - centerY) ** 2);
+    const normalizedDist = Math.min(1, startDist / 80); // 80 is radius of 160x160 box
+    dynamicMultiplier = 0.1 + 0.9 * normalizedDist;
 
-      let dynamicMultiplier = 1.0;
-      const domRect = domElement.getBoundingClientRect();
-      const centerX = domRect.left + domRect.width / 2;
-      const centerY = domRect.top + domRect.height / 2;
-      const startDist = Math.sqrt((previousMousePosition.current.x - centerX) ** 2 + (previousMousePosition.current.y - centerY) ** 2);
-      const normalizedDist = Math.min(1, startDist / 80); // 80 is radius of 160x160 box
-      dynamicMultiplier = 0.1 + 0.9 * normalizedDist;
+    let newAngle = valuesRef.current.angle + deltaMove.x * dynamicMultiplier;
+    newAngle = ((newAngle % 360) + 360) % 360;
+    let newSpeed = valuesRef.current.speed - deltaMove.y * dynamicMultiplier;
+    newSpeed = Math.max(0, Math.min(200, newSpeed));
 
-      let newAngle = valuesRef.current.angle + deltaMove.x * dynamicMultiplier;
-      newAngle = ((newAngle % 360) + 360) % 360;
-      let newSpeed = valuesRef.current.speed - deltaMove.y * dynamicMultiplier;
-      newSpeed = Math.max(0, Math.min(200, newSpeed));
+    setAngle(newAngle);
+    setSpeed(newSpeed);
+    previousMousePosition.current = { x: e.clientX, y: e.clientY };
+  };
 
-      setAngle(newAngle);
-      setSpeed(newSpeed);
-      previousMousePosition.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const handlePointerUp = () => { isDragging.current = false; };
-    domElement.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    return () => {
-      domElement.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [isPlaying, setAngle, setSpeed]);
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDragging.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+  };
 
   return (
     <div className="flex flex-col items-center w-full gap-2 relative p-2">
@@ -169,7 +163,7 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
           </span>
         </span>
       </div>
-      <div ref={mountRef} className={`w-[160px] h-[160px] cursor-grab active:cursor-grabbing rounded-full ${isPlaying ? 'opacity-50 pointer-events-none' : ''}`} style={{ touchAction: 'none' }} />
+      <div ref={mountRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} className={`w-[160px] h-[160px] cursor-grab active:cursor-grabbing rounded-full ${isPlaying ? 'opacity-50 pointer-events-none' : ''}`} style={{ touchAction: 'none' }} />
     </div>
   );
 };

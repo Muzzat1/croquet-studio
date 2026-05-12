@@ -34,55 +34,53 @@ export const SphericalController = ({
   }, [speed]);
 
   // --- 1. Interaction Logic ---
-  useEffect(() => {
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (isPlaying) return;
+  const handleAimPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPlaying) return;
+    e.preventDefault();
+    isDraggingAim.current = true;
+    previousMousePosition.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
 
-      const clientX = 'clientX' in e ? e.clientX : e.touches[0].clientX;
-      const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
+  const handleAimPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingAim.current || isPlaying) return;
+    const deltaX = e.clientX - previousMousePosition.current.x;
+    const deltaY = e.clientY - previousMousePosition.current.y;
+    setAngle(prev => (prev + deltaX * 0.5 + 360) % 360);
+    setSpeed(prev => Math.max(0, Math.min(200, prev - deltaY * 0.5)));
+    previousMousePosition.current = { x: e.clientX, y: e.clientY };
+  };
 
-      // Handle Satellite Dial Rotation
-      if (isDraggingDial.current) {
-        const rect = mountRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const dx = clientX - centerX;
-        const dy = clientY - centerY;
-        let newAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
-        if (newAngle < 0) newAngle += 360;
-        setContactAngle(newAngle);
-      }
+  const handleAimPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingAim.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
 
-      // Handle 3D Ball Aiming (Bearing and Velocity)
-      if (isDraggingAim.current) {
-        const deltaX = clientX - previousMousePosition.current.x;
-        const deltaY = clientY - previousMousePosition.current.y;
+  const handleDialPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPlaying) return;
+    e.stopPropagation();
+    e.preventDefault();
+    isDraggingDial.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
 
-        setAngle(prev => (prev + deltaX * 0.5 + 360) % 360);
-        setSpeed(prev => Math.max(0, Math.min(200, prev - deltaY * 0.5)));
+  const handleDialPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingDial.current || isPlaying) return;
+    const rect = mountRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+    let newAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    if (newAngle < 0) newAngle += 360;
+    setContactAngle(newAngle);
+  };
 
-        previousMousePosition.current = { x: clientX, y: clientY };
-      }
-    };
-
-    const handleUp = () => {
-      isDraggingDial.current = false;
-      isDraggingAim.current = false;
-    };
-
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-    window.addEventListener('touchmove', handleMove);
-    window.addEventListener('touchend', handleUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchend', handleUp);
-    };
-  }, [isPlaying, setAngle, setSpeed, setContactAngle]);
+  const handleDialPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingDial.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
 
   // --- 2. 3D Scene Setup (Matte Milled Texture) ---
   useEffect(() => {
@@ -211,12 +209,12 @@ export const SphericalController = ({
         {/* 3D Ball: Bottom Layer (Always reachable for Aiming/Velocity) */}
         <div
           ref={mountRef}
-          onMouseDown={(e) => {
-            isDraggingAim.current = true;
-            previousMousePosition.current = { x: e.clientX, y: e.clientY };
-          }}
+          onPointerDown={handleAimPointerDown}
+          onPointerMove={handleAimPointerMove}
+          onPointerUp={handleAimPointerUp}
+          onPointerCancel={handleAimPointerUp}
           className={`rounded-full overflow-hidden shadow-2xl transition-opacity z-10 ${isPlaying ? 'opacity-50' : 'cursor-grab active:cursor-grabbing'}`}
-          style={{ width: 160, height: 160 }}
+          style={{ width: 160, height: 160, touchAction: 'none' }}
         />
 
         {/* Satellite Layer: Top Layer (Does not block the ball) */}
@@ -224,10 +222,13 @@ export const SphericalController = ({
         <div className="absolute inset-0 pointer-events-none z-20">
           {isCroquetShot && (
             <div
-              onMouseDown={(e) => { e.stopPropagation(); isDraggingDial.current = true; }}
-              onTouchStart={(e) => { e.stopPropagation(); isDraggingDial.current = true; }}
+              onPointerDown={handleDialPointerDown}
+              onPointerMove={handleDialPointerMove}
+              onPointerUp={handleDialPointerUp}
+              onPointerCancel={handleDialPointerUp}
               className="absolute w-7 h-7 bg-emerald-400 rounded-full shadow-[0_0_15px_#10b981] border-2 border-white/40 cursor-pointer pointer-events-auto"
               style={{
+                touchAction: 'none',
                 left: `calc(50% + ${Math.cos(contactAngle * Math.PI / 180) * 94}px - 14px)`,
                 top: `calc(50% + ${Math.sin(contactAngle * Math.PI / 180) * 94}px - 14px)`
               }}

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Hand, Sun, Minus, Gamepad2, Target, Navigation, MapPin, CornerDownLeft, CircleDashed, Zap } from 'lucide-react';
+import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Hand, Sun, Minus, Gamepad2, Target, Navigation, MapPin, CornerDownLeft, CircleDashed, Zap, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Path, BallId, Ball, RecordedShot, BALL_RADIUS, SCALE, EDGING, FIELD_WIDTH, FIELD_HEIGHT, ZOOM_LEVELS, SPACING, BALL_IDS, getInitialPositions, GATE_WIDTH, GOAL_POLE_RADIUS, GATES, GOAL_POLE_POS, SOUNDS, playSound, BALL_SETS, getActiveColor } from './constants';
+import { Point, Path, BallId, Ball, RecordedShot, BALL_RADIUS, DISPLAY_RADIUS, SCALE, EDGING, FIELD_WIDTH, FIELD_HEIGHT, ZOOM_LEVELS, SPACING, BALL_IDS, getInitialPositions, GATE_WIDTH, GOAL_POLE_RADIUS, GATES, GOAL_POLE_POS, SOUNDS, playSound, BALL_SETS, getActiveColor } from './constants';
 
 interface SphericalControllerProps {
   angle: number;
@@ -167,7 +167,7 @@ export const HelpScreen = ({ onClose }: { onClose: () => void }) => {
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Gateball Visualiser Help</h2>
             <div className="text-xs font-bold tracking-wide text-zinc-400 mt-1 ml-[40px]">
-              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.81 (BETA)
+              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.83 (BETA)
             </div>
           </div>
           <button onClick={onClose} className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-colors shadow-lg">Close Guide</button>
@@ -332,6 +332,7 @@ export default function App() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportDims, setViewportDims] = useState({ w: 0, h: 0 });
 
+
   useEffect(() => {
     if (!viewportRef.current) return;
     const obs = new ResizeObserver(entries => {
@@ -344,11 +345,8 @@ export default function App() {
   const getCanvasStyle = () => {
     if (zoom !== 1 || viewportDims.w === 0) return { position: 'relative' as const, width: `${FIELD_WIDTH * zoom}px`, height: `${FIELD_HEIGHT * zoom}px` };
 
-    // Minimal padding: 8px on mobile, 16px on desktop
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const safeW = viewportDims.w - (isMobile ? 8 : 16);
-
-    // Vertical padding: 40px (just enough for the slim pill)
     const safeH = viewportDims.h - (isMobile ? 40 : 60);
 
     const ratio = FIELD_WIDTH / FIELD_HEIGHT;
@@ -363,20 +361,15 @@ export default function App() {
   };
 
   const [showMobilePrompt, setShowMobilePrompt] = useState(false);
-  const [brightMode, setBrightMode] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [ballSet] = useState<'primary' | 'secondary'>('primary');
   const [features, setFeatures] = useState({ recording: false, draw: false, zoom: false });
-  const [filenamePrefix, setFilenamePrefix] = useState("sequence");
   const [zoom, setZoom] = useState(1);
   const lastPanRef = useRef({ x: 0, y: 0, scrollL: 0, scrollT: 0 });
   const [angle, setAngle] = useState(315);
   const [speed, setSpeed] = useState(100);
-  const [placementMode, setPlacementMode] = useState(false);
+  const [placementMode, setPlacementMode] = useState(true);
   const [drawMode, setDrawMode] = useState(false);
-
-
-
   const [targetSpot, setTargetSpot] = useState<{ x: number; y: number } | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -407,7 +400,6 @@ export default function App() {
   const saveStateRef = useRef<Record<BallId, Ball> | null>(null);
   const touchingPairsRef = useRef<string[]>([]);
 
-  // Initialize 10 balls
   const initBalls = useCallback((set: 'primary' | 'secondary') => {
     const pos = getInitialPositions();
     const newBalls = {} as Record<BallId, Ball>;
@@ -436,6 +428,8 @@ export default function App() {
   }, [balls, isPlaying]);
 
   const activeBallIdRef = useRef<BallId | null>(activeBallId);
+  const traceRef = useRef<Record<BallId, Point[]>>({} as Record<BallId, Point[]>);
+  const impactsRef = useRef<number[]>([]);
   useEffect(() => { activeBallIdRef.current = activeBallId; }, [activeBallId]);
 
   const touchingSparkTargetId = React.useMemo(() => {
@@ -447,7 +441,7 @@ export default function App() {
       const dx = activeBall.x - b.x;
       const dy = activeBall.y - b.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= 2 * BALL_RADIUS + 0.5) {
+      if (dist <= 2 * DISPLAY_RADIUS + 0.5) {
         return b.id as BallId;
       }
     }
@@ -483,12 +477,29 @@ export default function App() {
   useEffect(() => { stateRefs.current = { activeBallId, angle, speed, isRecording }; }, [activeBallId, angle, speed, isRecording]);
 
   const handleCaptureFrame = () => {
-    setSequence(prev => {
-      const positionsCopy = {} as Record<BallId, Ball>;
-      BALL_IDS.forEach(id => { positionsCopy[id] = { ...ballsRef.current[id], vx: 0, vy: 0 }; });
-      const newSeq = [...prev, { id: Date.now() + Math.random(), activeBallId: stateRefs.current.activeBallId || 'r1', angle: stateRefs.current.angle, speed: stateRefs.current.speed, positions: positionsCopy }];
-      setCurrentShotIndex(newSeq.length - 1); return newSeq;
-    });
+    if (isRecording) {
+      const currentTrace = Object.keys(traceRef.current).length > 0 ? JSON.parse(JSON.stringify(traceRef.current)) : undefined;
+      const currentImpacts = [...impactsRef.current];
+
+      setSequence(prev => {
+        const positionsCopy = {} as Record<BallId, Ball>;
+        BALL_IDS.forEach(id => { positionsCopy[id] = { ...ballsRef.current[id], vx: 0, vy: 0 }; });
+        const newSeq = [...prev, { 
+          id: Date.now() + Math.random(), 
+          activeBallId: stateRefs.current.activeBallId || 'r1', 
+          angle: stateRefs.current.angle, 
+          speed: stateRefs.current.speed, 
+          positions: positionsCopy,
+          trace: currentTrace,
+          impacts: currentImpacts
+        }];
+        setCurrentShotIndex(newSeq.length - 1); 
+        return newSeq;
+      });
+      
+      traceRef.current = {} as Record<BallId, Point[]>;
+      impactsRef.current = [];
+    }
   };
 
   const wasPlayingRef = useRef(isPlaying);
@@ -508,8 +519,8 @@ export default function App() {
         const activeBall = prev[activeBallId];
         if (!activeBall) return prev;
         const rad = (angle * Math.PI) / 180;
-        const targetX = activeBall.x + Math.sin(rad) * (2 * BALL_RADIUS);
-        const targetY = activeBall.y - Math.cos(rad) * (2 * BALL_RADIUS);
+        const targetX = activeBall.x + Math.sin(rad) * (2 * DISPLAY_RADIUS);
+        const targetY = activeBall.y - Math.cos(rad) * (2 * DISPLAY_RADIUS);
         return {
           ...prev,
           [sparkTargetId]: { ...prev[sparkTargetId], x: targetX, y: targetY }
@@ -532,16 +543,16 @@ export default function App() {
       });
     }
     
-    setHistory(prev => prev.slice(0, -1)); setTargetSpot(null); setPlacementMode(false);
+    setHistory(prev => prev.slice(0, -1)); setTargetSpot(null); setPlacementMode(true);
     setDrawMode(false);
   };
 
   const resetPositions = useCallback(() => {
     if (isReplaying) return;
-    setIsPlaying(false); setShowInstruction(true); setActiveBallId(null); setTargetSpot(null); setDrawings([]); setZoom(1); setPlacementMode(false); setHistory([]);
+    setIsPlaying(false); setShowInstruction(true); setActiveBallId(null); setTargetSpot(null); setDrawings([]); setZoom(1); setPlacementMode(true); setHistory([]);
     setDrawMode(false);
     setSequence([]); setCurrentShotIndex(0);
-    setGhostBallEnabled(true); // FIX: Restore line on full reset
+    setGhostBallEnabled(false); // Hide ghost balls and predictions in place mode
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     setBalls(initBalls(ballSet));
   }, [ballSet, isReplaying, initBalls]);
@@ -549,7 +560,47 @@ export default function App() {
   const animateToFrame = (targetIndex: number) => {
     return new Promise<void>((resolve) => {
       const startState = { ...ballsRef.current };
-      const endState = sequenceRef.current[targetIndex].positions;
+      const targetFrame = sequenceRef.current[targetIndex];
+      const endState = targetFrame.positions;
+
+      if (targetFrame.trace && Object.keys(targetFrame.trace).length > 0) {
+        let maxLength = 0;
+        Object.values(targetFrame.trace).forEach(arr => { if (arr.length > maxLength) maxLength = arr.length; });
+        if (maxLength > 0) {
+          let currentStep = 0;
+          const step = () => {
+            if (!replayRef.current.active && replayRef.current.isAutoReplaying) { resolve(); return; }
+            const nextBalls = {} as Record<BallId, Ball>;
+            BALL_IDS.forEach(id => {
+              const traceArr = targetFrame.trace![id];
+              if (traceArr && traceArr.length > 0) {
+                const pt = traceArr[Math.min(currentStep, traceArr.length - 1)];
+                nextBalls[id] = { ...startState[id], x: pt.x, y: pt.y };
+              } else {
+                nextBalls[id] = { ...startState[id] };
+              }
+            });
+            ballsRef.current = nextBalls;
+            renderScene(nextBalls);
+            if (targetFrame.impacts?.includes(currentStep)) {
+              playSound(SOUNDS.collision, 0.3);
+            }
+            currentStep += 1; // Playback at normal speed, maybe can speed up if needed, but 1x is best
+            if (currentStep < maxLength) {
+              replayRef.current.animId = requestAnimationFrame(step);
+            } else {
+              setBalls(nextBalls);
+              setCurrentShotIndex(targetIndex);
+              setActiveBallId(targetFrame.activeBallId);
+              setAngle(targetFrame.angle);
+              setSpeed(targetFrame.speed);
+              resolve();
+            }
+          };
+          replayRef.current.animId = requestAnimationFrame(step);
+          return;
+        }
+      }
 
       let maxDist = 1;
       BALL_IDS.forEach(id => {
@@ -624,15 +675,94 @@ export default function App() {
     clearTimeout(replayRef.current.timeoutId); cancelAnimationFrame(replayRef.current.animId);
   };
 
+  const handleUpdateFrame = () => {
+    if (isReplaying) return;
+    setSequence(prev => {
+      const newSeq = [...prev];
+      if (newSeq.length > currentShotIndex) {
+        newSeq[currentShotIndex] = {
+          ...newSeq[currentShotIndex],
+          positions: JSON.parse(JSON.stringify(ballsRef.current)),
+          activeBallId: activeBallId || newSeq[currentShotIndex].activeBallId,
+          angle,
+          speed
+        };
+      }
+      return newSeq;
+    });
+  };
+
+  const handleInsertFrame = () => {
+    if (isReplaying) return;
+    setSequence(prev => {
+      const newSeq = [...prev];
+      const newFrame = {
+        id: Date.now(),
+        positions: JSON.parse(JSON.stringify(ballsRef.current)),
+        activeBallId: activeBallId || 'red1' as BallId,
+        angle,
+        speed,
+        trace: Object.keys(traceRef.current).length > 0 ? JSON.parse(JSON.stringify(traceRef.current)) : undefined
+      };
+      newSeq.splice(currentShotIndex + 1, 0, newFrame);
+      traceRef.current = {} as Record<BallId, Point[]>; // Clear trace after capture
+      return newSeq;
+    });
+    setCurrentShotIndex(prev => prev + 1);
+  };
+
+  const handleDeleteFrame = () => {
+    if (isReplaying || sequence.length === 0) return;
+    setSequence(prev => {
+      const newSeq = [...prev];
+      if (newSeq.length > 0 && currentShotIndex >= 0 && currentShotIndex < newSeq.length) {
+        newSeq.splice(currentShotIndex, 1);
+      }
+      return newSeq;
+    });
+    if (currentShotIndex >= sequence.length - 1) {
+      setCurrentShotIndex(Math.max(0, sequence.length - 2));
+    }
+  };
+
   const clearSequence = () => { if (isReplaying) return; setSequence([]); setCurrentShotIndex(0); setDrawings([]); };
 
-  const exportSequence = () => {
+  const exportSequence = async () => {
     const d = new Date();
     const timestamp = `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}`;
-    const safePrefix = filenamePrefix.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'sequence';
-    const filename = `${safePrefix}_${timestamp}.json`;
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sequence));
-    const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", filename); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+    const filename = `sequence_${timestamp}.json`;
+    const dataStr = JSON.stringify(sequence, null, 2);
+
+    try {
+      // @ts-ignore
+      if (window.showSaveFilePicker) {
+        // @ts-ignore
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: 'JSON Files',
+            accept: { 'application/json': ['.json'] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(dataStr);
+        await writable.close();
+      } else {
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", url);
+        downloadAnchorNode.setAttribute("download", filename);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Failed to save file', err);
+      }
+    }
   };
 
   const importSequence = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -668,7 +798,21 @@ export default function App() {
     }
     touchingPairsRef.current = pairs;
 
-    if (isRecording) handleCaptureFrame();
+    if (isRecording && sequence.length === 0) {
+      setSequence([{
+        id: Date.now(),
+        positions: JSON.parse(JSON.stringify(ballsRef.current)),
+        activeBallId: activeBallId || 'r1',
+        angle,
+        speed
+      }]);
+      setCurrentShotIndex(0);
+    }
+
+    if (isRecording) {
+      impactsRef.current = [];
+      BALL_IDS.forEach(id => { traceRef.current[id] = [{ x: balls[id].x, y: balls[id].y }]; });
+    }
     playSound(SOUNDS.mallet, 0.6);
     const rad = (angle * Math.PI) / 180; const decel = 0.06; const distance = (speed / 100) * 20 * SCALE; const initialSpeed = Math.sqrt(2 * decel * distance);
     const vx = Math.sin(rad) * initialSpeed; const vy = -Math.cos(rad) * initialSpeed;
@@ -785,7 +929,7 @@ export default function App() {
       if (firstImpact) {
         const ghostX = activeBall.x + firstImpact.t * dx; const ghostY = activeBall.y + firstImpact.t * dy;
         const distGhost = Math.sqrt((x - ghostX) ** 2 + (y - ghostY) ** 2);
-        if (distGhost < BALL_RADIUS * 4) { setDraggingItem('ghost'); hitSomething = true; }
+        if (distGhost < DISPLAY_RADIUS * 4) { setDraggingItem('ghost'); hitSomething = true; }
       }
     }
 
@@ -855,7 +999,7 @@ export default function App() {
         const currentOthers = Object.values(next).filter(b => b.id !== draggingItem && !isBallDocked(b));
         for (const b of currentOthers) {
           const dist = Math.sqrt((cx - b.x) ** 2 + (cy - b.y) ** 2);
-          if (dist <= 2 * BALL_RADIUS + 0.5) {
+          if (dist <= 2 * DISPLAY_RADIUS + 0.5) {
             if (activeBallIdRef.current !== b.id) {
               setActiveBallId(b.id as BallId);
               activeBallIdRef.current = b.id as BallId;
@@ -868,8 +1012,8 @@ export default function App() {
           const rad = (angle * Math.PI) / 180;
           next[sparkTargetId] = {
             ...next[sparkTargetId],
-            x: cx + Math.sin(rad) * 2 * BALL_RADIUS,
-            y: cy - Math.cos(rad) * 2 * BALL_RADIUS
+            x: cx + Math.sin(rad) * 2 * DISPLAY_RADIUS,
+            y: cy - Math.cos(rad) * 2 * DISPLAY_RADIUS
           };
         }
 
@@ -879,7 +1023,7 @@ export default function App() {
           if (!isBallDocked(activeBall)) {
             const dist = Math.sqrt((cx - activeBall.x) ** 2 + (cy - activeBall.y) ** 2);
             // Must be strictly greater than 0 to prevent atan2(0,0) reverting angle
-            if (dist > 0 && dist <= 2 * BALL_RADIUS + 0.5) {
+            if (dist > 0 && dist <= 2 * DISPLAY_RADIUS + 0.5) {
               setAngle((Math.atan2(cy - activeBall.y, cx - activeBall.x) * 180 / Math.PI + 90 + 360) % 360);
             }
           }
@@ -894,7 +1038,7 @@ export default function App() {
       const otherBalls = Object.values(balls).filter(b => b.id !== activeBallIdRef.current && !isBallDocked(b));
       for (const b of otherBalls) { const dist = Math.sqrt((x - b.x) ** 2 + (y - b.y) ** 2); if (dist < minDist) { minDist = dist; closestBall = b; } }
 
-      if (closestBall && minDist < BALL_RADIUS * 8) {
+      if (closestBall && minDist < DISPLAY_RADIUS * 8) {
         const bdx = x - closestBall.x; const bdy = y - closestBall.y; const bdist = Math.sqrt(bdx * bdx + bdy * bdy);
         if (bdist > 0) {
           const ghostX = closestBall.x + (bdx / bdist) * 2 * BALL_RADIUS; const ghostY = closestBall.y + (bdy / bdist) * 2 * BALL_RADIUS;
@@ -926,7 +1070,7 @@ export default function App() {
       const innerBottom = FIELD_HEIGHT - EDGING;
 
       // Gateball Rule: 10cm (0.1m) offset from inside line to ball's outer edge
-      const outOffset = (0.1 * SCALE) + BALL_RADIUS;
+      const outOffset = (0.2 * SCALE) + DISPLAY_RADIUS;
 
       const isOutLeft = ball.x < innerLeft;
       const isOutRight = ball.x > innerRight;
@@ -1036,7 +1180,7 @@ export default function App() {
   const drawBall = (ctx: CanvasRenderingContext2D, ball: Ball, shadow = false, isActive = false) => {
     ctx.save();
     const isDocked = isBallDocked(ball);
-    const displayRadius = isDocked ? ball.radius * 1.5 : ball.radius;
+    const displayRadius = isDocked ? DISPLAY_RADIUS * 1.5 : DISPLAY_RADIUS;
 
     if (isActive && !shadow && !cleanFeed) {
       ctx.beginPath(); ctx.arc(ball.x, ball.y, displayRadius + (isDocked ? 6 : 5), 0, Math.PI * 2);
@@ -1067,15 +1211,17 @@ export default function App() {
       ctx.save(); ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'; ctx.shadowBlur = 3; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
 
       const isVertical = gate.id === 2 || gate.id === 3;
+      
+      const scaledGateWidth = GATE_WIDTH; // Do not visually expand the gate's clearance
 
       ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
       ctx.beginPath();
       if (isVertical) {
-        ctx.moveTo(gate.x, gate.y - GATE_WIDTH / 2);
-        ctx.lineTo(gate.x, gate.y + GATE_WIDTH / 2);
+        ctx.moveTo(gate.x, gate.y - scaledGateWidth / 2);
+        ctx.lineTo(gate.x, gate.y + scaledGateWidth / 2);
       } else {
-        ctx.moveTo(gate.x - GATE_WIDTH / 2, gate.y);
-        ctx.lineTo(gate.x + GATE_WIDTH / 2, gate.y);
+        ctx.moveTo(gate.x - scaledGateWidth / 2, gate.y);
+        ctx.lineTo(gate.x + scaledGateWidth / 2, gate.y);
       }
       ctx.stroke();
       ctx.restore();
@@ -1099,7 +1245,7 @@ export default function App() {
   };
 
   const drawPrediction = (ctx: CanvasRenderingContext2D) => {
-    if (isPlaying || draggingItem || !activeBallId || cleanFeed || !ghostBallEnabled) return;
+    if (isPlaying || isReplaying || draggingItem || !activeBallId || cleanFeed || !ghostBallEnabled || placementMode) return;
     const rad = (angle * Math.PI) / 180; const dx = Math.sin(rad); const dy = -Math.cos(rad);
 
     let activeBall = balls[activeBallId];
@@ -1156,7 +1302,35 @@ export default function App() {
 
   const renderScene = (ballsToRender: Record<BallId, Ball>) => {
     const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.clearRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT); drawField(ctx);
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    let canvasW, canvasH;
+
+    if (zoom !== 1) {
+      canvasW = FIELD_WIDTH * zoom * dpr;
+      canvasH = FIELD_HEIGHT * zoom * dpr;
+    } else {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const safeW = viewportDims.w - (isMobile ? 8 : 16);
+      const safeH = viewportDims.h - (isMobile ? 40 : 60);
+      const ratio = FIELD_WIDTH / FIELD_HEIGHT;
+      let targetW = safeW; let targetH = targetW / ratio;
+      if (targetH > safeH) { targetH = safeH; targetW = targetH * ratio; }
+      canvasW = targetW * dpr;
+      canvasH = targetH * dpr;
+    }
+
+    if (canvasW <= 0 || isNaN(canvasW)) canvasW = FIELD_WIDTH * dpr;
+    if (canvasH <= 0 || isNaN(canvasH)) canvasH = FIELD_HEIGHT * dpr;
+
+    if (canvas.width !== Math.round(canvasW)) canvas.width = Math.round(canvasW);
+    if (canvas.height !== Math.round(canvasH)) canvas.height = Math.round(canvasH);
+
+    ctx.resetTransform();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.scale(canvas.width / FIELD_WIDTH, canvas.height / FIELD_HEIGHT);
+
+    drawField(ctx);
 
     if (placementMode && !cleanFeed && activeBallId && hoverPos && !targetSpot) {
       const activeBall = ballsToRender[activeBallId];
@@ -1184,7 +1358,7 @@ export default function App() {
         ctx.textBaseline = 'middle';
         ctx.globalAlpha = 0.6;
         ctx.fillStyle = '#fde047';
-        ctx.fillText('⚡', activeBall.x + BALL_RADIUS * 2.5, activeBall.y - BALL_RADIUS * 2.5);
+        ctx.fillText('⚡', activeBall.x + DISPLAY_RADIUS * 2.5, activeBall.y - DISPLAY_RADIUS * 2.5);
         ctx.restore();
       }
     }
@@ -1219,7 +1393,7 @@ export default function App() {
         const innerRight = FIELD_WIDTH - EDGING;
         const innerTop = EDGING;
         const innerBottom = FIELD_HEIGHT - EDGING;
-        const outOffset = (0.1 * SCALE) + BALL_RADIUS;
+        const outOffset = (0.2 * SCALE) + DISPLAY_RADIUS;
 
         currentBalls.forEach((ball) => {
           if (isBallDocked(ball) || (ball.vx === 0 && ball.vy === 0)) return;
@@ -1289,7 +1463,11 @@ export default function App() {
           const dxPeg = ball.x - GOAL_POLE_POS.x; const dyPeg = ball.y - GOAL_POLE_POS.y; const distPeg = Math.sqrt(dxPeg * dxPeg + dyPeg * dyPeg); const minPegDist = ball.radius + GOAL_POLE_RADIUS;
           if (distPeg < minPegDist) {
             const nx = dxPeg / distPeg; const ny = dyPeg / distPeg; const velAlongNormal = ball.vx * nx + ball.vy * ny;
-            if (velAlongNormal < 0) { const j = -(1 + 0.5) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; playSound(SOUNDS.collision, 0.2); }
+            if (velAlongNormal < 0) { 
+              const j = -(1 + 0.5) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; 
+              playSound(SOUNDS.collision, 0.2); 
+              if (stateRefs.current.isRecording) impactsRef.current.push(traceRef.current[ball.id]?.length || 0);
+            }
             ball.x = GOAL_POLE_POS.x + nx * minPegDist; ball.y = GOAL_POLE_POS.y + ny * minPegDist;
           }
           GATES.forEach(gate => {
@@ -1304,7 +1482,11 @@ export default function App() {
               const dx = ball.x - post.x; const dy = ball.y - post.y; const dist = Math.sqrt(dx * dx + dy * dy); const minDist = ball.radius + 2;
               if (dist < minDist) {
                 const nx = dx / dist; const ny = dy / dist; const velAlongNormal = ball.vx * nx + ball.vy * ny;
-                if (velAlongNormal < 0) { const j = -(1 + 0.4) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; playSound(SOUNDS.collision, 0.2); }
+                if (velAlongNormal < 0) { 
+                  const j = -(1 + 0.4) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; 
+                  playSound(SOUNDS.collision, 0.2); 
+                  if (stateRefs.current.isRecording) impactsRef.current.push(traceRef.current[ball.id]?.length || 0);
+                }
                 ball.x = post.x + nx * minDist; ball.y = post.y + ny * minDist;
               }
             });
@@ -1335,6 +1517,7 @@ export default function App() {
                   b1.vx += j_impulse * nx; b1.vy += j_impulse * ny;
                   b2.vx -= j_impulse * nx; b2.vy -= j_impulse * ny;
                   playSound(SOUNDS.collision, 0.3);
+                  if (stateRefs.current.isRecording) impactsRef.current.push(traceRef.current[b1.id]?.length || 0);
                 }
                 const overlap = (2 * BALL_RADIUS) - dist;
                 const nx_pos = relX / dist; const ny_pos = relY / dist;
@@ -1350,6 +1533,14 @@ export default function App() {
       currentBalls.forEach(ball => { if (Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) { ball.vx = 0; ball.vy = 0; } });
 
       ballsRef.current = nextBalls;
+
+      if (stateRefs.current.isRecording) {
+        BALL_IDS.forEach(id => {
+          if (traceRef.current[id]) {
+            traceRef.current[id].push({ x: nextBalls[id].x, y: nextBalls[id].y });
+          }
+        });
+      }
 
       renderScene(nextBalls);
 
@@ -1369,7 +1560,7 @@ export default function App() {
 
   useEffect(() => {
     renderScene(balls);
-  }, [balls, angle, isPlaying, draggingItem, ghostBallEnabled, cleanFeed, activeBallId, placementMode, targetSpot, hoverPos, zoom, drawings, currentPath, ballSet, brightMode]);
+  }, [balls, angle, isPlaying, draggingItem, ghostBallEnabled, cleanFeed, activeBallId, placementMode, targetSpot, hoverPos, zoom, drawings, currentPath, ballSet]);
 
   return (
     <>
@@ -1389,7 +1580,7 @@ export default function App() {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 transition-all duration-500"
           style={{
             backgroundImage: 'url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2560&auto=format&fit=crop")',
-            filter: brightMode ? 'brightness(1.5)' : 'brightness(0.7)'
+            filter: 'brightness(0.7)'
           }}
         />
 
@@ -1409,30 +1600,30 @@ export default function App() {
         </AnimatePresence>
 
         {!cleanFeed && (
-          <aside className={`relative z-10 w-[240px] md:w-[320px] lg:w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-l p-3 md:p-5 overflow-y-auto custom-scrollbar shadow-[-8px_0_30px_rgba(0,0,0,0.5)] transition-colors duration-300 ${brightMode ? 'bg-[#666666]/95 border-[#888888]' : 'bg-zinc-900/90 border-zinc-700/50'}`}>
+          <aside className={`relative z-10 w-[240px] md:w-[320px] lg:w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-l p-3 md:p-5 overflow-y-auto custom-scrollbar shadow-[-8px_0_30px_rgba(0,0,0,0.5)] transition-colors duration-300 bg-zinc-900/90 border-zinc-700/50`}>
             <div className="shrink-0 flex items-center gap-2 md:gap-3 mb-4">
               <a href="/" title="Return to Croquet Studio" className="relative flex items-center justify-center w-6 h-6 md:w-8 md:h-8 hover:scale-110 transition-transform cursor-pointer"><div className="absolute top-[4px] left-[4px] md:top-[6px] md:left-[6px] w-3 h-3 md:w-4 md:h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md w-5 h-5 md:w-8 md:h-8" /></a>
               <div>
                 <p className="text-[10px] md:text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
                 <h1 className="text-lg md:text-xl font-bold tracking-tight text-zinc-100 leading-tight">Gateball<br className="md:hidden" /> Visualiser</h1>
-                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.81 (BETA)</p>
+                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.83 (BETA)</p>
               </div>
             </div>
 
             <div className="shrink-0 grid grid-cols-4 gap-1.5 md:gap-2 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-zinc-800/50">
-              <ToolButton
-                icon={<Eye size={14} className="md:w-[18px] md:h-[18px]" />}
-                active={!placementMode && !drawMode && !sparkMode}
-                label="AIM"
-                title="Use the Velocity and Aim wheels to direct your shot"
-                onClick={() => { setPlacementMode(false); setGhostBallEnabled(true); setTargetSpot(null); setDrawMode(false); }}
-              />
               <ToolButton
                 icon={<MousePointer2 size={14} className="md:w-[18px] md:h-[18px]" />}
                 active={placementMode && !drawMode && !sparkMode}
                 label="PLACE"
                 title="Click on a ball to highlight and click the crosshair on red spot"
                 onClick={() => { setPlacementMode(true); setGhostBallEnabled(false); setTargetSpot(null); setDrawMode(false); }}
+              />
+              <ToolButton
+                icon={<Eye size={14} className="md:w-[18px] md:h-[18px]" />}
+                active={!placementMode && !drawMode && !sparkMode}
+                label="AIM"
+                title="Use the Velocity and Aim wheels to direct your shot"
+                onClick={() => { setPlacementMode(false); setGhostBallEnabled(true); setTargetSpot(null); setDrawMode(false); }}
               />
               <ToolButton
                 icon={<Pencil size={14} className="md:w-[18px] md:h-[18px]" />}
@@ -1509,6 +1700,11 @@ export default function App() {
             </div>
 
             <div className="shrink-0 flex justify-center gap-2 md:gap-4 mb-4 pb-4 border-b border-zinc-800/50">
+              <button onClick={() => setFeatures(prev => ({ ...prev, recording: !prev.recording }))} className={`flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full transition-all border shadow-sm ${features.recording ? 'bg-emerald-900/40 border-emerald-500/50 text-emerald-400' : 'bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 border-zinc-800'}`} title="Toggle Sequence Record">
+                <Clapperboard size={14} />
+                <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">CAPTURE</span>
+              </button>
+
               <button onClick={() => setShowOptions(true)} className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full transition-all border shadow-sm bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 border-zinc-800" title="Studio Preferences">
                 <Settings size={14} />
                 <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Prefs</span>
@@ -1551,18 +1747,29 @@ export default function App() {
                       <button onClick={clearSequence} disabled={isPlaying || isReplaying} className="p-1.5 disabled:opacity-50 rounded border shadow-sm transition-colors bg-zinc-900/60 hover:bg-red-900/40 text-red-400 border-zinc-700/50"><Trash2 size={12} /></button>
                     </div>
                     <div className="flex gap-1 mt-1">
+                      <button onClick={handleUpdateFrame} disabled={isPlaying || isReplaying} className="flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50" title="Overwrite current frame with current ball layout">
+                        <Save size={10} className="text-blue-400" /> Update
+                      </button>
+                      <button onClick={handleInsertFrame} disabled={isPlaying || isReplaying} className="flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50" title="Insert new frame after this one">
+                        <Plus size={10} className="text-emerald-400" /> Insert
+                      </button>
+                      <button onClick={handleDeleteFrame} disabled={isPlaying || isReplaying || sequence.length <= 1} className="flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50" title="Delete current frame">
+                        <X size={10} className="text-red-400" /> Delete
+                      </button>
+                    </div>
+                    <div className="flex gap-1 mt-1">
                       <button onClick={isReplaying ? stopSequenceReplay : startSequenceReplay} disabled={sequence.length < 2 || isPlaying} className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1.5 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isReplaying ? 'bg-amber-900/40 text-amber-400 border-amber-500/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-500/50 hover:bg-emerald-800/60'} disabled:opacity-50`}>{isReplaying ? <><MonitorPlay size={10} /> Stop</> : <><Play size={10} /> Auto Play</>}</button>
                       <select value={replayDelay} onChange={(e) => setReplayDelay(Number(e.target.value))} disabled={isReplaying} className="w-[45px] text-[9px] font-bold text-center rounded border shadow-sm bg-zinc-950/60 text-emerald-400 border-zinc-800 outline-none cursor-pointer disabled:opacity-50"><option value={1}>1s</option><option value={2}>2s</option><option value={3}>3s</option></select>
                     </div>
-                    <div className="flex gap-1 pt-1 border-t border-zinc-800/50">
-                      <button onClick={exportSequence} disabled={isPlaying || isReplaying} className="flex-1 flex items-center justify-center gap-1 disabled:opacity-50 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50"><Save size={10} className="text-emerald-600" /> Export</button>
-                      <label className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isPlaying || isReplaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50`}>
-                        <FolderUp size={10} className="text-emerald-600" /> Import
-                        <input type="file" accept=".json" onChange={importSequence} disabled={isPlaying || isReplaying} className="hidden" />
-                      </label>
-                    </div>
                   </div>
                 )}
+                <div className="flex gap-1 pt-1 mt-1 border-t border-zinc-800/50">
+                  <button onClick={exportSequence} disabled={isPlaying || isReplaying || sequence.length === 0} className="flex-1 flex items-center justify-center gap-1 disabled:opacity-50 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50"><Save size={10} className="text-emerald-600" /> Export</button>
+                  <label className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isPlaying || isReplaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50`}>
+                    <FolderUp size={10} className="text-emerald-600" /> Import
+                    <input type="file" accept=".json" onChange={importSequence} disabled={isPlaying || isReplaying} className="hidden" />
+                  </label>
+                </div>
               </div>
             )}
 
@@ -1620,6 +1827,23 @@ export default function App() {
                     </div>
                   </motion.div>
                 )}
+                {sparkMode && !targetSpot && placementMode && !isReplaying && !cleanFeed && activeBallId && balls[activeBallId] && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, y: 5 }} 
+                    className="absolute z-[100] pointer-events-none" 
+                    style={{ 
+                      left: `${(balls[activeBallId].x / FIELD_WIDTH) * 100}%`, 
+                      top: `${(balls[activeBallId].y / FIELD_HEIGHT) * 100}%`, 
+                      transform: 'translate(-50%, -40px)'
+                    }}
+                  >
+                    <div className="px-3 py-1.5 rounded-full bg-zinc-950/90 backdrop-blur-sm text-emerald-400 text-[9px] md:text-[10px] font-bold tracking-wider uppercase border border-zinc-800 shadow-xl whitespace-nowrap">
+                      Click Spark Target
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </div>
           </div>
@@ -1641,18 +1865,10 @@ export default function App() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[150] backdrop-blur-md flex items-center justify-center p-4 bg-zinc-950/90">
               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="rounded-2xl w-full max-w-md shadow-2xl border backdrop-blur-xl bg-zinc-900 border-zinc-800">
                 <div className="p-6 border-b flex items-center justify-between sticky top-0 z-10 rounded-t-2xl bg-zinc-900 border-zinc-800">
-                  <h2 className="text-xl font-bold flex items-center gap-2 text-emerald-400"><Settings size={24} />Studio Options</h2>
-                  <button onClick={() => setShowOptions(false)} className="p-2 rounded-full transition-colors hover:bg-zinc-800 text-zinc-400 hover:text-white"><X size={20} /></button>
+                  <h2 className="text-xl font-bold flex items-center gap-2 text-emerald-400"><Settings size={24} />Visualiser Preferences</h2>
+                  <button onClick={() => setShowOptions(false)} className="px-4 py-1.5 rounded-lg font-bold uppercase tracking-widest text-[10px] transition-colors border shadow-sm bg-emerald-500/20 text-emerald-400 border-emerald-500/50 hover:bg-emerald-500 hover:text-zinc-950">Accept</button>
                 </div>
                 <div className="p-6 space-y-3">
-                  <div className="flex items-center justify-between p-4 rounded-xl border shadow-sm bg-zinc-950 border-zinc-800">
-                    <div className="flex items-center gap-3 font-bold text-sm uppercase tracking-wider text-zinc-300"><Sun size={16} /> {brightMode ? 'Normal Mode' : 'Bright Mode'}</div>
-                    <button onClick={() => setBrightMode(!brightMode)} className={`w-12 h-6 rounded-full relative transition-colors shadow-inner border ${brightMode ? 'bg-emerald-500 border-emerald-600' : 'bg-zinc-700 border-zinc-900'}`}><div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${brightMode ? 'left-7' : 'left-1'}`} /></button>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-xl border shadow-sm bg-zinc-950 border-zinc-800">
-                    <div className="flex items-center gap-3 font-bold text-sm uppercase tracking-wider text-zinc-300"><Save size={16} /> File Prefix</div>
-                    <input type="text" value={filenamePrefix} onChange={(e) => setFilenamePrefix(e.target.value)} className="text-xs font-bold px-3 py-1.5 rounded outline-none focus:ring-1 focus:ring-emerald-500 w-32 text-right select-auto border shadow-inner bg-zinc-900 border-zinc-700 text-zinc-300" style={{ WebkitTouchCallout: 'default', WebkitUserSelect: 'auto', userSelect: 'auto' }} placeholder="sequence" />
-                  </div>
                   <div className="flex items-center justify-between p-4 rounded-xl border shadow-sm bg-zinc-950 border-zinc-800">
                     <div className="flex items-center gap-3 font-bold text-sm uppercase tracking-wider text-zinc-300"><MonitorPlay size={16} /> Freeze Frame Mode</div>
                     <button onClick={() => { setCleanFeed(true); setShowOptions(false); }} className="px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-widest border transition-colors shadow-sm bg-emerald-900/40 text-emerald-400 border-emerald-500/50 hover:bg-emerald-800/60">Activate</button>

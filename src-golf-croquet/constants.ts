@@ -19,6 +19,7 @@ export interface RecordedShot {
   speed: number; 
   positions: { blue: Ball; red: Ball; yellow: Ball; black: Ball; }; 
   trace?: { blue: Point, red: Point, yellow: Point, black: Point }[];
+  isAutoEnd?: boolean;
 }
 
 // --- Court Dimensions & Scaling ---

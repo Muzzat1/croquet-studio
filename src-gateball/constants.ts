@@ -24,10 +24,15 @@ export interface RecordedShot {
   speed: number; 
   positions: Record<BallId, Ball>; 
   trace?: Record<BallId, Point[]>;
+  impacts?: number[];
+  isAutoEnd?: boolean;
+  isSparkShot?: boolean;
+  sparkTargetId?: BallId;
 }
 
 // --- Court Dimensions & Scaling ---
-export const BALL_RADIUS = 6;
+export const BALL_RADIUS = 1.5;
+export const DISPLAY_RADIUS = 6;
 export const SCALE = 35; // Adjusted scale for 20x15 field
 export const EDGING = 1.5 * SCALE;
 export const FIELD_WIDTH = 20 * SCALE + 2 * EDGING; // 20 meters
@@ -36,7 +41,7 @@ export const ZOOM_LEVELS = [1, 1.5, 2.5];
 
 // --- Reset Positions ---
 export const RESET_Y = EDGING / 2;
-export const SPACING = BALL_RADIUS * 4.5;
+export const SPACING = DISPLAY_RADIUS * 4.5;
 
 export const BALL_IDS: BallId[] = ['r1', 'w2', 'r3', 'w4', 'r5', 'w6', 'r7', 'w8', 'r9', 'w10'];
 

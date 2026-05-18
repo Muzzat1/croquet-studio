@@ -192,15 +192,16 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Hand, Sun, Minus } from 'lucide-react';
+import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Hand, Sun, Minus, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Point { x: number; y: number; }
 type Path = { points: Point[], color: string, type: 'freehand' | 'straight' };
 interface Ball { x: number; y: number; vx: number; vy: number; radius: number; color: string; id: 'blue' | 'red' | 'yellow' | 'black'; }
-interface RecordedShot { id: number; activeBallId: 'blue' | 'red' | 'yellow' | 'black'; angle: number; speed: number; positions: { blue: Ball; red: Ball; yellow: Ball; black: Ball; }; }
+interface RecordedShot { id: number; activeBallId: 'blue' | 'red' | 'yellow' | 'black'; angle: number; speed: number; positions: { blue: Ball; red: Ball; yellow: Ball; black: Ball; }; trace?: Record<'blue' | 'red' | 'yellow' | 'black', Point[]>; impacts?: number[]; isAutoEnd?: boolean; }
 
-const BALL_RADIUS = 6;
+const BALL_RADIUS = 1.5;
+const DISPLAY_RADIUS = 6;
 const SCALE = 22;
 const EDGING = 1.5 * SCALE;
 
@@ -212,7 +213,7 @@ const ZOOM_LEVELS = [1, 1.5, 2.5];
 // Perfectly aligned Reset Positions based on left edging center
 const RESET_X = EDGING / 2;
 const BOTTOM_CORNER_Y = FIELD_HEIGHT - EDGING;
-const SPACING = BALL_RADIUS * 4.5;
+const SPACING = DISPLAY_RADIUS * 4.5;
 
 const INITIAL_YELLOW_POS = { x: RESET_X, y: BOTTOM_CORNER_Y - SPACING * 4 };
 const INITIAL_BLACK_POS = { x: RESET_X, y: BOTTOM_CORNER_Y - SPACING * 3 };
@@ -269,7 +270,7 @@ export const HelpScreen = ({ onClose }: { onClose: () => void }) => {
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Golf Croquet Visualiser</h2>
             <div className="text-xs font-bold tracking-wide text-zinc-400 mt-1 ml-[40px]">
-              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.81 (BETA)
+              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.83 (BETA)
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-full transition-colors hover:bg-zinc-800 text-zinc-400 hover:text-white"><X size={20} /></button>
@@ -479,14 +480,12 @@ export default function App() {
   };
 
   const [showMobilePrompt, setShowMobilePrompt] = useState(false);
-  const [brightMode, setBrightMode] = useState(false);
 
   const [showOptions, setShowOptions] = useState(false); const [ballSet, setBallSet] = useState<'primary' | 'secondary'>('primary');
   const [features, setFeatures] = useState({ recording: false, draw: false, zoom: false });
-  const [filenamePrefix, setFilenamePrefix] = useState("sequence");
   const [zoom, setZoom] = useState(1); const lastPanRef = useRef({ x: 0, y: 0, scrollL: 0, scrollT: 0 });
   const [angle, setAngle] = useState(315); const [speed, setSpeed] = useState(100);
-  const [placementMode, setPlacementMode] = useState(false); const [drawMode, setDrawMode] = useState(false);
+  const [placementMode, setPlacementMode] = useState(true); const [drawMode, setDrawMode] = useState(false);
 
   const [drawWarning, setDrawWarning] = useState(false);
 
@@ -495,7 +494,7 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeBallId, setActiveBallId] = useState<'blue' | 'red' | 'yellow' | 'black' | null>(null);
   const [showInstruction, setShowInstruction] = useState(true);
-  const [ghostBallEnabled, setGhostBallEnabled] = useState(true);
+  const [ghostBallEnabled, setGhostBallEnabled] = useState(false);
   const [draggingItem, setDraggingItem] = useState<'blue' | 'red' | 'yellow' | 'black' | 'ghost' | 'pan' | 'draw' | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showHelp, setShowHelp] = useState(false); const [cleanFeed, setCleanFeed] = useState(false);
@@ -517,7 +516,10 @@ export default function App() {
 
   const [history, setHistory] = useState<{ blue: Ball, red: Ball, y: Ball, b: Ball }[]>([]);
   const saveStateRef = useRef<{ blue: Ball, red: Ball, y: Ball, b: Ball } | null>(null);
+  const ballsRef = useRef<{ blue: Ball, red: Ball, y: Ball, b: Ball } | null>(null);
   const touchingPairsRef = useRef<string[]>([]);
+  const tracesRef = useRef<Record<'blue' | 'red' | 'yellow' | 'black', Point[]>>({ blue: [], red: [], yellow: [], black: [] });
+  const impactsRef = useRef<number[]>([]);
 
   const [blue, setBlue] = useState<Ball>({ ...INITIAL_BLUE_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS.primary.blue.hex, id: 'blue' });
   const [red, setRed] = useState<Ball>({ ...INITIAL_RED_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS.primary.red.hex, id: 'red' });
@@ -531,6 +533,7 @@ export default function App() {
   const blueRef = useRef<Ball>(blue); const redRef = useRef<Ball>(red); const yellowRef = useRef<Ball>(yellow); const blackRef = useRef<Ball>(black);
 
   useEffect(() => {
+    ballsRef.current = { blue, red, y: yellow, b: black };
     if (!isPlaying) {
       blueRef.current = blue;
       redRef.current = red;
@@ -568,7 +571,41 @@ export default function App() {
   };
 
   const wasPlayingRef = useRef(isPlaying);
-  useEffect(() => { if (wasPlayingRef.current && !isPlaying && stateRefs.current.isRecording) handleCaptureFrame(); wasPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { 
+    if (wasPlayingRef.current && !isPlaying && stateRefs.current.isRecording) {
+      const positionsCopy = { blue: { ...blueRef.current, vx: 0, vy: 0 }, red: { ...redRef.current, vx: 0, vy: 0 }, yellow: { ...yellowRef.current, vx: 0, vy: 0 }, black: { ...blackRef.current, vx: 0, vy: 0 } };
+        
+      const finalTraces = {} as Record<'blue' | 'red' | 'yellow' | 'black', Point[]>;
+      (['blue', 'red', 'yellow', 'black'] as const).forEach(id => { 
+          finalTraces[id] = [...(tracesRef.current[id] || [])]; 
+          if (finalTraces[id].length > 0) {
+              const lastPoint = finalTraces[id][finalTraces[id].length - 1];
+              if (lastPoint.x !== positionsCopy[id].x || lastPoint.y !== positionsCopy[id].y) {
+                  finalTraces[id].push({ x: positionsCopy[id].x, y: positionsCopy[id].y });
+              }
+          }
+      });
+      
+      const currentImpacts = [...impactsRef.current];
+
+      setSequence(prev => {
+        const newSeq = [...prev, { 
+            id: Date.now() + Math.random(), 
+            activeBallId: stateRefs.current.activeBallId || 'blue', 
+            angle: stateRefs.current.angle, 
+            speed: stateRefs.current.speed, 
+            positions: positionsCopy, 
+            trace: finalTraces, 
+            impacts: currentImpacts,
+            isAutoEnd: true 
+        }];
+        setCurrentShotIndex(newSeq.length - 1); 
+        return newSeq;
+      });
+      impactsRef.current = [];
+    }
+    wasPlayingRef.current = isPlaying; 
+  }, [isPlaying]);
 
   useEffect(() => {
     if (placementMode && targetSpot && activeBallId && !isPlaying) {
@@ -586,15 +623,17 @@ export default function App() {
     if (history.length === 0 || isPlaying || isReplaying) return;
     const lastState = history[history.length - 1];
     setBlue(lastState.blue); setRed(lastState.red); setYellow(lastState.y); setBlack(lastState.b);
-    setHistory(prev => prev.slice(0, -1)); setTargetSpot(null); setPlacementMode(false);
+    setHistory(prev => prev.slice(0, -1)); setTargetSpot(null); setPlacementMode(true); setGhostBallEnabled(false);
     setDrawMode(false);
     setDrawWarning(false);
   };
 
   const resetPositions = useCallback(() => {
     if (isReplaying) return;
-    setIsPlaying(false); setShowInstruction(true); setActiveBallId(null); setTargetSpot(null); setDrawings([]); setZoom(1); setPlacementMode(false); setHistory([]);
+    setIsPlaying(false); setShowInstruction(true); setActiveBallId(null); setTargetSpot(null); setDrawings([]); setZoom(1); setPlacementMode(true); setHistory([]);
     setDrawMode(false); setDrawWarning(false);
+    setSequence([]); setCurrentShotIndex(0);
+    setGhostBallEnabled(false);
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     setBlue({ ...INITIAL_BLUE_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS[ballSet].blue.hex, id: 'blue' });
     setRed({ ...INITIAL_RED_POS, vx: 0, vy: 0, radius: BALL_RADIUS, color: BALL_SETS[ballSet].red.hex, id: 'red' });
@@ -607,6 +646,51 @@ export default function App() {
     return new Promise<void>((resolve) => {
       const startState = { blue: { ...blueRef.current }, red: { ...redRef.current }, y: { ...yellowRef.current }, b: { ...blackRef.current } };
       const endState = sequenceRef.current[targetIndex].positions;
+      const frameTrace = sequenceRef.current[targetIndex].trace;
+      if (frameTrace && Object.keys(frameTrace).length > 0) {
+        let maxLength = 0;
+        Object.values(frameTrace).forEach((arr) => { if (arr.length > maxLength) maxLength = arr.length; });
+        if (maxLength > 0) {
+          let currentStep = 0;
+          const step = () => {
+            if (!replayRef.current.active && replayRef.current.isAutoReplaying) { resolve(); return; }
+            
+            const getBallPos = (id: 'blue' | 'red' | 'yellow' | 'black', start: Ball) => {
+              const traceArr = frameTrace[id];
+              if (traceArr && traceArr.length > 0) {
+                const pt = traceArr[Math.min(currentStep, traceArr.length - 1)];
+                return { ...start, x: pt.x, y: pt.y };
+              }
+              return { ...start };
+            };
+
+            const nextS = getBallPos('blue', startState.blue);
+            const nextT = getBallPos('red', startState.red);
+            const nextY = getBallPos('yellow', startState.y);
+            const nextB = getBallPos('black', startState.b);
+
+            blueRef.current = nextS; redRef.current = nextT; yellowRef.current = nextY; blackRef.current = nextB;
+            setBlue(nextS); setRed(nextT); setYellow(nextY); setBlack(nextB);
+
+            if (sequenceRef.current[targetIndex].impacts?.includes(currentStep)) {
+              playSound(SOUNDS.collision, 0.3);
+            }
+
+            currentStep += 1;
+            if (currentStep < maxLength) {
+              replayRef.current.animId = requestAnimationFrame(step);
+            } else {
+              setCurrentShotIndex(targetIndex);
+              setActiveBallId(sequenceRef.current[targetIndex].activeBallId);
+              setAngle(sequenceRef.current[targetIndex].angle);
+              setSpeed(sequenceRef.current[targetIndex].speed);
+              resolve();
+            }
+          };
+          replayRef.current.animId = requestAnimationFrame(step);
+          return;
+        }
+      }
 
       // Calculate the maximum distance any ball travels to make the speed proportional and realistic
       const distS = Math.sqrt((endState.blue.x - startState.blue.x) ** 2 + (endState.blue.y - startState.blue.y) ** 2);
@@ -629,8 +713,7 @@ export default function App() {
         let progress = elapsed / duration;
         if (progress > 1) progress = 1;
 
-        const ease = 1 - Math.pow(1 - progress, 3);
-        const lerp = (start: number, end: number) => start + (end - start) * ease;
+        const lerp = (start: number, end: number) => start + (end - start) * progress;
 
         const nextS = { ...startState.blue, x: lerp(startState.blue.x, endState.blue.x), y: lerp(startState.blue.y, endState.blue.y) };
         const nextT = { ...startState.red, x: lerp(startState.red.x, endState.red.x), y: lerp(startState.red.y, endState.red.y) };
@@ -638,15 +721,11 @@ export default function App() {
         const nextB = { ...startState.b, x: lerp(startState.b.x, endState.black.x), y: lerp(startState.b.y, endState.black.y) };
 
         blueRef.current = nextS; redRef.current = nextT; yellowRef.current = nextY; blackRef.current = nextB;
-        renderScene(nextS, nextT, nextY, nextB);
+        setBlue(nextS); setRed(nextT); setYellow(nextY); setBlack(nextB);
 
         if (progress < 1) {
           replayRef.current.animId = requestAnimationFrame(step);
         } else {
-          setBlue({ ...nextS, color: BALL_SETS[ballSet].blue.hex });
-          setRed({ ...nextT, color: BALL_SETS[ballSet].red.hex });
-          setYellow({ ...nextY, color: BALL_SETS[ballSet].yellow.hex });
-          setBlack({ ...nextB, color: BALL_SETS[ballSet].black.hex });
           setCurrentShotIndex(targetIndex);
           setActiveBallId(sequenceRef.current[targetIndex].activeBallId);
           setAngle(sequenceRef.current[targetIndex].angle);
@@ -703,19 +782,90 @@ export default function App() {
     cancelAnimationFrame(replayRef.current.animId);
   };
 
-  const clearSequence = () => { if (isReplaying) return; setSequence([]); setCurrentShotIndex(0); setDrawings([]); };
-
-  const exportSequence = () => {
-    const d = new Date();
-    const timestamp = `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}`;
-    const safePrefix = filenamePrefix.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'sequence';
-    const filename = `${safePrefix}_${timestamp}.json`;
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sequence));
-    const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", filename); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove();
+  const handleUpdateFrame = () => {
+    if (isReplaying) return;
+    setSequence(prev => {
+      const newSeq = [...prev];
+      if (newSeq.length > currentShotIndex) {
+        newSeq[currentShotIndex] = {
+          ...newSeq[currentShotIndex],
+          positions: JSON.parse(JSON.stringify(ballsRef.current)),
+          activeBallId: activeBallId || newSeq[currentShotIndex].activeBallId,
+          angle,
+          speed
+        };
+      }
+      return newSeq;
+    });
   };
 
-  const importSequence = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const loaded = JSON.parse(event.target?.result as string); if (Array.isArray(loaded)) { const migrated = loaded.map(f => { if(f.positions.striker) { f.positions.blue = f.positions.striker; f.positions.red = f.positions.target; delete f.positions.striker; delete f.positions.target; } if(f.activeBallId === 'striker') f.activeBallId = 'blue'; if(f.activeBallId === 'target') f.activeBallId = 'red'; return f; }); setSequence(migrated); setCurrentShotIndex(0); setIsRecording(false); setDrawings([]); setHistory([]); } } catch (err) { console.error("Failed to load sequence"); } }; reader.readAsText(file); };
+  const handleInsertFrame = () => {
+    if (isReplaying) return;
+    setSequence(prev => {
+      const newSeq = [...prev];
+      const newFrame = {
+        id: Date.now(),
+        positions: JSON.parse(JSON.stringify(ballsRef.current)),
+        activeBallId: activeBallId || 'blue',
+        angle,
+        speed,
+        impacts: []
+      };
+      newSeq.splice(currentShotIndex + 1, 0, newFrame);
+      return newSeq;
+    });
+    setCurrentShotIndex(prev => prev + 1);
+  };
+
+  const handleDeleteFrame = () => {
+    if (isReplaying || sequence.length === 0) return;
+    setSequence(prev => {
+      const newSeq = [...prev];
+      if (newSeq.length > 0 && currentShotIndex >= 0 && currentShotIndex < newSeq.length) {
+        newSeq.splice(currentShotIndex, 1);
+      }
+      return newSeq;
+    });
+    if (currentShotIndex >= sequence.length - 1) {
+      setCurrentShotIndex(Math.max(0, sequence.length - 2));
+    }
+  };
+
+  const clearSequence = () => { if (isReplaying) return; setSequence([]); setCurrentShotIndex(0); setDrawings([]); };
+
+  const exportSequence = async () => {
+    const d = new Date();
+    const timestamp = `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}_${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}`;
+    const filename = `sequence_${timestamp}.json`;
+    const jsonStr = JSON.stringify(sequence);
+
+    if ('showSaveFilePicker' in window) {
+      try {
+        // @ts-ignore
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(jsonStr);
+        await writable.close();
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        console.error('Save failed, falling back to standard download:', err);
+      }
+    }
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
+    const downloadAnchorNode = document.createElement('a'); 
+    downloadAnchorNode.setAttribute("href", dataStr); 
+    downloadAnchorNode.setAttribute("download", filename); 
+    document.body.appendChild(downloadAnchorNode); 
+    downloadAnchorNode.click(); 
+    downloadAnchorNode.remove();
+  };
+
+  const importSequence = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const loaded = JSON.parse(event.target?.result as string); if (Array.isArray(loaded)) { setSequence(loaded); setCurrentShotIndex(0); setIsRecording(false); setDrawings([]); setHistory([]); } } catch (err) { console.error("Failed to load sequence"); } }; reader.readAsText(file); };
 
   const playShot = () => {
     if (isPlaying || isReplaying || !activeBallId) return; const activeBall = activeBallId === 'blue' ? blue : activeBallId === 'red' ? red : activeBallId === 'yellow' ? yellow : black;
@@ -735,7 +885,26 @@ export default function App() {
     }
     touchingPairsRef.current = pairs;
 
-    if (isRecording) handleCaptureFrame();
+    if (isRecording && sequence.length === 0) {
+      setSequence([{
+        id: Date.now(),
+        positions: { blue: { ...blue, vx: 0, vy: 0 }, red: { ...red, vx: 0, vy: 0 }, yellow: { ...yellow, vx: 0, vy: 0 }, black: { ...black, vx: 0, vy: 0 } },
+        activeBallId: activeBallId || 'blue',
+        angle,
+        speed
+      }]);
+      setCurrentShotIndex(0);
+    }
+
+    if (isRecording) impactsRef.current = [];
+    tracesRef.current = {
+      blue: [{ x: blue.x, y: blue.y }],
+      red: [{ x: red.x, y: red.y }],
+      yellow: [{ x: yellow.x, y: yellow.y }],
+      black: [{ x: black.x, y: black.y }]
+    };
+
+    // Removed redundant start-of-shot capture to only record 1 frame per shot.
     playSound(SOUNDS.mallet, 0.6);
     const rad = (angle * Math.PI) / 180; const decel = 0.06; const distance = (speed / 100) * 35 * SCALE; const initialSpeed = Math.sqrt(2 * decel * distance);
     const vx = Math.sin(rad) * initialSpeed; const vy = -Math.cos(rad) * initialSpeed;
@@ -861,7 +1030,7 @@ export default function App() {
         const ghostX = activeBall.x + firstImpact.t * dx;
         const ghostY = activeBall.y + firstImpact.t * dy;
         const distGhost = Math.sqrt((x - ghostX) ** 2 + (y - ghostY) ** 2);
-        if (distGhost < BALL_RADIUS * 4) {
+        if (distGhost < DISPLAY_RADIUS * 4) {
           setDraggingItem('ghost');
           hitSomething = true;
         }
@@ -935,7 +1104,7 @@ export default function App() {
         if (dist < minDist) { minDist = dist; closestBall = b; }
       }
 
-      if (closestBall && minDist < BALL_RADIUS * 8) {
+      if (closestBall && minDist < DISPLAY_RADIUS * 8) {
         const bdx = x - closestBall.x; const bdy = y - closestBall.y; const bdist = Math.sqrt(bdx * bdx + bdy * bdy);
         if (bdist > 0) {
           const ghostX = closestBall.x + (bdx / bdist) * 2 * BALL_RADIUS;
@@ -953,7 +1122,19 @@ export default function App() {
   const handleMouseUp = () => {
     if (draggingItem && draggingItem !== 'pan' && draggingItem !== 'draw' && saveStateRef.current) {
       const moved = blue.x !== saveStateRef.current.blue.x || blue.y !== saveStateRef.current.blue.y || red.x !== saveStateRef.current.red.x || red.y !== saveStateRef.current.red.y || yellow.x !== saveStateRef.current.y.x || yellow.y !== saveStateRef.current.y.y || black.x !== saveStateRef.current.b.x || black.y !== saveStateRef.current.b.y;
-      if (moved) setHistory(prev => [...prev, saveStateRef.current!]);
+      if (moved) {
+        setHistory(prev => [...prev, saveStateRef.current!]);
+        if (features.recording && sequence.length > 0 && currentShotIndex >= 0 && currentShotIndex < sequence.length) {
+          setSequence(prevSeq => {
+            const newSeq = [...prevSeq];
+            newSeq[currentShotIndex] = {
+              ...newSeq[currentShotIndex],
+              positions: { blue: { ...blue }, red: { ...red }, yellow: { ...yellow }, black: { ...black } }
+            };
+            return newSeq;
+          });
+        }
+      }
     }
     if (draggingItem === 'draw' && currentPath) { setDrawings(prev => [...prev, currentPath]); setCurrentPath(null); }
     setDraggingItem(null);
@@ -1070,7 +1251,7 @@ HOOPS.forEach(hoop => {
   const drawBall = (ctx: CanvasRenderingContext2D, ball: Ball, shadow = false, isActive = false) => {
     ctx.save();
     const isDocked = isBallDocked(ball);
-    const displayRadius = isDocked ? ball.radius * 1.5 : ball.radius;
+    const displayRadius = isDocked ? DISPLAY_RADIUS * 1.5 : DISPLAY_RADIUS;
 
     if (isActive && !shadow && !cleanFeed) {
       ctx.beginPath(); ctx.arc(ball.x, ball.y, displayRadius + (isDocked ? 6 : 5), 0, Math.PI * 2);
@@ -1085,7 +1266,7 @@ HOOPS.forEach(hoop => {
   };
 
   const drawPrediction = (ctx: CanvasRenderingContext2D) => {
-    if (isPlaying || draggingItem || !activeBallId || cleanFeed || !ghostBallEnabled) return;
+    if (isPlaying || isReplaying || draggingItem || !activeBallId || cleanFeed || !ghostBallEnabled || placementMode) return;
     const rad = (angle * Math.PI) / 180; const dx = Math.sin(rad); const dy = -Math.cos(rad);
     let activeBall: Ball | null = null;
     if (activeBallId === 'blue') activeBall = blue;
@@ -1140,7 +1321,36 @@ HOOPS.forEach(hoop => {
 
   const renderScene = (s: Ball, t: Ball, y: Ball, b: Ball) => {
     const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.clearRect(0, 0, FIELD_WIDTH, FIELD_HEIGHT); drawField(ctx);
+
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    let canvasW, canvasH;
+
+    if (zoom !== 1) {
+      canvasW = FIELD_WIDTH * zoom * dpr;
+      canvasH = FIELD_HEIGHT * zoom * dpr;
+    } else {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const safeW = viewportDims.w - (isMobile ? 8 : 16);
+      const safeH = viewportDims.h - (isMobile ? 40 : 60);
+      const ratio = FIELD_WIDTH / FIELD_HEIGHT;
+      let targetW = safeW; let targetH = targetW / ratio;
+      if (targetH > safeH) { targetH = safeH; targetW = targetH * ratio; }
+      canvasW = targetW * dpr;
+      canvasH = targetH * dpr;
+    }
+
+    if (canvasW <= 0 || isNaN(canvasW)) canvasW = FIELD_WIDTH * dpr;
+    if (canvasH <= 0 || isNaN(canvasH)) canvasH = FIELD_HEIGHT * dpr;
+
+    if (canvas.width !== Math.round(canvasW)) canvas.width = Math.round(canvasW);
+    if (canvas.height !== Math.round(canvasH)) canvas.height = Math.round(canvasH);
+
+    ctx.resetTransform();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.scale(canvas.width / FIELD_WIDTH, canvas.height / FIELD_HEIGHT);
+
+    drawField(ctx);
 
     if (placementMode && !cleanFeed && activeBallId && hoverPos && !targetSpot) {
       const activeBall = activeBallId === 'blue' ? s : activeBallId === 'red' ? t : activeBallId === 'yellow' ? y : b;
@@ -1199,7 +1409,11 @@ HOOPS.forEach(hoop => {
           const dxPeg = ball.x - PEG_POS.x; const dyPeg = ball.y - PEG_POS.y; const distPeg = Math.sqrt(dxPeg * dxPeg + dyPeg * dyPeg); const minPegDist = ball.radius + PEG_RADIUS;
           if (distPeg < minPegDist) {
             const nx = dxPeg / distPeg; const ny = dyPeg / distPeg; const velAlongNormal = ball.vx * nx + ball.vy * ny;
-            if (velAlongNormal < 0) { const j = -(1 + 0.5) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; playSound(SOUNDS.collision, 0.2); }
+            if (velAlongNormal < 0) { 
+              const j = -(1 + 0.5) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; 
+              playSound(SOUNDS.collision, 0.2); 
+              if (stateRefs.current.isRecording) impactsRef.current.push(tracesRef.current.blue?.length || 0);
+            }
             ball.x = PEG_POS.x + nx * minPegDist; ball.y = PEG_POS.y + ny * minPegDist;
           }
           HOOPS.forEach(hoop => {
@@ -1208,7 +1422,11 @@ HOOPS.forEach(hoop => {
               const dx = ball.x - post.x; const dy = ball.y - post.y; const dist = Math.sqrt(dx * dx + dy * dy); const minDist = ball.radius + 2;
               if (dist < minDist) {
                 const nx = dx / dist; const ny = dy / dist; const velAlongNormal = ball.vx * nx + ball.vy * ny;
-                if (velAlongNormal < 0) { const j = -(1 + 0.4) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; playSound(SOUNDS.collision, 0.2); }
+                if (velAlongNormal < 0) { 
+                  const j = -(1 + 0.4) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; 
+                  playSound(SOUNDS.collision, 0.2); 
+                  if (stateRefs.current.isRecording) impactsRef.current.push(tracesRef.current.blue?.length || 0);
+                }
                 ball.x = post.x + nx * minDist; ball.y = post.y + ny * minDist;
               }
             });
@@ -1231,8 +1449,6 @@ HOOPS.forEach(hoop => {
                   const pairStr2 = `${b2.id}-${b1.id}`;
                   let restitution = 0.92;
                   if (touchingPairsRef.current.includes(pairStr1) || touchingPairsRef.current.includes(pairStr2)) {
-                    // Due to deceleration physics, a 0.333 restitution gives a 1:2 speed ratio, 
-                    // which resulting in a 1:4 (25%) sliding distance ratio, ensuring it travels at least 20%
                     restitution = 0.3333; 
                     touchingPairsRef.current = touchingPairsRef.current.filter(p => p !== pairStr1 && p !== pairStr2);
                   }
@@ -1241,6 +1457,7 @@ HOOPS.forEach(hoop => {
                   b1.vx += j_impulse * nx; b1.vy += j_impulse * ny;
                   b2.vx -= j_impulse * nx; b2.vy -= j_impulse * ny;
                   playSound(SOUNDS.collision, 0.3);
+                  if (stateRefs.current.isRecording) impactsRef.current.push(tracesRef.current.blue?.length || 0);
                 }
                 const overlap = (2 * BALL_RADIUS) - dist;
                 const nx_pos = relX / dist; const ny_pos = relY / dist;
@@ -1256,6 +1473,13 @@ HOOPS.forEach(hoop => {
       balls.forEach(ball => { if (Math.abs(ball.vx) < 0.05 && Math.abs(ball.vy) < 0.05) { ball.vx = 0; ball.vy = 0; } });
 
       blueRef.current = nextS; redRef.current = nextT; yellowRef.current = nextY; blackRef.current = nextB;
+
+      if (frameCount % 2 === 0) {
+        if (tracesRef.current.blue) tracesRef.current.blue.push({ x: nextS.x, y: nextS.y });
+        if (tracesRef.current.red) tracesRef.current.red.push({ x: nextT.x, y: nextT.y });
+        if (tracesRef.current.yellow) tracesRef.current.yellow.push({ x: nextY.x, y: nextY.y });
+        if (tracesRef.current.black) tracesRef.current.black.push({ x: nextB.x, y: nextB.y });
+      }
 
       renderScene(nextS, nextT, nextY, nextB);
 
@@ -1275,7 +1499,7 @@ HOOPS.forEach(hoop => {
 
   useEffect(() => {
     renderScene(blue, red, yellow, black);
-  }, [blue, red, yellow, black, angle, isPlaying, draggingItem, ghostBallEnabled, cleanFeed, activeBallId, placementMode, targetSpot, hoverPos, zoom, drawings, currentPath, ballSet, brightMode]);
+  }, [blue, red, yellow, black, angle, isPlaying, draggingItem, ghostBallEnabled, cleanFeed, activeBallId, placementMode, targetSpot, hoverPos, zoom, drawings, currentPath, ballSet, viewportDims]);
 
   return (
     <>
@@ -1304,7 +1528,7 @@ HOOPS.forEach(hoop => {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 transition-all duration-500"
           style={{
             backgroundImage: 'url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2560&auto=format&fit=crop")',
-            filter: brightMode ? 'brightness(1.5)' : 'brightness(0.7)'
+            filter: 'brightness(0.7)'
           }}
         />
 
@@ -1327,30 +1551,17 @@ HOOPS.forEach(hoop => {
         </AnimatePresence>
 
         {!cleanFeed && (
-          <aside className={`relative z-10 w-[240px] md:w-[320px] lg:w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-r p-3 md:p-5 overflow-y-auto custom-scrollbar shadow-[8px_0_30px_rgba(0,0,0,0.5)] transition-colors duration-300 ${brightMode ? 'bg-[#666666]/95 border-[#888888]' : 'bg-zinc-900/90 border-zinc-700/50'}`}>
+          <aside className="relative z-10 w-[240px] md:w-[320px] lg:w-[360px] h-full flex flex-col shrink-0 backdrop-blur-xl border-r p-3 md:p-5 overflow-y-auto custom-scrollbar shadow-[8px_0_30px_rgba(0,0,0,0.5)] transition-colors duration-300 bg-zinc-900/90 border-zinc-700/50">
             <div className="shrink-0 flex items-center gap-2 md:gap-3 mb-4">
               <a href="/" title="Return to Croquet Studio" className="relative flex items-center justify-center w-6 h-6 md:w-8 md:h-8 hover:scale-110 transition-transform cursor-pointer"><div className="absolute top-[4px] left-[4px] md:top-[6px] md:left-[6px] w-3 h-3 md:w-4 md:h-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#60a5fa,#1e3a8a)] shadow-inner z-0" /><Search className="text-emerald-500 relative z-10 drop-shadow-md w-5 h-5 md:w-8 md:h-8" /></a>
               <div>
                 <p className="text-[10px] md:text-xs text-emerald-500 -mb-1 ml-0.5" style={{ fontFamily: '"Brush Script MT", cursive' }}>Murray Tinker's</p>
                 <h1 className="text-lg md:text-xl font-bold tracking-tight text-zinc-100 leading-tight">Golf Croquet<br className="md:hidden" /> Visualiser</h1>
-                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.81 (BETA)</p>
+                <p className="hidden md:block text-[9px] uppercase tracking-widest mt-0.5 font-bold text-zinc-400">Version 0.83 (BETA)</p>
               </div>
             </div>
 
             <div className="shrink-0 grid grid-cols-4 gap-1.5 md:gap-2 mb-3 md:mb-4 pb-3 md:pb-4 border-b border-zinc-800/50">
-              <ToolButton
-                icon={<Eye size={14} className="md:w-[18px] md:h-[18px]" />}
-                active={!placementMode && !drawMode}
-                label="AIM"
-                title="Use the Velocity and Aim wheels to direct your shot"
-                onClick={() => {
-                  setPlacementMode(false);
-                  setGhostBallEnabled(true);
-                  setTargetSpot(null);
-                  setDrawMode(false);
-                  setDrawWarning(false);
-                }}
-              />
               <ToolButton
                 icon={<MousePointer2 size={14} className="md:w-[18px] md:h-[18px]" />}
                 active={placementMode && !drawMode}
@@ -1359,6 +1570,19 @@ HOOPS.forEach(hoop => {
                 onClick={() => {
                   setPlacementMode(true);
                   setGhostBallEnabled(false);
+                  setTargetSpot(null);
+                  setDrawMode(false);
+                  setDrawWarning(false);
+                }}
+              />
+              <ToolButton
+                icon={<Eye size={14} className="md:w-[18px] md:h-[18px]" />}
+                active={!placementMode && !drawMode}
+                label="AIM"
+                title="Use the Velocity and Aim wheels to direct your shot"
+                onClick={() => {
+                  setPlacementMode(false);
+                  setGhostBallEnabled(true);
                   setTargetSpot(null);
                   setDrawMode(false);
                   setDrawWarning(false);
@@ -1433,6 +1657,11 @@ HOOPS.forEach(hoop => {
             </div>
 
             <div className="shrink-0 flex justify-center gap-2 md:gap-4 mb-4 pb-4 border-b border-zinc-800/50">
+              <button onClick={() => setFeatures(prev => ({ ...prev, recording: !prev.recording }))} className={`flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full transition-all border shadow-sm ${features.recording ? 'bg-emerald-900/40 border-emerald-500/50 text-emerald-400' : 'bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 border-zinc-800'}`} title="Toggle Sequence Record">
+                <Clapperboard size={14} />
+                <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">CAPTURE</span>
+              </button>
+
               <button onClick={() => setShowOptions(true)} className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full transition-all border shadow-sm bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 border-zinc-800" title="Studio Preferences">
                 <Settings size={14} />
                 <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Prefs</span>
@@ -1469,24 +1698,34 @@ HOOPS.forEach(hoop => {
                     <div className="flex items-center gap-1">
                       <div className="flex items-center justify-between rounded border shadow-sm flex-1 px-1 bg-zinc-950/60 border-zinc-800">
                         <button onClick={() => goToFrame(currentShotIndex - 1)} disabled={currentShotIndex <= 0 || isPlaying || isReplaying} className="p-1 disabled:opacity-30 text-zinc-300 hover:text-emerald-400"><ChevronLeft size={12} /></button>
-                        <span className="text-[9px] font-bold uppercase tracking-wider font-mono text-emerald-400">Fr {currentShotIndex + 1}/{sequence.length}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider font-mono text-emerald-400">Fr {currentShotIndex}/{Math.max(0, sequence.length - 1)}</span>
                         <button onClick={() => goToFrame(currentShotIndex + 1)} disabled={currentShotIndex >= sequence.length - 1 || isPlaying || isReplaying} className="p-1 disabled:opacity-30 text-zinc-300 hover:text-emerald-400"><ChevronRight size={12} /></button>
                       </div>
                       <button onClick={clearSequence} disabled={isPlaying || isReplaying} className="p-1.5 disabled:opacity-50 rounded border shadow-sm transition-colors bg-zinc-900/60 hover:bg-red-900/40 text-red-400 border-zinc-700/50"><Trash2 size={12} /></button>
                     </div>
                     <div className="flex gap-1 mt-1">
-                      <button onClick={isReplaying ? stopSequenceReplay : startSequenceReplay} disabled={sequence.length < 2 || isPlaying} className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1.5 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isReplaying ? 'bg-amber-900/40 text-amber-400 border-amber-500/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-500/50 hover:bg-emerald-800/60'} disabled:opacity-50`}>{isReplaying ? <><MonitorPlay size={10} /> Stop</> : <><Play size={10} /> Auto Play</>}</button>
-                      <select value={replayDelay} onChange={(e) => setReplayDelay(Number(e.target.value))} disabled={isReplaying} className="w-[45px] text-[9px] font-bold text-center rounded border shadow-sm bg-zinc-950/60 text-emerald-400 border-zinc-800 outline-none cursor-pointer disabled:opacity-50"><option value={1}>1s</option><option value={2}>2s</option><option value={3}>3s</option></select>
+                      <button onClick={handleUpdateFrame} disabled={isPlaying || isReplaying} className="flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50" title="Overwrite current frame with current ball layout">
+                        <Save size={10} className="text-blue-400" /> Update
+                      </button>
+                      <button onClick={handleInsertFrame} disabled={isPlaying || isReplaying} className="flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50" title="Insert new frame after this one">
+                        <Plus size={10} className="text-emerald-400" /> Insert
+                      </button>
+                      <button onClick={handleDeleteFrame} disabled={isPlaying || isReplaying || sequence.length <= 1} className="flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50" title="Delete current frame">
+                        <X size={10} className="text-red-400" /> Delete
+                      </button>
                     </div>
-                    <div className="flex gap-1 pt-1 border-t border-zinc-800/50">
-                      <button onClick={exportSequence} disabled={isPlaying || isReplaying} className="flex-1 flex items-center justify-center gap-1 disabled:opacity-50 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50"><Save size={10} className="text-emerald-600" /> Export</button>
-                      <label className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isPlaying || isReplaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50`}>
-                        <FolderUp size={10} className="text-emerald-600" /> Import
-                        <input type="file" accept=".json" onChange={importSequence} disabled={isPlaying || isReplaying} className="hidden" />
-                      </label>
+                    <div className="flex gap-1 mt-1">
+                      <button onClick={isReplaying ? stopSequenceReplay : startSequenceReplay} disabled={sequence.length < 2 || isPlaying} className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1.5 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isReplaying ? 'bg-amber-900/40 text-amber-400 border-amber-500/50' : 'bg-emerald-900/40 text-emerald-400 border-emerald-500/50 hover:bg-emerald-800/60'} disabled:opacity-50`}>{isReplaying ? <><MonitorPlay size={10} /> Stop</> : <><Play size={10} /> Auto Play</>}</button>
                     </div>
                   </div>
                 )}
+                <div className="flex gap-1 pt-1 mt-1 border-t border-zinc-800/50">
+                  <button onClick={exportSequence} disabled={isPlaying || isReplaying || sequence.length === 0} className="flex-1 flex items-center justify-center gap-1 disabled:opacity-50 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50"><Save size={10} className="text-emerald-600" /> Export</button>
+                  <label className={`flex-1 flex items-center justify-center gap-1 text-[8px] py-1 rounded font-bold uppercase tracking-wider border shadow-sm transition-colors ${isPlaying || isReplaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} bg-zinc-900/60 hover:bg-zinc-800/80 text-zinc-200 border-zinc-700/50`}>
+                    <FolderUp size={10} className="text-emerald-600" /> Import
+                    <input type="file" accept=".json" onChange={importSequence} disabled={isPlaying || isReplaying} className="hidden" />
+                  </label>
+                </div>
               </div>
             )}
 
@@ -1571,7 +1810,7 @@ HOOPS.forEach(hoop => {
 
               <div className={zoom === 1 ? "absolute inset-0" : "w-full h-full relative"}>
                 <canvas
-                  ref={canvasRef} width={FIELD_WIDTH} height={FIELD_HEIGHT}
+                  ref={canvasRef}
                   style={{ display: 'block', width: '100%', height: '100%' }}
                   className="rounded-lg"
                   onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseLeave}
@@ -1586,7 +1825,7 @@ HOOPS.forEach(hoop => {
                     exit={{ opacity: 0 }}
                     className="absolute z-[100] pointer-events-none"
                     style={{
-                      left: `${((INITIAL_YELLOW_POS.x + BALL_RADIUS + 16) / FIELD_WIDTH) * 100}%`,
+                      left: `${((INITIAL_YELLOW_POS.x + DISPLAY_RADIUS + 16) / FIELD_WIDTH) * 100}%`,
                       top: `${(INITIAL_YELLOW_POS.y / FIELD_HEIGHT) * 100}%`,
                       transform: 'translate(0%, -50%)'
                     }}
@@ -1653,22 +1892,10 @@ HOOPS.forEach(hoop => {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[150] backdrop-blur-md flex items-center justify-center p-4 bg-zinc-950/90">
               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="rounded-2xl w-full max-w-md shadow-2xl border backdrop-blur-xl bg-zinc-900 border-zinc-800">
                 <div className="p-6 border-b flex items-center justify-between sticky top-0 z-10 rounded-t-2xl bg-zinc-900 border-zinc-800">
-                  <h2 className="text-xl font-bold flex items-center gap-2 text-emerald-400"><Settings size={24} />Studio Options</h2>
-                  <button onClick={() => setShowOptions(false)} className="p-2 rounded-full transition-colors hover:bg-zinc-800 text-zinc-400 hover:text-white"><X size={20} /></button>
+                  <h2 className="text-xl font-bold flex items-center gap-2 text-emerald-400"><Settings size={24} />Visualiser Preferences</h2>
+                  <button onClick={() => setShowOptions(false)} className="px-4 py-1.5 rounded-lg font-bold uppercase tracking-widest text-[10px] transition-colors border shadow-sm bg-emerald-500/20 text-emerald-400 border-emerald-500/50 hover:bg-emerald-500 hover:text-zinc-950">Accept</button>
                 </div>
                 <div className="p-6 space-y-3">
-
-                  <div className="flex items-center justify-between p-4 rounded-xl border shadow-sm bg-zinc-950 border-zinc-800">
-                    <div className="flex items-center gap-3 font-bold text-sm uppercase tracking-wider text-zinc-300"><Sun size={16} /> {brightMode ? 'Normal Mode' : 'Bright Mode'}</div>
-                    <button onClick={() => setBrightMode(!brightMode)} className={`w-12 h-6 rounded-full relative transition-colors shadow-inner border ${brightMode ? 'bg-emerald-500 border-emerald-600' : 'bg-zinc-700 border-zinc-900'}`}>
-                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-md ${brightMode ? 'left-7' : 'left-1'}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 rounded-xl border shadow-sm bg-zinc-950 border-zinc-800">
-                    <div className="flex items-center gap-3 font-bold text-sm uppercase tracking-wider text-zinc-300"><Save size={16} /> File Prefix</div>
-                    <input type="text" value={filenamePrefix} onChange={(e) => setFilenamePrefix(e.target.value)} className="text-xs font-bold px-3 py-1.5 rounded outline-none focus:ring-1 focus:ring-emerald-500 w-32 text-right select-auto border shadow-inner bg-zinc-900 border-zinc-700 text-zinc-300" style={{ WebkitTouchCallout: 'default', WebkitUserSelect: 'auto', userSelect: 'auto' }} placeholder="sequence" />
-                  </div>
 
                   <div className="flex items-center justify-between p-4 rounded-xl border shadow-sm bg-zinc-950 border-zinc-800">
                     <div className="flex items-center gap-3 font-bold text-sm uppercase tracking-wider text-zinc-300"><MonitorPlay size={16} /> Freeze Frame Mode</div>

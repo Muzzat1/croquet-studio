@@ -22,8 +22,9 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
   useEffect(() => { valuesRef.current = { angle, speed }; }, [angle, speed]);
 
   useEffect(() => {
-    if (!mountRef.current) return;
-    mountRef.current.innerHTML = '';
+    const container = mountRef.current;
+    if (!container) return;
+    container.innerHTML = '';
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
@@ -31,7 +32,7 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(160, 160);
-    mountRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
     const geometry = new THREE.SphereGeometry(1.5, 64, 64);
@@ -91,10 +92,13 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
 
     return () => {
       cancelAnimationFrame(animationId);
-      if (mountRef.current) mountRef.current.innerHTML = '';
       renderer.dispose();
+      texture.dispose();
       geometry.dispose();
       material.dispose();
+      if (container) {
+        container.innerHTML = '';
+      }
     };
   }, []);
 
@@ -142,7 +146,9 @@ export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlayin
     isDragging.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch {
+      // Ignore if pointer capture was already released
+    }
   };
 
   return (

@@ -53,7 +53,7 @@ export const SphericalController = ({
 
   const handleAimPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingAim.current = false;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   };
 
   const handleDialPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -79,13 +79,14 @@ export const SphericalController = ({
 
   const handleDialPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingDial.current = false;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   };
 
   // --- 2. 3D Scene Setup (Matte Milled Texture) ---
   useEffect(() => {
-    if (!mountRef.current) return;
-    mountRef.current.innerHTML = '';
+    const container = mountRef.current;
+    if (!container) return;
+    container.innerHTML = '';
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
@@ -94,7 +95,7 @@ export const SphericalController = ({
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(160, 160);
     renderer.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     // Create color map (Vibrant Red with darker grooves)
     const cCanvas = document.createElement('canvas');
@@ -168,6 +169,9 @@ export const SphericalController = ({
       bumpTexture.dispose();
       geometry.dispose();
       material.dispose();
+      if (container) {
+        container.innerHTML = '';
+      }
     };
   }, []);
 

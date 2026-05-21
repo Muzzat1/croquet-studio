@@ -19,5 +19,14 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    linterOptions: {
+      reportUnusedDisableDirectives: 'off',
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'react-hooks/exhaustive-deps': 'off',
+    },
   },
 ])

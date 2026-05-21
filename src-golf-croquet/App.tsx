@@ -1,198 +1,11 @@
-import * as THREE from 'three';
-
-interface SphericalControllerProps {
-  angle: number;
-  setAngle: (val: number | ((prev: number) => number)) => void;
-  speed: number;
-  setSpeed: (val: number | ((prev: number) => number)) => void;
-  isPlaying: boolean;
-}
-
-export const SphericalController = ({ angle, setAngle, speed, setSpeed, isPlaying }: SphericalControllerProps) => {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const previousMousePosition = useRef({ x: 0, y: 0 });
-  const sphereRef = useRef<THREE.Mesh | null>(null);
-
-  const valuesRef = useRef({ angle, speed });
-  useEffect(() => { valuesRef.current = { angle, speed }; }, [angle, speed]);
-
-  useEffect(() => {
-    if (!mountRef.current) return;
-    mountRef.current.innerHTML = '';
-
-    // 1. Setup Scene, Camera, and Renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.z = 4.5;
-
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(160, 160);
-    mountRef.current.appendChild(renderer.domElement);
-
-    // Get max resolution for crisp textures on curved edges
-    const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
-
-    const geometry = new THREE.SphereGeometry(1.5, 64, 64);
-
-    // 2. Procedural Seamless Texture (Generates the tight diamond millings)
-    const canvas = document.createElement('canvas');
-    canvas.width = 1008;
-    canvas.height = 1008;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Base surface color (Deep Red)
-    ctx.fillStyle = '#991b1b';
-    ctx.fillRect(0, 0, 1008, 1008);
-
-    // Draw the grooves (High Contrast Black)
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 4; // Thin lines for fine cuts
-
-    ctx.beginPath();
-    // 50% larger grid spacing
-    for (let i = -1008; i <= 2016; i += 36) {
-      // North-South (vertical lines)
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, 1008);
-      // East-West (horizontal lines)
-      ctx.moveTo(0, i);
-      ctx.lineTo(1008, i);
-    }
-    ctx.stroke();
-
-    // Convert canvas to a Three.js Texture
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.anisotropy = maxAnisotropy; // Keeps lines crisp!
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(8, 4); // Wraps the pattern densely around the sphere
-    texture.needsUpdate = true;
-
-    // 3. The Material: Color + Physical Depth combined
-    const material = new THREE.MeshStandardMaterial({
-      map: texture,         // Guarantees the lines are always visible
-      bumpMap: texture,     // Physically indents the dark lines
-      bumpScale: 4.40,      // 2x deeper cuts
-      roughness: 0.35,      // Semi-gloss hard resin look
-      metalness: 0.1
-    });
-
-    const sphere = new THREE.Mesh(geometry, material);
-    sphereRef.current = sphere;
-    scene.add(sphere);
-
-    // 4. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    mainLight.position.set(-5, 5, 5);
-    scene.add(mainLight);
-
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    fillLight.position.set(5, -2, 5);
-    scene.add(fillLight);
-
-    // 5. Animation Loop
-    let animationId: number;
-    const animate = () => {
-      animationId = requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-      if (mountRef.current) mountRef.current.innerHTML = '';
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-    };
-  }, []);
-
-  // 6. Direct-Manipulation Drag Logic
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isPlaying) return;
-    e.preventDefault();
-    isDragging.current = true;
-    previousMousePosition.current = { x: e.clientX, y: e.clientY };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging.current || isPlaying) return;
-
-    const deltaMove = {
-      x: e.clientX - previousMousePosition.current.x,
-      y: e.clientY - previousMousePosition.current.y
-    };
-
-    if (sphereRef.current) {
-      const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(deltaMove.y * 0.01, deltaMove.x * 0.01, 0, 'XYZ')
-      );
-      sphereRef.current.quaternion.multiplyQuaternions(deltaRotationQuaternion, sphereRef.current.quaternion);
-    }
-
-    let newAngle = valuesRef.current.angle + deltaMove.x * 0.5;
-    newAngle = ((newAngle % 360) + 360) % 360;
-
-    let newSpeed = valuesRef.current.speed - deltaMove.y * 0.5;
-    newSpeed = Math.max(0, Math.min(200, newSpeed));
-
-    setAngle(newAngle);
-    setSpeed(newSpeed);
-
-    previousMousePosition.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    isDragging.current = false;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (err) {}
-  };
-
-  return (
-    <div className="flex flex-col items-center w-full gap-2 relative p-2">
-      <div className="flex justify-between w-full text-[10px] font-bold uppercase tracking-widest text-zinc-400 px-1">
-        <span className="flex flex-col items-start text-emerald-400">
-          Velocity 
-          <span className="text-white text-xs flex items-center mt-0.5 select-none relative -left-1">
-            <button onClick={() => setSpeed((s: number) => Math.max(1, s - 1))} className="hover:text-emerald-400 disabled:opacity-50 transition-colors p-1" disabled={isPlaying}><ChevronLeft size={12} strokeWidth={3} /></button>
-            <span className="w-8 text-center">{speed.toFixed(0)}%</span>
-            <button onClick={() => setSpeed((s: number) => Math.min(200, s + 1))} className="hover:text-emerald-400 disabled:opacity-50 transition-colors p-1" disabled={isPlaying}><ChevronRight size={12} strokeWidth={3} /></button>
-          </span>
-        </span>
-        <span className="flex flex-col items-end text-emerald-400">
-          Bearing 
-          <span className="text-white text-xs flex items-center mt-0.5 select-none relative -right-1">
-            <button onClick={() => setAngle((a: number) => (a - 0.5 + 360) % 360)} className="hover:text-emerald-400 disabled:opacity-50 transition-colors p-1" disabled={isPlaying}><ChevronLeft size={12} strokeWidth={3} /></button>
-            <span className="w-10 text-center">{angle.toFixed(1)}°</span>
-            <button onClick={() => setAngle((a: number) => (a + 0.5) % 360)} className="hover:text-emerald-400 disabled:opacity-50 transition-colors p-1" disabled={isPlaying}><ChevronRight size={12} strokeWidth={3} /></button>
-          </span>
-        </span>
-      </div>
-      <div
-        ref={mountRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className={`w-[160px] h-[160px] cursor-grab active:cursor-grabbing rounded-full ${isPlaying ? 'opacity-50 pointer-events-none' : ''}`}
-        style={{ touchAction: 'none' }}
-      />
-    </div>
-  );
-};
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import { SphericalController } from './components/SphericalController';
+import { HelpScreen, ToolButton } from './components/UIComponents';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Hand, Sun, Minus, Plus } from 'lucide-react';
+import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Minus, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Point { x: number; y: number; }
@@ -259,202 +72,6 @@ const getActiveColor = (id: string | null, currentSet: 'primary' | 'secondary') 
 };
 
 
-// ==========================================
-// 📖 ISOLATED HELP SCREEN COMPONENT
-// ==========================================
-export const HelpScreen = ({ onClose }: { onClose: () => void }) => {
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[150] backdrop-blur-md flex items-center justify-center p-4 bg-zinc-950/90">
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="rounded-2xl w-full max-w-5xl shadow-2xl border backdrop-blur-xl bg-zinc-900 border-zinc-800 flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b flex items-start justify-between rounded-t-2xl bg-zinc-900 border-zinc-800 shrink-0">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Golf Croquet Visualiser</h2>
-            <div className="text-xs font-bold tracking-wide text-zinc-400 mt-1 ml-[40px]">
-              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.83 (BETA)
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full transition-colors hover:bg-zinc-800 text-zinc-400 hover:text-white"><X size={20} /></button>
-        </div>
-
-        <div className="p-8 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 text-base leading-relaxed text-zinc-200">
-            <div className="space-y-10">
-              <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Hand size={20} /> Getting Started & Viewing</h3>
-                <p className="mb-4"><strong>Bring Balls Onto Grass:</strong> Simply click and drag any ball (Blue, Red, Black, or Yellow) onto the green. You can drag them out one by one.</p>
-                <p className="mb-4"><strong>Choosing a Ball:</strong> Click on the ball you want to hit. A bright ring will appear around it so you know it is selected.</p>
-                <p className="mb-4"><strong>Zooming In and Out:</strong> Use your mouse wheel (or pinch on a touchscreen) to zoom in for a closer look, or zoom out to see the whole court.</p>
-                <p><strong>Moving Around:</strong> Click and drag anywhere on the empty grass to move the court side to side, or up and down.</p>
-              </div>
-
-              <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Play size={20} /> How to Shoot</h3>
-                <p className="mb-4 flex items-start gap-3"><MousePointer2 size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>PLACE Mode (Easiest Method):</strong> Make sure the button says "PLACE". Select your ball, then just click anywhere on the grass where you want it to stop. The app calculates everything for you!</span></p>
-                <p className="mb-4 flex items-start gap-3"><Eye size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>AIM Mode (Manual Method):</strong> Press the PLACE button so it changes to "AIM". You can now use the wheels at the bottom to adjust your power and direction.</span></p>
-                <p className="mb-4 flex items-start gap-3"><HelpCircle size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>The Target (Ghost Ball):</strong> You will see a faint trail and "ghost ball". This shows you exactly where your ball will travel and come to a rest!</span></p>
-                <p className="flex items-start gap-3"><Play size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Take the Shot:</strong> In both Place and Aim modes, you must click the big <strong>PLAY BALL</strong> button to actually hit the ball!</span></p>
-              </div>
-
-              <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Undo2 size={20} /> Fixing Mistakes</h3>
-                <p className="mb-4 flex items-start gap-3"><Undo2 size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Undo Button:</strong> Made a mistake? Don't worry! Click 'Undo' to put the balls back exactly where they were before your last shot.</span></p>
-                <p className="flex items-start gap-3"><RotateCcw size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Reset Everything:</strong> Click 'Reset' to clear the grass and start completely fresh.</span></p>
-              </div>
-            </div>
-
-            <div className="space-y-10">
-              <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Pencil size={20} /> Drawing Overlay</h3>
-                <p className="mb-4 flex items-start gap-3"><Pencil size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Draw Lines:</strong> Click the 'Draw' pen, then click and drag your mouse over the grass to sketch out your ideas.</span></p>
-                <p className="flex items-start gap-3"><Eraser size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Clear Drawing:</strong> Use the Eraser to completely wipe clean and instantly remove all the marks you just drew.</span></p>
-              </div>
-
-              <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Clapperboard size={20} /> Record & Play Sequences</h3>
-                <p className="mb-4 flex items-start gap-3"><Settings size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Enable Recording:</strong> Open Prefs and turn on 'Recording' to reveal the camera controls.</span></p>
-                <p className="mb-4 flex items-start gap-3"><Camera size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Start & Stop:</strong> Click the Camera button to start saving shots. Click the same button again when you want to stop recording.</span></p>
-                <p className="flex items-start gap-3"><Play size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Replay Sequence:</strong> Use the sequence controls to step back and forth, or press play to automatically watch your sequence from the start.</span></p>
-              </div>
-
-              <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Save size={20} /> Saved Data & Display</h3>
-                <p className="mb-4 flex items-start gap-3"><Save size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Save Sequence:</strong> Click the Save icon to permanently store your sequence on your computer.</span></p>
-                <p className="mb-4 flex items-start gap-3"><FolderUp size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Recall Sequence:</strong> Click the Upload Folder icon to instantly load a previously saved sequence.</span></p>
-                <p className="flex items-start gap-3"><Sun size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Brighten for Sunshine:</strong> Are you outside? Use Bright Mode in the Prefs menu to make the screen much brighter.</span></p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border-t rounded-b-2xl text-center bg-zinc-950/50 border-zinc-800 shrink-0">
-          <button onClick={onClose} className="px-10 py-3 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-colors shadow-lg">Close Guide</button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-// ==========================================
-
-
-export const PrecisionWheel = ({ value, onChange, isPlaying, min = 0, max = 360, sensitivity = 0.2, range = 60, wrap = true, unit = "°", label = "Wheel", showLabels = false, tooltip = null }: any) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const startPosRef = useRef<number | null>(null);
-  const startValRef = useRef<number>(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if (isPlaying) return;
-    setIsDragging(true);
-    startPosRef.current = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    startValRef.current = value;
-  };
-
-  useEffect(() => {
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging || isPlaying || startPosRef.current === null) return;
-      const currentPos = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-      const totalDelta = startPosRef.current - currentPos;
-      const linearPart = totalDelta * sensitivity * 0.4;
-      const cubicPart = Math.pow(totalDelta, 3) * 0.00005 * sensitivity;
-      let newValue = startValRef.current + linearPart + cubicPart;
-
-      if (wrap) {
-        const span = max - min;
-        newValue = ((newValue - min) % span + span) % span + min;
-      } else {
-        newValue = Math.max(min, Math.min(max, newValue));
-      }
-      onChange(newValue);
-    };
-    const handleEnd = () => { setIsDragging(false); startPosRef.current = null; };
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleEnd);
-      window.addEventListener('touchmove', handleMove); window.addEventListener('touchend', handleEnd);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleEnd);
-      window.removeEventListener('touchmove', handleMove); window.removeEventListener('touchend', handleEnd);
-    };
-  }, [isDragging, onChange, isPlaying, min, max, sensitivity, wrap]);
-
-  const ticks = []; const startVal = value - range / 2; const endVal = value + range / 2;
-  for (let i = Math.floor(startVal); i <= Math.ceil(endVal); i++) {
-    const span = max - min; const displayVal = wrap ? ((i - min) % span + span) % span + min : i; const pos = ((i - startVal) / range) * 100;
-    if (pos >= -5 && pos <= 105 && (!wrap ? (i >= min && i <= max) : true)) { ticks.push({ val: displayVal, pos }); }
-  }
-  const getTickLabel = (val: number) => {
-    return `${Math.round(val)}`;
-  };
-
-  return (
-    <div
-      className="flex flex-col gap-1 w-full shrink-0 relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <AnimatePresence>
-        {tooltip && isHovered && !isDragging && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 2 }}
-            className="absolute left-1/2 -translate-x-1/2 -top-8 px-3 py-1.5 bg-zinc-800 text-emerald-300 text-[10px] font-bold tracking-wider whitespace-nowrap rounded shadow-2xl border border-zinc-600 z-[100] pointer-events-none drop-shadow-xl"
-          >
-            {tooltip}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-zinc-600" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex justify-between items-end">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400">{label}</span>
-        <div className="flex items-center gap-0.5">
-          <button onMouseDown={(e) => { e.stopPropagation(); let n = value - (wrap ? 1 : 5); if (wrap) n = (n + 360) % 360; else n = Math.max(min, n); onChange(n); }} className="rounded cursor-pointer p-0.5 border shadow-sm transition-colors text-zinc-500 hover:text-emerald-400 bg-zinc-900 border-zinc-800"><ChevronLeft size={10} /></button>
-          <span className="font-mono text-[10px] font-bold px-1 py-0.5 rounded border shadow-sm w-[46px] text-center text-emerald-400 bg-zinc-950/80 border-zinc-700">{value.toFixed(wrap ? 1 : 0)}{unit}</span>
-          <button onMouseDown={(e) => { e.stopPropagation(); let n = value + (wrap ? 1 : 5); if (wrap) n = (n) % 360; else n = Math.min(max, n); onChange(n); }} className="rounded cursor-pointer p-0.5 border shadow-sm transition-colors text-zinc-500 hover:text-emerald-400 bg-zinc-900 border-zinc-800"><ChevronRight size={10} /></button>
-        </div>
-      </div>
-      <div ref={containerRef} onMouseDown={handleStart} onTouchStart={handleStart} className={`relative rounded-lg overflow-hidden select-none touch-none transition-all shadow-inner h-11 w-full border ${isPlaying ? 'opacity-50' : 'cursor-pointer hover:border-emerald-500/50'} bg-zinc-950/80 border-zinc-700`}>
-        <div className="absolute inset-0 flex items-center">
-          {ticks.map((tick, idx) => (
-            <div key={idx} className="absolute flex flex-col items-center h-full pt-1.5" style={{ left: `${tick.pos}%`, transform: 'translateX(-50%)' }}>
-              <div className={`w-px ${tick.val % 10 === 0 ? 'h-3.5 bg-white' : tick.val % 5 === 0 ? 'h-2.5 bg-zinc-400' : 'h-1.5 bg-zinc-600'}`} />
-              {tick.val % 10 === 0 && showLabels && (<span className="text-[11px] md:text-[12px] font-black font-mono mt-1 whitespace-nowrap text-white drop-shadow-md">{getTickLabel(tick.val)}</span>)}
-            </div>
-          ))}
-        </div>
-        <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
-          <div className="w-0.5 h-full bg-emerald-500 relative z-10 shadow-[0_0_8px_rgba(16,185,129,0.8)]"><div className="absolute bg-emerald-500 top-0 left-1/2 -translate-x-1/2 w-1.5 h-1 rounded-b-sm" /><div className="absolute bg-emerald-500 bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1 rounded-t-sm" /></div>
-        </div>
-        <div className="absolute inset-0 pointer-events-none z-0 bg-gradient-to-r from-zinc-950 via-transparent to-zinc-950" />
-      </div>
-    </div>
-  );
-};
-
-const ToolButton = ({ icon, label, title, active, onClick, danger, disabled }: any) => {
-  const baseClasses = "flex flex-col items-center justify-center gap-1.5 p-2 min-h-[50px] md:min-h-[64px] w-full rounded-xl border-2 transition-all duration-200 shadow-sm shrink-0";
-  let stateClasses = "";
-
-  if (disabled) {
-    stateClasses = "bg-zinc-900/40 text-zinc-700 border-zinc-800/40 cursor-not-allowed";
-  } else if (active) {
-    stateClasses = "bg-emerald-500/10 text-emerald-400 border-emerald-500 shadow-[0_4px_15px_rgba(16,185,129,0.2)] hover:bg-emerald-500/20 active:scale-95 cursor-pointer";
-  } else if (danger) {
-    stateClasses = "bg-slate-800/80 text-rose-400 border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 hover:-translate-y-0.5 active:scale-95 cursor-pointer";
-  } else {
-    stateClasses = "bg-slate-800/80 text-slate-400 border-slate-700 hover:border-emerald-500/50 hover:text-emerald-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-95 cursor-pointer";
-  }
-
-  return (
-    <button onClick={disabled ? undefined : onClick} disabled={disabled} title={title || label} className={`${baseClasses} ${stateClasses}`}>
-      {icon}
-      <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest">{label}</span>
-    </button>
-  );
-};
-
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null); const viewportRef = useRef<HTMLDivElement>(null);
   const [viewportDims, setViewportDims] = useState({ w: 0, h: 0 });
@@ -507,7 +124,7 @@ export default function App() {
   const [sequence, setSequence] = useState<RecordedShot[]>([]);
   const [currentShotIndex, setCurrentShotIndex] = useState(0);
   const [isReplaying, setIsReplaying] = useState(false);
-  const [replayDelay, setReplayDelay] = useState(1); // 1, 2, or 3 seconds
+  const [replayDelay] = useState(1); // 1, 2, or 3 seconds
 
   const sequenceRef = useRef(sequence);
   useEffect(() => { sequenceRef.current = sequence; }, [sequence]);
@@ -841,8 +458,7 @@ export default function App() {
 
     if ('showSaveFilePicker' in window) {
       try {
-        // @ts-ignore
-        const handle = await window.showSaveFilePicker({
+        const handle = await (window as any).showSaveFilePicker({
           suggestedName: filename,
           types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
         });
@@ -865,7 +481,7 @@ export default function App() {
     downloadAnchorNode.remove();
   };
 
-  const importSequence = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const loaded = JSON.parse(event.target?.result as string); if (Array.isArray(loaded)) { setSequence(loaded); setCurrentShotIndex(0); setIsRecording(false); setDrawings([]); setHistory([]); } } catch (err) { console.error("Failed to load sequence"); } }; reader.readAsText(file); };
+  const importSequence = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const loaded = JSON.parse(event.target?.result as string); if (Array.isArray(loaded)) { setSequence(loaded); setCurrentShotIndex(0); setIsRecording(false); setDrawings([]); setHistory([]); } } catch { console.error("Failed to load sequence"); } }; reader.readAsText(file); };
 
   const playShot = () => {
     if (isPlaying || isReplaying || !activeBallId) return; const activeBall = activeBallId === 'blue' ? blue : activeBallId === 'red' ? red : activeBallId === 'yellow' ? yellow : black;
@@ -951,7 +567,7 @@ export default function App() {
             const targetHeight = Math.floor(window.screen.availHeight * 0.95);
             const targetWidth = Math.floor(targetHeight * (5 / 4));
             window.resizeTo(targetWidth, targetHeight);
-          } catch (e) { }
+          } catch { /* ignore */ }
         }, 100);
       }
     };
@@ -1380,7 +996,7 @@ HOOPS.forEach(hoop => {
       if (lastTime === null) { lastTime = time; animationRef.current = requestAnimationFrame(loop); return; }
       const deltaTime = Math.min((time - lastTime) / 16.67, 5); lastTime = time; frameCount++;
 
-      let nextS = { ...blueRef.current }; let nextT = { ...redRef.current }; let nextY = { ...yellowRef.current }; let nextB = { ...blackRef.current };
+      const nextS = { ...blueRef.current }; const nextT = { ...redRef.current }; const nextY = { ...yellowRef.current }; const nextB = { ...blackRef.current };
 
       let remainingTime = deltaTime; const decel = 0.06; const subStepDt = 0.1;
 

@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  ChevronLeft, ChevronRight, HelpCircle, X, Hand, Play, Eye, 
-  MousePointer2, Undo2, RotateCcw, Pencil, Eraser, Clapperboard, 
-  Sun, MonitorPlay, Settings 
+  ChevronLeft, ChevronRight, HelpCircle, Hand, Play, 
+  Undo2, RotateCcw, Pencil, Eraser, Clapperboard, 
+  Sun, Settings, Gamepad2, Target, Navigation, MapPin, 
+  CornerDownLeft, Zap, Camera, Save, FolderUp
 } from 'lucide-react';
 
 // ==========================================
@@ -167,60 +168,62 @@ export const HelpScreen = ({ onClose }: { onClose: () => void }) => {
       <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="rounded-2xl w-full max-w-5xl shadow-2xl border backdrop-blur-xl bg-zinc-900 border-zinc-800 flex flex-col max-h-[90vh]">
         <div className="p-6 border-b flex items-start justify-between rounded-t-2xl bg-zinc-900 border-zinc-800 shrink-0">
           <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Golf Croquet Visualiser</h2>
+            <h2 className="text-2xl font-bold flex items-center gap-3 text-emerald-400"><HelpCircle size={28} /> Gateball Visualiser Help</h2>
             <div className="text-xs font-bold tracking-wide text-zinc-400 mt-1 ml-[40px]">
-              A program by Murray Tinker (2tinkers@gmail.com)
+              A program by Murray Tinker (2tinkers@gmail.com) • Version 0.83 (BETA)
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full transition-colors hover:bg-zinc-800 text-zinc-400 hover:text-white"><X size={20} /></button>
+          <button onClick={onClose} className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-colors shadow-lg">Close Guide</button>
         </div>
 
         <div className="p-8 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 text-base leading-relaxed text-zinc-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 text-sm leading-relaxed text-zinc-200">
             <div className="space-y-10">
               <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Hand size={20} /> Getting Started & Viewing</h3>
-                <p className="mb-4"><strong>Bring Balls Onto Grass:</strong> Simply click and drag any ball (Blue, Red, Black, or Yellow) onto the green. You can drag them out one by one.</p>
-                <p className="mb-4"><strong>Choosing a Ball:</strong> Click on the ball you want to hit. A bright ring will appear around it so you know it is selected.</p>
-                <p className="mb-4"><strong>Zooming In and Out:</strong> Use your mouse wheel (or pinch on a touchscreen) to zoom in for a closer look, or zoom out to see the whole court.</p>
-                <p><strong>Moving Around:</strong> Click and drag anywhere on the empty grass to move the court side to side, or up and down.</p>
+                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Gamepad2 size={20} /> BASIC CONTROLS</h3>
+                <p className="mb-4 flex items-start gap-3"><Hand size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Bring Balls Onto Court:</strong> Simply click and drag any ball onto the starters box or court.</span></p>
+                <p className="mb-4 flex items-start gap-3"><Target size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Active Ball:</strong> Click on the ball you want to hit. A bright ring will appear around it so you know it is selected.</span></p>
+                <p className="mb-4 flex items-start gap-3"><Navigation size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Aim Mode:</strong> With AIM mode selected use the Controller ball left and right to move aiming line. Use the same Controller up and down do change velocity of stroke. Hit the PLAY STROKE button. A 75% stroke will hit the width of the court and 100% the length</span></p>
+                <p className="mb-4 flex items-start gap-3"><MapPin size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Place Mode:</strong> With Place Mode selected you can select a ball and then click on a place on the court. Hitting the PLAY STROKE Button will send the ball to that point unless it hits another ball or court furniture</span></p>
+                <p className="mb-4 flex items-start gap-3"><CornerDownLeft size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Out Ball:</strong> Any ball hit out will be placed back in the correct relationship to the Inside line</span></p>
               </div>
 
               <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Play size={20} /> How to Shoot</h3>
-                <p className="mb-4 flex items-start gap-3"><MousePointer2 size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>PLACE Mode (Easiest Method):</strong> Make sure the button says "PLACE". Select your ball, then just click anywhere on the grass where you want it to stop. The app calculates everything for you!</span></p>
-                <p className="mb-4 flex items-start gap-3"><Eye size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>AIM Mode (Manual Method):</strong> Press the PLACE button so it changes to "AIM". You can now use the wheels at the bottom to adjust your power and direction.</span></p>
-                <p className="mb-4 flex items-start gap-3"><HelpCircle size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>The Target (Ghost Ball):</strong> You will see a faint trail and "ghost ball". This shows you exactly where your ball will travel and come to a rest!</span></p>
-                <p className="flex items-start gap-3"><Play size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Take the Shot:</strong> In both Place and Aim modes, you must click the big <strong>PLAY BALL</strong> button to actually hit the ball!</span></p>
+                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Zap size={20} /> Spark Mode</h3>
+                <p className="flex items-start gap-3"><Zap size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span>To play a spark select the touched ball and drag it along side the Strokers Ball. The Strokers ball will be the selected ball and a spark symbol will appear. Now click on the court or over the sideline where you want the sparked ball to go. Then press PLAY SPARK.</span></p>
               </div>
-            </div>
 
-            <div className="space-y-10">
               <div>
                 <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Undo2 size={20} /> Fixing Mistakes</h3>
                 <p className="mb-4 flex items-start gap-3"><Undo2 size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Undo Button:</strong> Made a mistake? Don't worry! Click 'Undo' to put the balls back exactly where they were before your last shot.</span></p>
                 <p className="flex items-start gap-3"><RotateCcw size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Reset Everything:</strong> Click 'Reset' to clear the grass and start completely fresh.</span></p>
               </div>
+            </div>
 
+            <div className="space-y-10">
               <div>
                 <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Pencil size={20} /> Drawing Overlay</h3>
-                <p className="mb-4 flex items-start gap-3"><Pencil size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Drawing:</strong> Click the 'Draw' pen or the 'Line' pen, then click and drag your mouse over the grass to sketch out your ideas.</span></p>
+                <p className="mb-4 flex items-start gap-3"><Pencil size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Draw Lines:</strong> Click the 'Draw' pen, then click and drag your mouse over the grass to sketch out your ideas.</span></p>
                 <p className="flex items-start gap-3"><Eraser size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Clear Drawing:</strong> Use the Eraser to completely wipe clean and instantly remove all the marks you just drew.</span></p>
               </div>
 
               <div>
-                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Clapperboard size={20} /> Extra Settings</h3>
-                <p className="mb-4 flex items-start gap-3"><Sun size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Brighten for Sunshine:</strong> Are you outside? Use Bright Mode in <Settings size={18} className="inline mx-1 text-zinc-300" /> Prefs to make the screen much brighter.</span></p>
-                <p className="mb-4 flex items-start gap-3"><MonitorPlay size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Hide Menus:</strong> Freeze Frame hides all buttons so you can take a clear picture of the screen.</span></p>
-                <p className="flex items-start gap-3"><Clapperboard size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Sequence Recorder:</strong> Use the camera icon to save your moves step-by-step. You can record a series of shots, and then play them back later to show others!</span></p>
+                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Clapperboard size={20} /> Record & Play Sequences</h3>
+                <p className="mb-4 flex items-start gap-3"><Settings size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Enable Recording:</strong> Open Prefs and turn on 'Recording' to reveal the camera controls.</span></p>
+                <p className="mb-4 flex items-start gap-3"><Camera size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Start & Stop:</strong> Click the Camera button to start saving shots. Click the same button again when you want to stop recording.</span></p>
+                <p className="flex items-start gap-3"><Play size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Replay Sequence:</strong> Use the sequence controls to step back and forth, or press play to automatically watch your sequence from the start.</span></p>
+              </div>
+
+              <div>
+                <h3 className="font-bold mb-4 flex items-center gap-2 uppercase tracking-widest text-[13px] text-emerald-400"><Save size={20} /> Saved Data & Display</h3>
+                <p className="mb-4 flex items-start gap-3"><Save size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Save Sequence:</strong> Click the Save icon to permanently store your sequence on your computer.</span></p>
+                <p className="mb-4 flex items-start gap-3"><FolderUp size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Recall Sequence:</strong> Click the Upload Folder icon to instantly load a previously saved sequence.</span></p>
+                <p className="flex items-start gap-3"><Sun size={20} className="shrink-0 mt-0.5 text-zinc-400" /> <span><strong>Brighten for Sunshine:</strong> Are you outside? Use Bright Mode in the Prefs menu to make the screen much brighter.</span></p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 border-t rounded-b-2xl text-center bg-zinc-950/50 border-zinc-800 shrink-0">
-          <button onClick={onClose} className="px-10 py-3 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-colors shadow-lg">Close Guide</button>
-        </div>
       </motion.div>
     </motion.div>
   );

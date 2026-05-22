@@ -237,8 +237,16 @@ function PhysicsManager({
 function PanoramaBackground() {
   const texture = useTexture('/parkland_panorama.png');
   texture.colorSpace = THREE.SRGBColorSpace;
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useFrame(({ camera }) => {
+    if (meshRef.current) {
+      meshRef.current.position.copy(camera.position);
+    }
+  });
+
   return (
-    <mesh rotation={[0, -Math.PI / 2, 0]} scale={[1, -1, 1]}>
+    <mesh ref={meshRef} rotation={[0, -Math.PI / 2, 0]} scale={[1, -1, 1]}>
       <sphereGeometry args={[1000, 60, 40]} />
       <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
     </mesh>
@@ -561,7 +569,7 @@ export default function App() {
       {/* 3D WebGL Canvas Scene */}
       <Canvas camera={{ position: [0, 20, 25], fov: 45, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
-        <fog attach="fog" args={['#a0c4de', 40, 150]} />
+        <fog attach="fog" args={['#a0c4de', 80, 500]} />
         <CameraController resetCounter={cameraResetCounter} />
         <PanoramaBackground />
         <ambientLight intensity={0.5} />

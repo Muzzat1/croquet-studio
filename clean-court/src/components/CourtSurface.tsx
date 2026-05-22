@@ -131,7 +131,7 @@ export default function CourtSurface() {
     <group>
       {/* Vast park lawn that extends all the way into the background */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[120, 120]} />
+        <planeGeometry args={[2000, 2000]} />
         <meshStandardMaterial color="#2e6f3e" roughness={0.9} />
       </mesh>
 

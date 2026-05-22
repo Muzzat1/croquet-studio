@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useState, useRef, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Sky } from '@react-three/drei';
+import { OrbitControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import CourtSurface from './components/CourtSurface';
 import ParkSurroundings from './components/ParkSurroundings';
@@ -232,6 +232,17 @@ function PhysicsManager({
   });
 
   return null;
+}
+
+function PanoramaBackground() {
+  const texture = useTexture('/parkland_panorama.png');
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return (
+    <mesh rotation={[0, -Math.PI / 2, 0]}>
+      <sphereGeometry args={[1000, 60, 40]} />
+      <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} />
+    </mesh>
+  );
 }
 
 // Custom Camera Controller inside the Canvas to handle programmatically updating OrbitControls & camera positions
@@ -552,7 +563,7 @@ export default function App() {
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 40, 150]} />
         <CameraController resetCounter={cameraResetCounter} />
-        <Sky sunPosition={[10, 20, -10]} distance={4000} />
+        <PanoramaBackground />
         <ambientLight intensity={0.5} />
         <directionalLight 
           position={[25, 45, 25]} 

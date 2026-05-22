@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
 import type { ThreeElements } from '@react-three/fiber';
+import * as THREE from 'three';
 
 type CornerFlagProps = ThreeElements['group'] & {
   color: string;
@@ -10,9 +11,25 @@ function CornerFlag({ color, ...props }: CornerFlagProps) {
   // 12 inches high is exactly 1/3 of a yard = 0.3333 yards
   const poleHeight = 0.3333;
   const poleRadius = 0.015;
-  const flagWidth = 0.15;
-  const flagHeight = 0.1;
-  const flagOffset = flagWidth / 2 + poleRadius; // 0.09 yards offset
+  
+  // 2x larger than the previous 0.15x0.1 flag size
+  const flagWidth = 0.3;
+  const flagHeight = 0.2;
+
+  // Custom 3-sided triangle shape pointing right
+  const flagShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0); // Bottom-left (attached to pole)
+    shape.lineTo(0, flagHeight); // Top-left (attached to pole)
+    shape.lineTo(flagWidth, flagHeight / 2); // Tip pointing right
+    shape.closePath();
+    return shape;
+  }, [flagWidth, flagHeight]);
+
+  const extrudeSettings = useMemo(() => ({
+    depth: 0.005,
+    bevelEnabled: false
+  }), []);
 
   return (
     <group {...props}>
@@ -22,10 +39,10 @@ function CornerFlag({ color, ...props }: CornerFlagProps) {
         <meshStandardMaterial color="#ffffff" />
       </mesh>
       
-      {/* Flag Cloth (Width = 5.4", Height = 3.6") */}
-      <mesh position={[flagOffset, poleHeight - flagHeight / 2, 0]} castShadow>
-        <boxGeometry args={[flagWidth, flagHeight, 0.01]} />
-        <meshStandardMaterial color={color} roughness={0.6} />
+      {/* 3-Sided Triangle Flag Cloth (2x Larger, Extruded) */}
+      <mesh position={[poleRadius, poleHeight - flagHeight, 0]} castShadow>
+        <extrudeGeometry args={[flagShape, extrudeSettings]} />
+        <meshStandardMaterial color={color} roughness={0.6} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );

@@ -7,18 +7,24 @@ type CornerFlagProps = ThreeElements['group'] & {
 };
 
 function CornerFlag({ color, ...props }: CornerFlagProps) {
+  // 12 inches high is exactly 1/3 of a yard = 0.3333 yards
+  const poleHeight = 0.3333;
+  const poleRadius = 0.015;
+  const flagWidth = 0.15;
+  const flagHeight = 0.1;
+  const flagOffset = flagWidth / 2 + poleRadius; // 0.09 yards offset
+
   return (
     <group {...props}>
-      {/* Flag Pole (Scaled up by 2x: Height = 2.0, Radius = 0.03) */}
-      <mesh position={[0, 1.0, 0]} castShadow>
-        <cylinderGeometry args={[0.03, 0.03, 2.0, 8]} />
+      {/* Flag Pole (Height = 12" / 0.3333 yards) */}
+      <mesh position={[0, poleHeight / 2, 0]} castShadow>
+        <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 8]} />
         <meshStandardMaterial color="#ffffff" />
       </mesh>
       
-      {/* Flag Cloth (Scaled up by 2x: Width = 0.6, Height = 0.4) */}
-      {/* Offset by 0.3 on the X-axis so it hangs perfectly from the side of the wider pole */}
-      <mesh position={[0.3, 1.7, 0]} castShadow>
-        <boxGeometry args={[0.6, 0.4, 0.02]} />
+      {/* Flag Cloth (Width = 5.4", Height = 3.6") */}
+      <mesh position={[flagOffset, poleHeight - flagHeight / 2, 0]} castShadow>
+        <boxGeometry args={[flagWidth, flagHeight, 0.01]} />
         <meshStandardMaterial color={color} roughness={0.6} />
       </mesh>
     </group>

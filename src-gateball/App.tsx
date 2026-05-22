@@ -576,17 +576,11 @@ export default function App() {
       const hits = Object.values(balls).map(b => ({ id: b.id, dist: getHitDistance(b) })).filter(h => h.dist !== Infinity).sort((a, b) => a.dist - b.dist);
       if (hits.length > 0) {
         const hitId = hits[0].id as BallId;
-        if (sparkMode && hitId === sparkTargetId) {
-          setDraggingItem(hitId);
-          setTargetSpot(null);
-          hitSomething = true;
-        } else {
-          setActiveBallId(hitId);
-          activeBallIdRef.current = hitId; // SYNCHRONOUS FIX: Instantly updates the ref to kill closure lag
-          setDraggingItem(hitId);
-          setTargetSpot(null); // Clears old targets so the line doesn't snap to 0
-          hitSomething = true;
-        }
+        setActiveBallId(hitId);
+        activeBallIdRef.current = hitId; // SYNCHRONOUS FIX: Instantly updates the ref to kill closure lag
+        setDraggingItem(hitId);
+        setTargetSpot(null); // Clears old targets so the line doesn't snap to 0
+        hitSomething = true;
       }
     }
 

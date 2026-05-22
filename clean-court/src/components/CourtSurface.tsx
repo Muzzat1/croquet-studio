@@ -135,16 +135,22 @@ export default function CourtSurface() {
         <meshStandardMaterial color="#2e6f3e" roughness={0.9} />
       </mesh>
 
-      {/* Internal longitudinal mowing stripes (placed at Y = 0.002 to avoid z-fighting with the lawn) */}
+      {/* Internal longitudinal mowing stripes (placed at Y = 0.004 to avoid z-fighting with the lawn) */}
       {stripes.map((stripe, idx) => (
         <mesh 
           key={`stripe-${idx}`} 
-          position={[stripe.x, 0.002, 0]} 
+          position={[stripe.x, 0.004, 0]} 
           rotation={[-Math.PI / 2, 0, 0]} 
           receiveShadow
         >
           <planeGeometry args={[stripeWidth, 35]} />
-          <meshStandardMaterial color={stripe.color} roughness={0.85} />
+          <meshStandardMaterial 
+            color={stripe.color} 
+            roughness={0.85} 
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
+          />
         </mesh>
       ))}
 

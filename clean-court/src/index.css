@@ -274,3 +274,50 @@ code {
   color: rgba(255, 255, 255, 0.65);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
+
+/* Premium Glassmorphic Toast Notification */
+.toast-notification {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  pointer-events: none;
+  animation: toastFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+  background: rgba(18, 18, 18, 0.75);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1.5px solid rgba(212, 175, 55, 0.6); /* Gold rim matching control panel */
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  font-family: 'Outfit', 'Inter', var(--sans);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.toast-icon {
+  width: 22px;
+  height: 22px;
+  color: #f6e297; /* Warm gold alert icon */
+}
+
+@keyframes toastFadeIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}

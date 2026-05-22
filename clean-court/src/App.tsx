@@ -314,6 +314,20 @@ export default function App() {
     yellow: { x: 12.6, z: 17.6667 }
   });
 
+  // Toast state for premium notifications
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  const showToast = (message: string) => {
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    setToastMessage(message);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
+
   // Undo position history stack (capped at 50 entries)
   const [history, setHistory] = useState<Record<string, { x: number; z: number }>[]>([]);
   
@@ -507,6 +521,14 @@ export default function App() {
     e.stopPropagation();
     const clickPoint = e.point;
     if (clickPoint) {
+      // Check if selected ball is off-court (Width: 28yd [-14, 14], Length: 35yd [-17.5, 17.5])
+      const activeBallCoords = physicsBalls.current[selectedBall];
+      const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+      if (isOffCourt) {
+        showToast("Drag ball onto court");
+        return;
+      }
+
       // Cancel all active ball rolls and synchronize their physical positions back to React state
       const colors = ['blue', 'red', 'black', 'yellow'] as const;
       colors.forEach(c => {
@@ -683,6 +705,11 @@ export default function App() {
             if (activeStriker === null) {
               saveToHistory();
               setSelectedBall('blue');
+              const activeBallCoords = physicsBalls.current.blue;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
+              }
             }
           }}
         />
@@ -696,6 +723,11 @@ export default function App() {
             if (activeStriker === null) {
               saveToHistory();
               setSelectedBall('red');
+              const activeBallCoords = physicsBalls.current.red;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
+              }
             }
           }}
         />
@@ -709,6 +741,11 @@ export default function App() {
             if (activeStriker === null) {
               saveToHistory();
               setSelectedBall('black');
+              const activeBallCoords = physicsBalls.current.black;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
+              }
             }
           }}
         />
@@ -722,6 +759,11 @@ export default function App() {
             if (activeStriker === null) {
               saveToHistory();
               setSelectedBall('yellow');
+              const activeBallCoords = physicsBalls.current.yellow;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
+              }
             }
           }}
         />
@@ -798,6 +840,20 @@ export default function App() {
         <div className="signature-name">Murray Tinker's</div>
         <div className="signature-title">GC Croquet 3D Visualiser (0.15 BETA)</div>
       </div>
+
+      {/* Premium Glassmorphic Toast Notification */}
+      {toastMessage && (
+        <div className="toast-notification">
+          <div className="toast-content">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="toast-icon">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
 
     </div>
   );

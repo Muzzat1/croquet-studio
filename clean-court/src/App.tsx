@@ -308,10 +308,10 @@ function CameraController({ resetCounter }: CameraControllerProps) {
 export default function App() {
   // React State for initial ball positioning & synchronization (drag and drop)
   const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
-    blue: { x: -2, z: 5 },
-    red: { x: 2, z: 5 },
-    black: { x: -2, z: -5 },
-    yellow: { x: 2, z: -5 }
+    blue: { x: 13.8, z: 17.6667 },
+    red: { x: 13.4, z: 17.6667 },
+    black: { x: 13.0, z: 17.6667 },
+    yellow: { x: 12.6, z: 17.6667 }
   });
 
   // Undo position history stack (capped at 50 entries)
@@ -349,10 +349,10 @@ export default function App() {
 
   // Physics engine coordinate, velocity, and state refs
   const physicsBalls = useRef<Record<string, PhysicsBallState>>({
-    blue: { x: -2, z: 5, vx: 0, vz: 0, isRolling: false },
-    red: { x: 2, z: 5, vx: 0, vz: 0, isRolling: false },
-    black: { x: -2, z: -5, vx: 0, vz: 0, isRolling: false },
-    yellow: { x: 2, z: -5, vx: 0, vz: 0, isRolling: false }
+    blue: { x: 13.8, z: 17.6667, vx: 0, vz: 0, isRolling: false },
+    red: { x: 13.4, z: 17.6667, vx: 0, vz: 0, isRolling: false },
+    black: { x: 13.0, z: 17.6667, vx: 0, vz: 0, isRolling: false },
+    yellow: { x: 12.6, z: 17.6667, vx: 0, vz: 0, isRolling: false }
   });
 
   // Save current layout of all balls to history before any action
@@ -567,7 +567,7 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
       
       {/* 3D WebGL Canvas Scene */}
-      <Canvas camera={{ position: [0, 20, 25], fov: 45, far: 5000 }} shadows>
+      <Canvas camera={{ position: [48.27, 10.84, 27.98], fov: 15, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 80, 500]} />
         <CameraController resetCounter={cameraResetCounter} />
@@ -726,7 +726,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} />
+        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[12.81, 2.21, 18.04]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}

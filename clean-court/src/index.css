@@ -251,6 +251,8 @@ code {
   text-align: right;
   pointer-events: none; /* Make overlay non-blocking for OrbitControls mouse interactions */
   user-select: none;
+  transform: scale(0.5);
+  transform-origin: bottom right;
 }
 
 .signature-name {

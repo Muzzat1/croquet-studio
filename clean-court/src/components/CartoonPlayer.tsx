@@ -22,7 +22,9 @@ export default function CartoonPlayer({
 }: CartoonPlayerProps) {
   const armGroupRef = useRef<THREE.Group>(null);
   const playerGroupRef = useRef<THREE.Group>(null);
-  const [phase, setPhase] = useState<'idle' | 'backswing' | 'downswing' | 'followthrough'>('idle');
+  const leftFootRef = useRef<THREE.Mesh>(null);
+  const rightFootRef = useRef<THREE.Mesh>(null);
+  const [phase, setPhase] = useState<'idle' | 'stalking' | 'aiming' | 'backswing' | 'downswing' | 'followthrough'>('idle');
   const timer = useRef(0);
   const impactTriggered = useRef(false);
 
@@ -52,7 +54,7 @@ export default function CartoonPlayer({
   // Reset animations when striker changes
   useEffect(() => {
     if (isStriking) {
-      setPhase('backswing');
+      setPhase('stalking');
       timer.current = 0;
       impactTriggered.current = false;
       if (armGroupRef.current) {
@@ -68,13 +70,63 @@ export default function CartoonPlayer({
 
     timer.current += delta;
     const arm = armGroupRef.current;
-    if (!arm) return;
+    const player = playerGroupRef.current;
+    const leftFoot = leftFootRef.current;
+    const rightFoot = rightFootRef.current;
 
     // --- ANIMATION STATE MACHINE ---
-    if (phase === 'backswing') {
-      // Rotate mallet back slowly: 0 -> Math.PI / 3 (60 degrees) over 0.4s
-      const progress = Math.min(timer.current / 0.4, 1);
-      arm.rotation.x = progress * (Math.PI / 3.2);
+    if (phase === 'stalking') {
+      const progress = Math.min(timer.current / 1.5, 1);
+      const currentDistance = 1.6 - progress * (1.6 - 0.65);
+      
+      const currPx = ballPosition[0] - ux * currentDistance;
+      const currPz = ballPosition[2] - uz * currentDistance;
+      const bobY = Math.abs(Math.sin(timer.current * Math.PI * 3.5)) * 0.025;
+
+      if (player) {
+        player.position.set(currPx, bobY, currPz);
+      }
+
+      // Leg swing & walk bobbing animation
+      if (leftFoot) {
+        leftFoot.position.y = 0.04 + Math.abs(Math.sin(timer.current * Math.PI * 3.5)) * 0.04;
+        leftFoot.position.z = Math.sin(timer.current * Math.PI * 3.5) * 0.08;
+      }
+      if (rightFoot) {
+        rightFoot.position.y = 0.04 + Math.abs(Math.cos(timer.current * Math.PI * 3.5)) * 0.04;
+        rightFoot.position.z = -Math.sin(timer.current * Math.PI * 3.5) * 0.08;
+      }
+
+      if (progress >= 1) {
+        // Reset player posture to settled standard stance
+        if (player) player.position.set(ballPosition[0] - ux * 0.65, 0, ballPosition[2] - uz * 0.65);
+        if (leftFoot) leftFoot.position.set(-0.12, 0.04, 0);
+        if (rightFoot) rightFoot.position.set(0.12, 0.04, 0);
+        
+        setPhase('aiming');
+        timer.current = 0;
+      }
+    }
+
+    else if (phase === 'aiming') {
+      const progress = Math.min(timer.current / 1.5, 1);
+      if (arm) {
+        // Two gentle practice waggles
+        arm.rotation.x = Math.sin(progress * Math.PI * 4) * (Math.PI / 20);
+      }
+
+      if (progress >= 1) {
+        setPhase('backswing');
+        timer.current = 0;
+      }
+    }
+
+    else if (phase === 'backswing') {
+      // Rotate mallet back slowly: 0 -> Math.PI / 3.2 over 0.6s
+      const progress = Math.min(timer.current / 0.6, 1);
+      if (arm) {
+        arm.rotation.x = progress * (Math.PI / 3.2);
+      }
       
       if (progress >= 1) {
         setPhase('downswing');
@@ -83,14 +135,16 @@ export default function CartoonPlayer({
     } 
     
     else if (phase === 'downswing') {
-      // Rapid forward swing: Math.PI / 3.2 -> -Math.PI / 6 over 0.12s
-      const progress = Math.min(timer.current / 0.12, 1);
+      // Forward swing: Math.PI / 3.2 -> -Math.PI / 6 over 0.06s (extremely quick impact)
+      const progress = Math.min(timer.current / 0.06, 1);
       const startAngle = Math.PI / 3.2;
       const endAngle = -Math.PI / 6;
-      arm.rotation.x = startAngle + progress * (endAngle - startAngle);
+      if (arm) {
+        arm.rotation.x = startAngle + progress * (endAngle - startAngle);
+      }
 
-      // Trigger impact at midpoint of swing (approx 65% of the downswing)
-      if (progress >= 0.6 && !impactTriggered.current) {
+      // Trigger impact at precise vertical midpoint (65% of the swing path)
+      if (progress >= 0.65 && !impactTriggered.current) {
         impactTriggered.current = true;
         onImpact();
       }
@@ -102,10 +156,12 @@ export default function CartoonPlayer({
     } 
     
     else if (phase === 'followthrough') {
-      // Smoothly return to resting position over 0.3s
-      const progress = Math.min(timer.current / 0.3, 1);
+      // Smoothly return to resting position over 0.5s
+      const progress = Math.min(timer.current / 0.5, 1);
       const startAngle = -Math.PI / 6;
-      arm.rotation.x = startAngle + progress * (0 - startAngle);
+      if (arm) {
+        arm.rotation.x = startAngle + progress * (0 - startAngle);
+      }
       
       if (progress >= 1) {
         setPhase('idle');
@@ -119,11 +175,11 @@ export default function CartoonPlayer({
   return (
     <group ref={playerGroupRef} position={[px, py, pz]} rotation={[0, angle, 0]}>
       {/* 1. Flat Shoes / Feet */}
-      <mesh position={[-0.12, 0.04, 0]} castShadow>
+      <mesh ref={leftFootRef} position={[-0.12, 0.04, 0]} castShadow>
         <boxGeometry args={[0.08, 0.08, 0.18]} />
         <meshStandardMaterial color="#333333" roughness={0.8} />
       </mesh>
-      <mesh position={[0.12, 0.04, 0]} castShadow>
+      <mesh ref={rightFootRef} position={[0.12, 0.04, 0]} castShadow>
         <boxGeometry args={[0.08, 0.08, 0.18]} />
         <meshStandardMaterial color="#333333" roughness={0.8} />
       </mesh>

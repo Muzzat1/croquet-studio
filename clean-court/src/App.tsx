@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/immutability */
-import { useState, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useState, useRef, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Sky } from '@react-three/drei';
 import * as THREE from 'three';
 import CourtSurface from './components/CourtSurface';
@@ -36,6 +36,28 @@ function PhysicsManager({
   const BOUNDARY_X = 18 - 0.133375;  // 17.866625
   const BOUNDARY_Z = 21.5 - 0.133375; // 21.366625
 
+  // 12 Hoop Leg Positions (Offset from 6 hoops by +/- 0.1875 yards along the X axis)
+  const HOOP_LEGS = [
+    // Hoop 1: [-7, 10.5]
+    { x: -7 - 0.1875, z: 10.5 },
+    { x: -7 + 0.1875, z: 10.5 },
+    // Hoop 2: [-7, -10.5]
+    { x: -7 - 0.1875, z: -10.5 },
+    { x: -7 + 0.1875, z: -10.5 },
+    // Hoop 3: [7, -10.5]
+    { x: 7 - 0.1875, z: -10.5 },
+    { x: 7 + 0.1875, z: -10.5 },
+    // Hoop 4: [7, 10.5]
+    { x: 7 - 0.1875, z: 10.5 },
+    { x: 7 + 0.1875, z: 10.5 },
+    // Hoop 5: [0, -7]
+    { x: 0 - 0.1875, z: -7 },
+    { x: 0 + 0.1875, z: -7 },
+    // Hoop 6: [0, 7]
+    { x: 0 - 0.1875, z: 7 },
+    { x: 0 + 0.1875, z: 7 }
+  ];
+
   useFrame((_, delta) => {
     // Limit delta time steps to avoid tunnel-through behaviors during frame rate stutters
     const dt = Math.min(delta, 0.03);
@@ -44,7 +66,7 @@ function PhysicsManager({
     const refs = meshRefs.current;
     const colors = ['blue', 'red', 'black', 'yellow'] as const;
 
-    // 1. Process individual movement, lawn friction, and perimeter bounces
+    // 1. Process individual movement, lawn friction, obstacle/perimeter collisions
     colors.forEach(c => {
       const b = balls[c];
       if (b.vx !== 0 || b.vz !== 0 || b.isRolling) {
@@ -52,9 +74,48 @@ function PhysicsManager({
         b.z += b.vz * dt;
 
         // Apply turf grass friction deceleration (exponential decay)
-        // Adjust the multiplier (-0.9) to make the balls roll longer or shorter
         b.vx *= Math.exp(-0.85 * dt);
         b.vz *= Math.exp(-0.85 * dt);
+
+        // --- PEG COLLISION ---
+        const dxPeg = b.x - 0;
+        const dzPeg = b.z - 0;
+        const distPeg = Math.sqrt(dxPeg * dxPeg + dzPeg * dzPeg);
+        const minPegDist = 0.208375; // 0.133375 (ball radius) + 0.075 (peg radius)
+        if (distPeg < minPegDist && distPeg > 0.001) {
+          const nx = dxPeg / distPeg;
+          const nz = dzPeg / distPeg;
+          const velAlongNormal = b.vx * nx + b.vz * nz;
+          if (velAlongNormal < 0) {
+            const j = -(1 + 0.5) * velAlongNormal;
+            b.vx += j * nx;
+            b.vz += j * nz;
+            b.isRolling = true;
+          }
+          b.x = nx * minPegDist;
+          b.z = nz * minPegDist;
+        }
+
+        // --- HOOP LEGS COLLISION ---
+        const minLegDist = 0.168375; // 0.133375 (ball radius) + 0.035 (leg radius)
+        HOOP_LEGS.forEach(leg => {
+          const dxLeg = b.x - leg.x;
+          const dzLeg = b.z - leg.z;
+          const distLeg = Math.sqrt(dxLeg * dxLeg + dzLeg * dzLeg);
+          if (distLeg < minLegDist && distLeg > 0.001) {
+            const nx = dxLeg / distLeg;
+            const nz = dzLeg / distLeg;
+            const velAlongNormal = b.vx * nx + b.vz * nz;
+            if (velAlongNormal < 0) {
+              const j = -(1 + 0.4) * velAlongNormal;
+              b.vx += j * nx;
+              b.vz += j * nz;
+              b.isRolling = true;
+            }
+            b.x = leg.x + nx * minLegDist;
+            b.z = leg.z + nz * minLegDist;
+          }
+        });
 
         const speed = Math.sqrt(b.vx * b.vx + b.vz * b.vz);
 
@@ -106,65 +167,121 @@ function PhysicsManager({
         const bA = balls[cA];
         const bB = balls[cB];
 
-        const dx = bB.x - bA.x;
-        const dz = bB.z - bA.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        const minDist = 0.26675; // sum of ball diameters (2 * 0.133375)
+        const dx = bA.x - bB.x;
+        const dz = bA.z - bB.z;
+        const distSq = dx * dx + dz * dz;
+        const minContactDist = 0.26675; // 2 * 0.133375
+        const minContactDistSq = minContactDist * minContactDist;
 
-        if (dist < minDist && dist > 0.001) {
-          const overlap = minDist - dist;
-          const nx = dx / dist;
-          const nz = dz / dist;
+        if (distSq < minContactDistSq) {
+          const dist = Math.sqrt(distSq);
+          if (dist > 0.001) {
+            const relVX = bA.vx - bB.vx;
+            const relVZ = bA.vz - bB.vz;
+            const dotProduct = dx * relVX + dz * relVZ;
 
-          // Push balls apart along normal vector to completely avoid clipping
-          bA.x -= nx * overlap * 0.5;
-          bA.z -= nz * overlap * 0.5;
-          bB.x += nx * overlap * 0.5;
-          bB.z += nz * overlap * 0.5;
+            if (dotProduct < 0) {
+              const nx = dx / dist;
+              const nz = dz / dist;
+              const v_dot_n = relVX * nx + relVZ * nz;
+              
+              const restitution = 0.92;
+              const j_impulse = (-(1 + restitution) * v_dot_n) / 2;
 
-          // Project velocities onto the normal impact vector
-          const v1n = bA.vx * nx + bA.vz * nz;
-          const v2n = bB.vx * nx + bB.vz * nz;
+              bA.vx += j_impulse * nx;
+              bA.vz += j_impulse * nz;
+              bB.vx -= j_impulse * nx;
+              bB.vz -= j_impulse * nz;
+            }
 
-          // Swap components for standard equal-mass 1D elastic impact
-          const vxA_new = bA.vx + (v2n - v1n) * nx;
-          const vzA_new = bA.vz + (v2n - v1n) * nz;
-          const vxB_new = bB.vx + (v1n - v2n) * nx;
-          const vzB_new = bB.vz + (v1n - v2n) * nz;
+            const overlap = minContactDist - dist;
+            const nx_pos = dx / dist;
+            const nz_pos = dz / dist;
+            bA.x += nx_pos * overlap / 2;
+            bA.z += nz_pos * overlap / 2;
+            bB.x -= nx_pos * overlap / 2;
+            bB.z -= nz_pos * overlap / 2;
 
-          // Minor collision friction loss (5%)
-          bA.vx = vxA_new * 0.95;
-          bA.vz = vzA_new * 0.95;
-          bB.vx = vxB_new * 0.95;
-          bB.vz = vzB_new * 0.95;
+            bA.isRolling = true;
+            bB.isRolling = true;
 
-          bA.isRolling = true;
-          bB.isRolling = true;
+            // Instantly sync visual WebGL meshes
+            const meshA = refs[cA].current;
+            if (meshA) {
+              meshA.position.x = bA.x;
+              meshA.position.z = bA.z;
+            }
+            const meshB = refs[cB].current;
+            if (meshB) {
+              meshB.position.x = bB.x;
+              meshB.position.z = bB.z;
+            }
 
-          // Instantly sync visual WebGL meshes
-          const meshA = refs[cA].current;
-          if (meshA) {
-            meshA.position.x = bA.x;
-            meshA.position.z = bA.z;
-          }
-          const meshB = refs[cB].current;
-          if (meshB) {
-            meshB.position.x = bB.x;
-            meshB.position.z = bB.z;
-          }
-
-          // If either bumped ball is the selected ball, also update the selection ring position
-          if (cA === selectedBall && selectedRingRef.current) {
-            selectedRingRef.current.position.x = bA.x;
-            selectedRingRef.current.position.z = bA.z;
-          } else if (cB === selectedBall && selectedRingRef.current) {
-            selectedRingRef.current.position.x = bB.x;
-            selectedRingRef.current.position.z = bB.z;
+            // If either bumped ball is the selected ball, also update the selection ring position
+            if (cA === selectedBall && selectedRingRef.current) {
+              selectedRingRef.current.position.x = bA.x;
+              selectedRingRef.current.position.z = bA.z;
+            } else if (cB === selectedBall && selectedRingRef.current) {
+              selectedRingRef.current.position.x = bB.x;
+              selectedRingRef.current.position.z = bB.z;
+            }
           }
         }
       }
     }
   });
+
+  return null;
+}
+
+// Custom Camera Controller inside the Canvas to handle programmatically updating OrbitControls & camera positions
+interface CameraControllerProps {
+  resetCounter: number;
+}
+
+function CameraController({ resetCounter }: CameraControllerProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const threeState = useThree() as any;
+  const camera = threeState.camera;
+  const controls = threeState.controls;
+  const lastReset = useRef(0);
+
+  useEffect(() => {
+    if (resetCounter > 0 && resetCounter !== lastReset.current) {
+      lastReset.current = resetCounter;
+      
+      // Custom camera position requested by user: [48.27, 10.84, 27.98]
+      camera.position.set(48.27, 10.84, 27.98);
+      camera.fov = 15.0; // Set deep telephoto zoom (fov = 15) to focus on the starting area
+      camera.updateProjectionMatrix();
+
+      if (controls) {
+        // Target pointing directly to the requested area: [12.81, 2.21, 18.04]
+        controls.target.set(12.81, 2.21, 18.04);
+        controls.update();
+      }
+    }
+  }, [resetCounter, camera, controls]);
+
+  // Option A: Add a 'keydown' listener. Pressing 'c' logs the active camera angle vectors
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'c') {
+        const camPos = camera.position;
+        const targetPos = controls ? (controls as unknown as { target: THREE.Vector3 }).target : new THREE.Vector3();
+        console.log(
+          `%c[Camera Angle Captured]%c\nPosition: [${camPos.x.toFixed(2)}, ${camPos.y.toFixed(2)}, ${camPos.z.toFixed(2)}]\nTarget: [${targetPos.x.toFixed(2)}, ${targetPos.y.toFixed(2)}, ${targetPos.z.toFixed(2)}]\nFOV: ${camera.fov.toFixed(1)}`,
+          'color: #f6e297; font-weight: bold; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);',
+          'color: #8bc34a; font-weight: 500;'
+        );
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [camera, controls]);
 
   return null;
 }
@@ -177,6 +294,12 @@ export default function App() {
     black: { x: -2, z: -5 },
     yellow: { x: 2, z: -5 }
   });
+
+  // Undo position history stack (capped at 50 entries)
+  const [history, setHistory] = useState<Record<string, { x: number; z: number }>[]>([]);
+  
+  // Reset trigger state counter for the CameraController
+  const [cameraResetCounter, setCameraResetCounter] = useState(0);
 
   // Striker State Machine parameters
   const [activeStriker, setActiveStriker] = useState<'blue' | 'red' | 'black' | 'yellow' | null>(null);
@@ -212,6 +335,108 @@ export default function App() {
     black: { x: -2, z: -5, vx: 0, vz: 0, isRolling: false },
     yellow: { x: 2, z: -5, vx: 0, vz: 0, isRolling: false }
   });
+
+  // Save current layout of all balls to history before any action
+  const saveToHistory = () => {
+    const snapshot = {
+      blue: { x: physicsBalls.current.blue.x, z: physicsBalls.current.blue.z },
+      red: { x: physicsBalls.current.red.x, z: physicsBalls.current.red.z },
+      black: { x: physicsBalls.current.black.x, z: physicsBalls.current.black.z },
+      yellow: { x: physicsBalls.current.yellow.x, z: physicsBalls.current.yellow.z }
+    };
+    
+    setHistory(prev => {
+      const next = [...prev, snapshot];
+      if (next.length > 50) {
+        next.shift(); // Cap history to 50 items
+      }
+      return next;
+    });
+  };
+
+  // Undo the last movement or strike
+  const handleUndo = () => {
+    if (activeStriker !== null) return;
+    const isAnyBallMoving = Object.values(physicsBalls.current).some(b => b.vx !== 0 || b.vz !== 0 || b.isRolling);
+    if (isAnyBallMoving) return;
+
+    if (history.length === 0) return;
+
+    const previousSnapshot = history[history.length - 1];
+    setHistory(prev => prev.slice(0, prev.length - 1));
+
+    // Restore the balls state
+    setBalls(previousSnapshot);
+
+    // Sync physics reference engine and instant visual meshes
+    const colors = ['blue', 'red', 'black', 'yellow'] as const;
+    colors.forEach(c => {
+      physicsBalls.current[c].x = previousSnapshot[c].x;
+      physicsBalls.current[c].z = previousSnapshot[c].z;
+      physicsBalls.current[c].vx = 0;
+      physicsBalls.current[c].vz = 0;
+      physicsBalls.current[c].isRolling = false;
+
+      const mesh = meshRefs.current[c].current;
+      if (mesh) {
+        mesh.position.x = previousSnapshot[c].x;
+        mesh.position.z = previousSnapshot[c].z;
+      }
+    });
+
+    // Update selection ring positions
+    if (selectedRingRef.current) {
+      selectedRingRef.current.position.x = previousSnapshot[selectedBall].x;
+      selectedRingRef.current.position.z = previousSnapshot[selectedBall].z;
+    }
+  };
+
+  // Reset the simulation state
+  const handleReset = () => {
+    if (activeStriker !== null) return;
+    const isAnyBallMoving = Object.values(physicsBalls.current).some(b => b.vx !== 0 || b.vz !== 0 || b.isRolling);
+    if (isAnyBallMoving) return;
+
+    // Snapshot the current state before resetting so that reset itself can be undone!
+    saveToHistory();
+
+    // 6 inches back: south boundary is Z = 17.5 yards, 6 inches back is Z = 17.6667
+    // Spaced out near starting flag (X = 14) to prevent overlap
+    const resetPositions = {
+      blue: { x: 13.8, z: 17.6667 },
+      red: { x: 13.4, z: 17.6667 },
+      black: { x: 13.0, z: 17.6667 },
+      yellow: { x: 12.6, z: 17.6667 }
+    };
+
+    setBalls(resetPositions);
+
+    const colors = ['blue', 'red', 'black', 'yellow'] as const;
+    colors.forEach(c => {
+      physicsBalls.current[c].x = resetPositions[c].x;
+      physicsBalls.current[c].z = resetPositions[c].z;
+      physicsBalls.current[c].vx = 0;
+      physicsBalls.current[c].vz = 0;
+      physicsBalls.current[c].isRolling = false;
+
+      const mesh = meshRefs.current[c].current;
+      if (mesh) {
+        mesh.position.x = resetPositions[c].x;
+        mesh.position.z = resetPositions[c].z;
+      }
+    });
+
+    // Set selection back to Blue as default
+    setSelectedBall('blue');
+
+    if (selectedRingRef.current) {
+      selectedRingRef.current.position.x = resetPositions.blue.x;
+      selectedRingRef.current.position.z = resetPositions.blue.z;
+    }
+
+    // Increment camera reset counter to trigger custom positioning and fov change
+    setCameraResetCounter(prev => prev + 1);
+  };
 
   // Handler for syncing positions from drags and stops
   const handleBallChange = (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => {
@@ -263,17 +488,26 @@ export default function App() {
     e.stopPropagation();
     const clickPoint = e.point;
     if (clickPoint) {
-      // Cancel active ball rolls first to start clean from click target calculations
-      const b = physicsBalls.current[selectedBall];
-      b.vx = 0;
-      b.vz = 0;
-      b.isRolling = false;
+      // Cancel all active ball rolls and synchronize their physical positions back to React state
+      const colors = ['blue', 'red', 'black', 'yellow'] as const;
+      colors.forEach(c => {
+        const b = physicsBalls.current[c];
+        if (b.isRolling || b.vx !== 0 || b.vz !== 0 || c === selectedBall) {
+          b.vx = 0;
+          b.vz = 0;
+          b.isRolling = false;
+          handleBallChange(c, b.x, b.z);
+        }
+      });
+
+      saveToHistory(); // Save snapshot before strike begins
 
       setStrikeTarget({ x: clickPoint.x, z: clickPoint.z });
       setActiveStriker(selectedBall);
       setIsStriking(true);
     }
   };
+
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // Mallet-to-Ball collision impulse frame event
@@ -314,8 +548,11 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
       
       {/* 3D WebGL Canvas Scene */}
-      <Canvas camera={{ position: [0, 20, 25], fov: 45 }} shadows>
-        <Sky sunPosition={[10, 20, -10]} distance={450000} />
+      <Canvas camera={{ position: [0, 20, 25], fov: 45, far: 5000 }} shadows>
+        <color attach="background" args={['#a0c4de']} />
+        <fog attach="fog" args={['#a0c4de', 40, 150]} />
+        <CameraController resetCounter={cameraResetCounter} />
+        <Sky sunPosition={[10, 20, -10]} distance={4000} />
         <ambientLight intensity={0.5} />
         <directionalLight 
           position={[25, 45, 25]} 
@@ -425,6 +662,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('blue', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              saveToHistory();
               setSelectedBall('blue');
             }
           }}
@@ -437,6 +675,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('red', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              saveToHistory();
               setSelectedBall('red');
             }
           }}
@@ -449,6 +688,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('black', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              saveToHistory();
               setSelectedBall('black');
             }
           }}
@@ -461,12 +701,13 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('yellow', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              saveToHistory();
               setSelectedBall('yellow');
             }
           }}
         />
 
-        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={60} />
+        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
@@ -498,6 +739,45 @@ export default function App() {
             disabled={activeStriker !== null}
           />
         </div>
+
+        {/* Premium Divider and simulation controls */}
+        <div className="panel-divider" />
+        
+        <div className="panel-title">Controls</div>
+        <div className="btn-container" style={{ gap: '12px' }}>
+          <button 
+            className="control-action-btn" 
+            onClick={handleUndo} 
+            disabled={activeStriker !== null || history.length === 0}
+            title="Undo Last Action"
+            style={{ minWidth: '85px' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+            </svg>
+            <span>Undo</span>
+          </button>
+          
+          <button 
+            className="control-action-btn" 
+            onClick={handleReset} 
+            disabled={activeStriker !== null}
+            title="Reset Game State"
+            style={{ minWidth: '85px' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Signature Watermark Overlay */}
+      <div className="signature-watermark">
+        <div className="signature-name">Murray Tinker's</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.12 BETA)</div>
       </div>
 
     </div>

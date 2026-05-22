@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Outfit:wght@400;600;700&display=swap');
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -228,4 +230,38 @@ code {
 
 .btn-yellow.selected {
   box-shadow: 0 0 25px rgba(251, 192, 45, 0.95), inset 0 0 10px rgba(255, 255, 255, 0.6);
+}
+
+/* Premium Signature Watermark Overlay */
+.signature-watermark {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  pointer-events: none; /* Make overlay non-blocking for OrbitControls mouse interactions */
+  user-select: none;
+}
+
+.signature-name {
+  font-family: 'Alex Brush', cursive;
+  font-size: 2.1rem;
+  color: #f6e297; /* Elegant soft gold accent matching control panel */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  line-height: 1.0;
+  font-weight: normal;
+  margin-bottom: 2px;
+}
+
+.signature-title {
+  font-family: 'Outfit', 'Inter', var(--sans);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.65);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }

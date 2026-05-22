@@ -182,3 +182,52 @@
     border-right-color: var(--border);
   }
 }
+
+/* Premium Panel Divider and Action Controls styling */
+.panel-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(212, 175, 55, 0.2); /* Semi-transparent gold line */
+  margin: 6px 0;
+}
+
+.control-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  user-select: none;
+}
+
+.control-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: #f6e297; /* Warm gold highlight */
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.3);
+}
+
+.control-action-btn:active:not(:disabled) {
+  transform: translateY(-1px) scale(0.96);
+}
+
+.control-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.control-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+

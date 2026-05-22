@@ -177,8 +177,8 @@ export function Bench({ position, rotation = [0, 0, 0] }: BenchProps) {
       </mesh>
 
       {/* Wood Backrest Slat */}
-      <mesh position={[0, heightAboveGround + 0.35, -seatDepth / 2 + 0.02]} rotation={[Math.PI / 12, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[seatWidth, seatHeight, 0.3]} />
+      <mesh position={[0, heightAboveGround + 0.28, -seatDepth / 2 + 0.02]} rotation={[-0.1, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[seatWidth, 0.25, seatHeight]} />
         <meshStandardMaterial color="#8b5a2b" roughness={0.7} />
       </mesh>
 

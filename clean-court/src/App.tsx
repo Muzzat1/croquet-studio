@@ -565,19 +565,23 @@ export default function App() {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const handleCourtPointerDown = (e: any) => {
     if (activeStriker !== null) return;
-    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+    const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+    const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+    pointerDownPos.current = { x: clientX, y: clientY };
   };
 
   const handleCourtPointerUp = (e: any) => {
     if (activeStriker !== null || !pointerDownPos.current) return;
 
-    const dx = e.clientX - pointerDownPos.current.x;
-    const dy = e.clientY - pointerDownPos.current.y;
+    const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+    const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+    const dx = clientX - pointerDownPos.current.x;
+    const dy = clientY - pointerDownPos.current.y;
     const dragDistance = Math.sqrt(dx * dx + dy * dy);
 
     pointerDownPos.current = null;
 
-    // Filter out OrbitControls camera drags
+    // Filter out OrbitControls camera drags (if mouse moved more than 6px, it is a drag, not a click)
     if (dragDistance > 6) return;
 
     e.stopPropagation();

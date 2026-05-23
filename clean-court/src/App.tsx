@@ -657,6 +657,12 @@ export default function App() {
     setIsStriking(false);
   };
 
+  const isGameReset = 
+    balls.blue.x === 13.8 && balls.blue.z === 17.6667 &&
+    balls.red.x === 13.4 && balls.red.z === 17.6667 &&
+    balls.black.x === 13.0 && balls.black.z === 17.6667 &&
+    balls.yellow.x === 12.6 && balls.yellow.z === 17.6667;
+
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
       
@@ -936,13 +942,13 @@ export default function App() {
             className="control-action-btn" 
             onClick={handleReset} 
             disabled={activeStriker !== null}
-            title="Reset Game State"
+            title={isGameReset ? "Start Game" : "Restart Game"}
             style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
             </svg>
-            <span>Reset</span>
+            <span>{isGameReset ? 'Start' : 'Restart'}</span>
           </button>
 
           <button

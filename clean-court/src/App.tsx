@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
@@ -235,8 +235,50 @@ function PhysicsManager({
 }
 
 function PanoramaBackground() {
-  const texture = useTexture('/coastal_panorama.jpg');
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const baseTexture = useTexture('/coastal_panorama.jpg');
+  
+  const texture = useMemo(() => {
+    const img = baseTexture.image as HTMLImageElement;
+    if (!img || !img.width) return baseTexture;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return baseTexture;
+
+    // Draw the original photograph
+    ctx.drawImage(img, 0, 0);
+
+    // Create a smooth horizontal blend region to stitch the seam where U=0 meets U=1
+    const blendWidth = Math.floor(img.width * 0.15); // Blend over 15% of the total texture width
+    const stripCanvas = document.createElement('canvas');
+    stripCanvas.width = blendWidth;
+    stripCanvas.height = img.height;
+    const stripCtx = stripCanvas.getContext('2d');
+    
+    if (stripCtx) {
+      // 1. Copy a strip of the left edge [0, blendWidth]
+      stripCtx.drawImage(img, 0, 0, blendWidth, img.height, 0, 0, blendWidth, img.height);
+
+      // 2. Apply a linear opacity gradient (0% opacity on the left, 100% opacity on the right)
+      const grad = stripCtx.createLinearGradient(0, 0, blendWidth, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,1)');
+
+      stripCtx.globalCompositeOperation = 'destination-in';
+      stripCtx.fillStyle = grad;
+      stripCtx.fillRect(0, 0, blendWidth, img.height);
+
+      // 3. Draw the masked strip on the right edge [width - blendWidth, width]
+      ctx.drawImage(stripCanvas, img.width - blendWidth, 0);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [baseTexture]);
+
   const meshRef = useRef<THREE.Mesh>(null);
 
   useFrame(({ camera }) => {

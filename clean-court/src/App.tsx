@@ -617,6 +617,7 @@ export default function App() {
       setActiveStriker(selectedBall);
       setIsStriking(true);
       setHoverPoint(null); // Hide aiming line immediately when strike is initiated
+      setShowAimingLines(false); // Deactivate aiming lines globally once the shot is played
     }
   };
 

@@ -331,11 +331,14 @@ function PanoramaBackground() {
 }
 
 // Custom Camera Controller inside the Canvas to handle programmatically updating OrbitControls & camera positions
+// Custom Camera Controller inside the Canvas to handle programmatically updating OrbitControls & camera positions
 interface CameraControllerProps {
   resetCounter: number;
+  selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
+  balls: Record<string, { x: number; z: number }>;
 }
 
-function CameraController({ resetCounter }: CameraControllerProps) {
+function CameraController({ resetCounter, selectedBall, balls }: CameraControllerProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const threeState = useThree() as any;
   const camera = threeState.camera;
@@ -374,7 +377,7 @@ function CameraController({ resetCounter }: CameraControllerProps) {
     }
   });
 
-  // Option A: Add a 'keydown' listener. Pressing 'c' logs the active camera angle vectors
+  // Listen for 'c' to log and keypad/number-row 1-9 keys to snap to custom camera views
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'c') {
@@ -385,6 +388,87 @@ function CameraController({ resetCounter }: CameraControllerProps) {
           'color: #f6e297; font-weight: bold; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);',
           'color: #8bc34a; font-weight: 500;'
         );
+        return;
+      }
+
+      // Snapping to custom camera views 1-9 (works for both standard top-row numbers and keypad/numpad numbers)
+      const numKey = e.key;
+      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(numKey)) {
+        let posX = 48.27;
+        let posY = 10.84;
+        let posZ = 27.98;
+        let tarX = 12.81;
+        let tarY = 2.21;
+        let tarZ = 18.04;
+        let fovValue = 15.0;
+
+        switch (numKey) {
+          case '1': // Standard Starting/Reset View
+            posX = 48.27; posY = 10.84; posZ = 27.98;
+            tarX = 12.81; tarY = 2.21; tarZ = 18.04;
+            fovValue = 15.0;
+            break;
+          case '2': // Dynamic Striker View (Behind the Selected Ball)
+            if (selectedBall && balls[selectedBall]) {
+              const bx = balls[selectedBall].x;
+              const bz = balls[selectedBall].z;
+              // Position camera 4 yards behind the ball (along Z direction) and 1.8 yards high
+              posX = bx; posY = 1.8; posZ = bz + 4.0;
+              // Target is 8 yards in front of the ball
+              tarX = bx; tarY = 0.2; tarZ = bz - 8.0;
+              fovValue = 45.0;
+            } else {
+              // Fallback if no ball is selected: center oblique
+              posX = 0.0; posY = 15.0; posZ = 25.0;
+              tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+              fovValue = 45.0;
+            }
+            break;
+          case '3': // Top-Down Blueprint View
+            posX = 0.0; posY = 45.0; posZ = 0.1; // Offset Z slightly to maintain controls orientation
+            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+            fovValue = 45.0;
+            break;
+          case '4': // South Side View (Looking North)
+            posX = 0.0; posY = 16.0; posZ = 36.0;
+            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+            fovValue = 35.0;
+            break;
+          case '5': // North Side View (Looking South)
+            posX = 0.0; posY = 16.0; posZ = -36.0;
+            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+            fovValue = 35.0;
+            break;
+          case '6': // East Side View (Looking West)
+            posX = 36.0; posY = 16.0; posZ = 0.0;
+            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+            fovValue = 35.0;
+            break;
+          case '7': // West Side View (Looking East)
+            posX = -36.0; posY = 16.0; posZ = 0.0;
+            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+            fovValue = 35.0;
+            break;
+          case '8': // Cinematic Clubhouse View (Default scene start view)
+            posX = -29.45; posY = 38.43; posZ = 0.23;
+            tarX = 4.83; tarY = 0.0; tarZ = 0.19;
+            fovValue = 45.0;
+            break;
+          case '9': // Corner 4 close-up
+            posX = -22.0; posY = 4.5; posZ = -24.0;
+            tarX = -14.0; tarY = 0.2; tarZ = -17.5;
+            fovValue = 30.0;
+            break;
+        }
+
+        camera.position.set(posX, posY, posZ);
+        camera.fov = fovValue;
+        camera.updateProjectionMatrix();
+
+        if (controls) {
+          controls.target.set(tarX, tarY, tarZ);
+          controls.update();
+        }
       }
     };
 
@@ -392,7 +476,7 @@ function CameraController({ resetCounter }: CameraControllerProps) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [camera, controls]);
+  }, [camera, controls, selectedBall, balls]);
 
   return null;
 }
@@ -720,7 +804,11 @@ export default function App() {
       <Canvas camera={{ position: [-29.45, 38.43, 0.23], fov: 45, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 80, 500]} />
-        <CameraController resetCounter={cameraResetCounter} />
+        <CameraController 
+          resetCounter={cameraResetCounter} 
+          selectedBall={selectedBall}
+          balls={balls}
+        />
         <PanoramaBackground />
         <ambientLight intensity={0.5} />
         <directionalLight 

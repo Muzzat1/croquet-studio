@@ -235,18 +235,23 @@ function PhysicsManager({
 }
 
 function PanoramaBackground() {
-  const texture = useTexture('/parkland_panorama.png');
+  const texture = useTexture('/coastal_panorama.jpg');
   texture.colorSpace = THREE.SRGBColorSpace;
   const meshRef = useRef<THREE.Mesh>(null);
 
   useFrame(({ camera }) => {
     if (meshRef.current) {
-      meshRef.current.position.copy(camera.position);
+      // Offset the background sphere slightly downward to align the aerial horizon naturally with the lawn edge
+      meshRef.current.position.set(
+        camera.position.x,
+        camera.position.y - 120,
+        camera.position.z
+      );
     }
   });
 
   return (
-    <mesh ref={meshRef} rotation={[0, -Math.PI / 2, 0]} scale={[1, -1, 1]}>
+    <mesh ref={meshRef} rotation={[0, -Math.PI / 3, 0]} scale={[1, -1, 1]}>
       <sphereGeometry args={[1000, 60, 40]} />
       <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
     </mesh>

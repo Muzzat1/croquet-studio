@@ -96,6 +96,34 @@ function PhysicsManager({
           b.z = nz * minPegDist;
         }
 
+        // --- HOOP RUNNING GROOVE & CENTERING ASSIST ---
+        // In real croquet, the grass under a hoop becomes worn into a subtle "groove" 
+        // that naturally guides balls straight through. If the ball enters the mouth 
+        // of a hoop, we apply a gentle alignment assist to help it run the hoop.
+        const HOOPS = [
+          { x: -7, z: 10.5 },
+          { x: -7, z: -10.5 },
+          { x: 7, z: -10.5 },
+          { x: 7, z: 10.5 },
+          { x: 0, z: -7 },
+          { x: 0, z: 7 }
+        ];
+
+        HOOPS.forEach(hoop => {
+          const dx = b.x - hoop.x;
+          const dz = b.z - hoop.z;
+          // If the ball is between the hoop legs (X-offset < 0.175 yards) 
+          // and close to passing through the hoop opening (Z-offset within 0.35 yards)
+          if (Math.abs(dx) < 0.175 && Math.abs(dz) < 0.35) {
+            if (Math.abs(b.vz) > 0.05) {
+              // Gently guide X position toward the exact center line (the groove)
+              b.x += (hoop.x - b.x) * 0.15 * dt * 60; // 15% centering force per frame
+              // Softly damp lateral X velocity to allow a smooth slide rather than a ricochet
+              b.vx *= Math.exp(-2.5 * dt);
+            }
+          }
+        });
+
         // --- HOOP LEGS COLLISION ---
         const minLegDist = 0.168375; // 0.133375 (ball radius) + 0.035 (leg radius)
         HOOP_LEGS.forEach(leg => {
@@ -107,7 +135,9 @@ function PhysicsManager({
             const nz = dzLeg / distLeg;
             const velAlongNormal = b.vx * nx + b.vz * nz;
             if (velAlongNormal < 0) {
-              const j = -(1 + 0.4) * velAlongNormal;
+              // Reduced restitution from 0.4 to 0.02 (highly absorbing steel legs)
+              // This mimics the sliding physical reaction of hitting a heavy steel hoop leg at an angle.
+              const j = -(1 + 0.02) * velAlongNormal;
               b.vx += j * nx;
               b.vz += j * nz;
               b.isRolling = true;

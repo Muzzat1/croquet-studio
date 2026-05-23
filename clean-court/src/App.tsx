@@ -282,6 +282,21 @@ function CameraController({ resetCounter }: CameraControllerProps) {
     }
   }, [resetCounter, camera, controls]);
 
+  useFrame(() => {
+    if (controls) {
+      // Prevent focus target from dipping below ground level
+      if (controls.target.y < 0.0) {
+        controls.target.y = 0.0;
+        controls.update();
+      }
+      // Guarantee camera altitude never drops below ground level
+      if (camera.position.y < 0.1) {
+        camera.position.y = 0.1;
+        camera.updateProjectionMatrix();
+      }
+    }
+  });
+
   // Option A: Add a 'keydown' listener. Pressing 'c' logs the active camera angle vectors
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -768,7 +783,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[4.83, -4.59, 0.19]} />
+        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[4.83, 0.0, 0.19]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}

@@ -177,32 +177,44 @@ export default function CourtSurface() {
         </mesh>
       ))}
 
-      {/* The White Boundary Line */}
+      {/* The White Boundary Line (Thicker and Bolder) */}
       <Line
         points={boundaryPoints}
         color="white"
-        lineWidth={3} 
+        lineWidth={4.5} 
+        polygonOffset
+        polygonOffsetFactor={-10}
+        polygonOffsetUnits={-10}
       />
 
       {/* 1-yard starting area boundary quarter-circle arc */}
       <Line
         points={startingAreaPoints}
         color="white"
-        lineWidth={2}
+        lineWidth={3.5}
+        polygonOffset
+        polygonOffsetFactor={-10}
+        polygonOffsetUnits={-10}
       />
 
       {/* 1-yard West penalty area boundary semi-circle arc */}
       <Line
         points={westPenaltyPoints}
         color="white"
-        lineWidth={2}
+        lineWidth={3.5}
+        polygonOffset
+        polygonOffsetFactor={-10}
+        polygonOffsetUnits={-10}
       />
 
       {/* 1-yard East penalty area boundary semi-circle arc */}
       <Line
         points={eastPenaltyPoints}
         color="white"
-        lineWidth={2}
+        lineWidth={3.5}
+        polygonOffset
+        polygonOffsetFactor={-10}
+        polygonOffsetUnits={-10}
       />
 
       {/* Standard WCF Corner Flags */}

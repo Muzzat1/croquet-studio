@@ -558,6 +558,202 @@ export function TerraceChair({ position, rotation = [0, 0, 0] }: TerraceChairPro
   );
 }
 
+interface SittingSpectatorProps {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  shirtColor: string;
+  capColor: string;
+  isLounge?: boolean;
+}
+
+export function SittingSpectator({
+  position,
+  rotation = [0, 0, 0],
+  shirtColor,
+  capColor,
+  isLounge = false
+}: SittingSpectatorProps) {
+  const skinColor = "#fcd5b5";
+
+  if (isLounge) {
+    // Lounge character fits perfectly inside the sloped DeckChair
+    return (
+      <group position={position} rotation={rotation}>
+        {/* Hips */}
+        <mesh position={[0.04, 0.20, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.26, 0.08, 0.24]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+
+        {/* Lounged Torso (tilted backward by 0.35 rad) */}
+        <group position={[-0.04, 0.24, 0]} rotation={[0, 0, -0.35]}>
+          <mesh position={[0, 0.20, 0]} castShadow>
+            <cylinderGeometry args={[0.13, 0.15, 0.40, 10]} />
+            <meshStandardMaterial color={shirtColor} roughness={0.5} />
+          </mesh>
+          {/* Collar */}
+          <mesh position={[0, 0.41, 0]} rotation={[0.1, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.09, 0.10, 0.035, 10]} />
+            <meshStandardMaterial color="#ffffff" roughness={0.5} />
+          </mesh>
+          {/* Head */}
+          <mesh position={[0, 0.55, 0]} castShadow>
+            <sphereGeometry args={[0.115, 16, 16]} />
+            <meshStandardMaterial color={skinColor} roughness={0.7} />
+          </mesh>
+          {/* Cap */}
+          <mesh position={[0, 0.65, 0.015]} rotation={[-0.1, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.12, 0.12, 0.03, 12]} />
+            <meshStandardMaterial color={capColor} roughness={0.5} />
+          </mesh>
+          {/* Cap Visor */}
+          <mesh position={[0, 0.64, 0.10]} rotation={[0.2, 0, 0]} castShadow>
+            <boxGeometry args={[0.14, 0.012, 0.07]} />
+            <meshStandardMaterial color={capColor} roughness={0.5} />
+          </mesh>
+          {/* Sunglasses */}
+          <mesh position={[0, 0.56, 0.09]} castShadow>
+            <boxGeometry args={[0.16, 0.026, 0.026]} />
+            <meshStandardMaterial color="#111111" metalness={0.9} roughness={0.1} />
+          </mesh>
+        </group>
+
+        {/* Lounging Arms (resting flat on DeckChair armrests) */}
+        <mesh position={[0.04, 0.41, -0.28]} rotation={[0, 0, -0.15]} castShadow>
+          <boxGeometry args={[0.34, 0.035, 0.035]} />
+          <meshStandardMaterial color={shirtColor} roughness={0.5} />
+        </mesh>
+        <mesh position={[0.04, 0.41, 0.28]} rotation={[0, 0, -0.15]} castShadow>
+          <boxGeometry args={[0.34, 0.035, 0.035]} />
+          <meshStandardMaterial color={shirtColor} roughness={0.5} />
+        </mesh>
+
+        {/* Lounging Thighs (sloped slightly upward) */}
+        <mesh position={[0.14, 0.23, -0.07]} rotation={[0, 0, 0.15]} castShadow>
+          <boxGeometry args={[0.24, 0.05, 0.05]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+        <mesh position={[0.14, 0.23, 0.07]} rotation={[0, 0, 0.15]} castShadow>
+          <boxGeometry args={[0.24, 0.05, 0.05]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+
+        {/* Lounging Calves (extending downward to meet the floor) */}
+        <mesh position={[0.25, 0.12, -0.07]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.24, 8]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+        <mesh position={[0.25, 0.12, 0.07]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.24, 8]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+
+        {/* Shoes */}
+        <mesh position={[0.27, 0.02, -0.07]} castShadow>
+          <boxGeometry args={[0.07, 0.04, 0.05]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+        </mesh>
+        <mesh position={[0.27, 0.02, 0.07]} castShadow>
+          <boxGeometry args={[0.07, 0.04, 0.05]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+        </mesh>
+      </group>
+    );
+  } else {
+    // Upright character fits perfectly on standard TerraceChair
+    return (
+      <group position={position} rotation={rotation}>
+        {/* Hips */}
+        <mesh position={[0, 0.43, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.24, 0.06, 0.24]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+
+        {/* Upright Torso */}
+        <mesh position={[-0.04, 0.65, 0]} rotation={[0, 0, -0.04]} castShadow>
+          <cylinderGeometry args={[0.13, 0.14, 0.38, 10]} />
+          <meshStandardMaterial color={shirtColor} roughness={0.5} />
+        </mesh>
+        {/* Collar */}
+        <mesh position={[-0.04, 0.84, 0]} rotation={[0.05, 0, -0.04]} castShadow>
+          <cylinderGeometry args={[0.09, 0.10, 0.035, 10]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.5} />
+        </mesh>
+        {/* Head */}
+        <mesh position={[-0.04, 0.97, 0]} castShadow>
+          <sphereGeometry args={[0.115, 16, 16]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+        {/* Cap */}
+        <mesh position={[-0.04, 1.07, 0.015]} rotation={[-0.08, 0, -0.04]} castShadow>
+          <cylinderGeometry args={[0.12, 0.12, 0.03, 12]} />
+          <meshStandardMaterial color={capColor} roughness={0.5} />
+        </mesh>
+        {/* Cap Visor */}
+        <mesh position={[-0.04, 1.06, 0.10]} rotation={[0.2, 0, -0.04]} castShadow>
+          <boxGeometry args={[0.14, 0.012, 0.07]} />
+          <meshStandardMaterial color={capColor} roughness={0.5} />
+        </mesh>
+        {/* Sunglasses */}
+        <mesh position={[-0.04, 0.98, 0.09]} castShadow>
+          <boxGeometry args={[0.16, 0.026, 0.026]} />
+          <meshStandardMaterial color="#111111" metalness={0.9} roughness={0.1} />
+        </mesh>
+
+        {/* Sitting Arms (resting on thighs / lap) */}
+        {/* Upper arms */}
+        <mesh position={[-0.04, 0.70, -0.13]} rotation={[0.1, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.18, 8]} />
+          <meshStandardMaterial color={shirtColor} roughness={0.5} />
+        </mesh>
+        <mesh position={[-0.04, 0.70, 0.13]} rotation={[-0.1, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.18, 8]} />
+          <meshStandardMaterial color={shirtColor} roughness={0.5} />
+        </mesh>
+        {/* Forearms */}
+        <mesh position={[0.06, 0.60, -0.11]} rotation={[0, 0, Math.PI / 2.5]} castShadow>
+          <cylinderGeometry args={[0.02, 0.02, 0.18, 8]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+        <mesh position={[0.06, 0.60, 0.11]} rotation={[0, 0, Math.PI / 2.5]} castShadow>
+          <cylinderGeometry args={[0.02, 0.02, 0.18, 8]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+
+        {/* Upright Thighs (extending forward) */}
+        <mesh position={[0.09, 0.43, -0.07]} castShadow>
+          <boxGeometry args={[0.20, 0.05, 0.05]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+        <mesh position={[0.09, 0.43, 0.07]} castShadow>
+          <boxGeometry args={[0.20, 0.05, 0.05]} />
+          <meshStandardMaterial color="#333333" roughness={0.8} />
+        </mesh>
+
+        {/* Upright Calves (extending downward to the floor) */}
+        <mesh position={[0.19, 0.22, -0.07]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.38, 8]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+        <mesh position={[0.19, 0.22, 0.07]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.38, 8]} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
+        </mesh>
+
+        {/* Shoes */}
+        <mesh position={[0.22, 0.02, -0.07]} castShadow>
+          <boxGeometry args={[0.08, 0.04, 0.05]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+        </mesh>
+        <mesh position={[0.22, 0.02, 0.07]} castShadow>
+          <boxGeometry args={[0.08, 0.04, 0.05]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+        </mesh>
+      </group>
+    );
+  }
+}
+
 // 7.5. Interactive Retractable Awning Component (Striped café-style fabric)
 export function RetractableAwning() {
   const awningWidth = 16.3; // leaves a 0.05 yd gap from the deck railing
@@ -931,10 +1127,42 @@ export function ClubhouseDeck() {
       <DeckChair position={[19.8, deckHeight, -2.0]} rotation={[0, -Math.PI / 2 + 0.02, 0]} />
       <DeckChair position={[19.8, deckHeight, 2.0]} rotation={[0, -Math.PI / 2 - 0.02, 0]} />
 
+      {/* Additional Lounge Seating for a more populated deck */}
+      <DeckChair position={[19.8, deckHeight, -7.5]} rotation={[0, -Math.PI / 2 - 0.05, 0]} />
+      <DeckChair position={[19.8, deckHeight, 7.5]} rotation={[0, -Math.PI / 2 + 0.05, 0]} />
+
       {/* South Dining Set */}
       <TerraceTable position={[19.75, deckHeight, 5.0]} />
       <TerraceChair position={[19.75, deckHeight, 4.4]} rotation={[0, 0, 0]} />
       <TerraceChair position={[19.75, deckHeight, 5.6]} rotation={[0, Math.PI, 0]} />
+
+      {/* Spectators Watching the Croquet Court */}
+      {/* 1. Spectator Lounging in the North-most Lounge Chair (Z = -7.5) */}
+      <SittingSpectator 
+        position={[19.8, deckHeight, -7.5]} 
+        rotation={[0, -Math.PI / 2 - 0.05, 0]} 
+        shirtColor="#2e7d32" 
+        capColor="#1b5e20" 
+        isLounge 
+      />
+
+      {/* 2. Spectator Lounging in the Central-North Lounge Chair (Z = -2.0) */}
+      <SittingSpectator 
+        position={[19.8, deckHeight, -2.0]} 
+        rotation={[0, -Math.PI / 2 + 0.02, 0]} 
+        shirtColor="#1565c0" 
+        capColor="#0d47a1" 
+        isLounge 
+      />
+
+      {/* 3. Spectator Sitting Upright on the South Dining Chair (Z = 5.6) */}
+      <SittingSpectator 
+        position={[19.75, deckHeight, 5.6]} 
+        rotation={[0, Math.PI, 0]} 
+        shirtColor="#e64a19" 
+        capColor="#bf360c" 
+        isLounge={false} 
+      />
 
       {/* 7.5 Interactive Retractable Awning (Striped café-style fabric) */}
       <RetractableAwning />

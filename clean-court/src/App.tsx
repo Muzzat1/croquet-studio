@@ -27,7 +27,7 @@ function PhysicsManager({
   physicsBalls: React.MutableRefObject<Record<string, PhysicsBallState>>;
   meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Mesh | null>>>;
   onPositionChange: (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => void;
-  selectedBall: 'blue' | 'red' | 'black' | 'yellow';
+  selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   selectedRingRef: React.RefObject<THREE.Mesh | null>;
 }) {
   // Perimeter boundaries based on picket fences:
@@ -401,12 +401,26 @@ export default function App() {
   const [isStriking, setIsStriking] = useState(false);
 
   // Selection & striking target state
-  const [selectedBall, setSelectedBall] = useState<'blue' | 'red' | 'black' | 'yellow'>('blue');
+  const [selectedBall, setSelectedBall] = useState<'blue' | 'red' | 'black' | 'yellow' | null>('blue');
   const [strikeTarget, setStrikeTarget] = useState<{ x: number; z: number } | null>(null);
 
   // Aiming guides state
   const [showAimingLines, setShowAimingLines] = useState(false);
   const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
+
+  // Automatically shut off aiming lines if the selected ball is off-court, if no ball is selected, or if any ball starts moving
+  useEffect(() => {
+    if (!selectedBall) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowAimingLines(false);
+      return;
+    }
+    const coords = balls[selectedBall];
+    const isOff = Math.abs(coords.x) > 14 || Math.abs(coords.z) > 17.5;
+    if (isOff && showAimingLines) {
+      setShowAimingLines(false);
+    }
+  }, [balls, selectedBall, showAimingLines]);
 
   // Mesh reference map for zero-render physics loops
   const blueMeshRef = useRef<THREE.Mesh>(null);
@@ -484,7 +498,7 @@ export default function App() {
     });
 
     // Update selection ring positions
-    if (selectedRingRef.current) {
+    if (selectedRingRef.current && selectedBall) {
       selectedRingRef.current.position.x = previousSnapshot[selectedBall].x;
       selectedRingRef.current.position.z = previousSnapshot[selectedBall].z;
     }
@@ -563,7 +577,7 @@ export default function App() {
   // HUD Button Selection handler
   const handleHUDSelect = (color: 'blue' | 'red' | 'black' | 'yellow') => {
     if (activeStriker !== null) return; // Prevent selection changes during active striking
-    setSelectedBall(color);
+    setSelectedBall(selectedBall === color ? null : color);
   };
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -591,6 +605,7 @@ export default function App() {
     e.stopPropagation();
     const clickPoint = e.point;
     if (clickPoint) {
+      if (!selectedBall) return;
       // Check if selected ball is off-court (Width: 28yd [-14, 14], Length: 35yd [-17.5, 17.5])
       const activeBallCoords = physicsBalls.current[selectedBall];
       const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
@@ -656,6 +671,11 @@ export default function App() {
     setActiveStriker(null);
     setIsStriking(false);
   };
+
+  const activeBallCoords = selectedBall ? balls[selectedBall] : null;
+  const isSelectedBallOffCourt = activeBallCoords 
+    ? (Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5)
+    : true;
 
   const isGameReset = 
     balls.blue.x === 13.8 && balls.blue.z === 17.6667 &&
@@ -744,22 +764,24 @@ export default function App() {
         />
 
         {/* Selected Ball Ring Visualizer */}
-        <mesh
-          ref={selectedRingRef}
-          position={[balls[selectedBall].x, 0.025, balls[selectedBall].z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <ringGeometry args={[0.16, 0.20, 32]} />
-          <meshBasicMaterial 
-            color={
-              selectedBall === 'blue' ? '#1565c0' :
-              selectedBall === 'red' ? '#d32f2f' :
-              selectedBall === 'black' ? '#ffffff' :
-              '#fbc02d'
-            } 
-            side={THREE.DoubleSide} 
-          />
-        </mesh>
+        {selectedBall && (
+          <mesh
+            ref={selectedRingRef}
+            position={[balls[selectedBall].x, 0.025, balls[selectedBall].z]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <ringGeometry args={[0.16, 0.20, 32]} />
+            <meshBasicMaterial 
+              color={
+                selectedBall === 'blue' ? '#1565c0' :
+                selectedBall === 'red' ? '#d32f2f' :
+                selectedBall === 'black' ? '#ffffff' :
+                '#fbc02d'
+              } 
+              side={THREE.DoubleSide} 
+            />
+          </mesh>
+        )}
 
         {/* Invisible court surface clicking helper to capture striking clicks */}
         <mesh 
@@ -781,6 +803,7 @@ export default function App() {
 
         {/* Aiming guideline */}
         {(() => {
+          if (!selectedBall) return null;
           const activeBallCoords = balls[selectedBall];
           const isSelectedBallOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
 
@@ -822,11 +845,14 @@ export default function App() {
           onPointerDown={() => {
             if (activeStriker === null) {
               saveToHistory();
-              setSelectedBall('blue');
-              const activeBallCoords = physicsBalls.current.blue;
-              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-              if (isOffCourt) {
-                showToast("Drag ball onto court");
+              const nextBall = selectedBall === 'blue' ? null : 'blue';
+              setSelectedBall(nextBall);
+              if (nextBall) {
+                const activeBallCoords = physicsBalls.current.blue;
+                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+                if (isOffCourt) {
+                  showToast("Drag ball onto court");
+                }
               }
             }
           }}
@@ -840,11 +866,14 @@ export default function App() {
           onPointerDown={() => {
             if (activeStriker === null) {
               saveToHistory();
-              setSelectedBall('red');
-              const activeBallCoords = physicsBalls.current.red;
-              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-              if (isOffCourt) {
-                showToast("Drag ball onto court");
+              const nextBall = selectedBall === 'red' ? null : 'red';
+              setSelectedBall(nextBall);
+              if (nextBall) {
+                const activeBallCoords = physicsBalls.current.red;
+                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+                if (isOffCourt) {
+                  showToast("Drag ball onto court");
+                }
               }
             }
           }}
@@ -858,11 +887,14 @@ export default function App() {
           onPointerDown={() => {
             if (activeStriker === null) {
               saveToHistory();
-              setSelectedBall('black');
-              const activeBallCoords = physicsBalls.current.black;
-              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-              if (isOffCourt) {
-                showToast("Drag ball onto court");
+              const nextBall = selectedBall === 'black' ? null : 'black';
+              setSelectedBall(nextBall);
+              if (nextBall) {
+                const activeBallCoords = physicsBalls.current.black;
+                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+                if (isOffCourt) {
+                  showToast("Drag ball onto court");
+                }
               }
             }
           }}
@@ -876,11 +908,14 @@ export default function App() {
           onPointerDown={() => {
             if (activeStriker === null) {
               saveToHistory();
-              setSelectedBall('yellow');
-              const activeBallCoords = physicsBalls.current.yellow;
-              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-              if (isOffCourt) {
-                showToast("Drag ball onto court");
+              const nextBall = selectedBall === 'yellow' ? null : 'yellow';
+              setSelectedBall(nextBall);
+              if (nextBall) {
+                const activeBallCoords = physicsBalls.current.yellow;
+                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+                if (isOffCourt) {
+                  showToast("Drag ball onto court");
+                }
               }
             }
           }}
@@ -954,7 +989,7 @@ export default function App() {
           <button
             className={`control-action-btn ${showAimingLines ? 'active-toggle' : ''}`}
             onClick={() => setShowAimingLines(!showAimingLines)}
-            disabled={activeStriker !== null}
+            disabled={activeStriker !== null || isSelectedBallOffCourt}
             title="Toggle Aiming Guides"
             style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >

@@ -788,16 +788,16 @@ export default function App() {
           return (
             <Line 
               points={[
-                [balls[selectedBall].x, 0.02, balls[selectedBall].z],
-                [hoverPoint.x, 0.02, hoverPoint.z]
+                [balls[selectedBall].x, 0.025, balls[selectedBall].z],
+                [hoverPoint.x, 0.025, hoverPoint.z]
               ]} 
               color={
-                selectedBall === 'blue' ? '#3b82f6' :
-                selectedBall === 'red' ? '#ef4444' :
-                selectedBall === 'black' ? '#e4e4e7' :
-                '#fde047'
+                selectedBall === 'blue' ? '#3399ff' :  // Bright neon blue
+                selectedBall === 'red' ? '#ff3333' :   // Bright neon red
+                selectedBall === 'black' ? '#ffffff' : // Pure bright white
+                '#ffff00'                              // Bright neon yellow
               }
-              lineWidth={2.5} 
+              lineWidth={4.0} // Thicker and brighter line guide
               dashed 
               dashScale={1.5} 
             />
@@ -915,13 +915,13 @@ export default function App() {
         <div className="panel-divider" />
         
         <div className="panel-title">Controls</div>
-        <div className="btn-container" style={{ gap: '12px', marginBottom: '10px' }}>
+        <div className="btn-container" style={{ gap: '8px' }}>
           <button 
             className="control-action-btn" 
             onClick={handleUndo} 
             disabled={activeStriker !== null || history.length === 0}
             title="Undo Last Action"
-            style={{ minWidth: '85px' }}
+            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
               <path d="M3 7v6h6"/>
@@ -935,28 +935,37 @@ export default function App() {
             onClick={handleReset} 
             disabled={activeStriker !== null}
             title="Reset Game State"
-            style={{ minWidth: '85px' }}
+            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
             </svg>
             <span>Reset</span>
           </button>
-        </div>
 
-        <div className="btn-container" style={{ justifyContent: 'center' }}>
           <button
             className={`control-action-btn ${showAimingLines ? 'active-toggle' : ''}`}
             onClick={() => setShowAimingLines(!showAimingLines)}
+            disabled={activeStriker !== null}
             title="Toggle Aiming Guides"
-            style={{ width: '100%', minWidth: '180px', justifyContent: 'center', gap: '8px' }}
+            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon" style={{ stroke: showAimingLines ? '#ffe680' : 'currentColor' }}>
-              <circle cx="12" cy="12" r="10"/>
-              <circle cx="12" cy="12" r="6"/>
-              <circle cx="12" cy="12" r="2"/>
-            </svg>
-            <span>Aiming Lines: {showAimingLines ? 'ON' : 'OFF'}</span>
+            {showAimingLines ? (
+              // 2 black rings + gold crosshair when active
+              <svg viewBox="0 0 24 24" fill="none" className="control-icon" style={{ strokeWidth: '2.5' }}>
+                <circle cx="12" cy="12" r="8" stroke="#000000" />
+                <circle cx="12" cy="12" r="4" stroke="#000000" />
+                <line x1="12" y1="2" x2="12" y2="22" stroke="#ffe680" strokeLinecap="round" />
+                <line x1="2" y1="12" x2="22" y2="12" stroke="#ffe680" strokeLinecap="round" />
+              </svg>
+            ) : (
+              // 2 black rings when inactive
+              <svg viewBox="0 0 24 24" fill="none" className="control-icon" style={{ strokeWidth: '2.5' }}>
+                <circle cx="12" cy="12" r="8" stroke="#000000" />
+                <circle cx="12" cy="12" r="4" stroke="#000000" />
+              </svg>
+            )}
+            <span>Aim</span>
           </button>
         </div>
       </div>

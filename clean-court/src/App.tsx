@@ -525,7 +525,7 @@ export default function App() {
       const activeBallCoords = physicsBalls.current[selectedBall];
       const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
       if (isOffCourt) {
-        showToast("Drag ball onto court");
+        // Block off-court strikes silently (warnings are only triggered when the ball is explicitly selected/clicked)
         return;
       }
 
@@ -668,7 +668,7 @@ export default function App() {
         {/* Selected Ball Ring Visualizer */}
         <mesh
           ref={selectedRingRef}
-          position={[balls[selectedBall].x, 0.006, balls[selectedBall].z]}
+          position={[balls[selectedBall].x, 0.025, balls[selectedBall].z]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
           <ringGeometry args={[0.16, 0.20, 32]} />
@@ -685,7 +685,7 @@ export default function App() {
 
         {/* Invisible court surface clicking helper to capture striking clicks */}
         <mesh 
-          position={[0, 0.003, 0]} 
+          position={[0, 0.015, 0]} 
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={handleCourtPointerDown}
           onPointerUp={handleCourtPointerUp}

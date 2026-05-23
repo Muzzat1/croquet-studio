@@ -83,7 +83,7 @@ function getArcPoints(
     const angle = startAngle + (i / segments) * (endAngle - startAngle);
     points.push([
       centerX + Math.cos(angle) * radius,
-      0.005, // slightly above the grass turf (Y = 0.002 to 0.01) to prevent z-fighting
+      0.020, // raised to Level 3 height to completely resolve z-fighting at sweeping camera angles
       centerZ + Math.sin(angle) * radius
     ]);
   }
@@ -95,11 +95,11 @@ export default function CourtSurface() {
   // X = Width (28 yards: -14 to +14)
   // Z = Length (35 yards: -17.5 to +17.5)
   const boundaryPoints: [number, number, number][] = [
-    [-14, 0.01, -17.5], // Corner 2 (North-West)
-    [14, 0.01, -17.5],  // Corner 3 (North-East)
-    [14, 0.01, 17.5],   // Corner 4 (South-East)
-    [-14, 0.01, 17.5],  // Corner 1 (South-West)
-    [-14, 0.01, -17.5]  // Close the rectangle
+    [-14, 0.020, -17.5], // Corner 2 (North-West)
+    [14, 0.020, -17.5],  // Corner 3 (North-East)
+    [14, 0.020, 17.5],   // Corner 4 (South-East)
+    [-14, 0.020, 17.5],  // Corner 1 (South-West)
+    [-14, 0.020, -17.5]  // Close the rectangle
   ];
 
   // 12 equal longitudinal stripes covering the 28-yard wide internal grass area
@@ -158,11 +158,11 @@ export default function CourtSurface() {
         <meshStandardMaterial color="#2e6f3e" roughness={0.9} />
       </mesh>
 
-      {/* Internal longitudinal mowing stripes (placed at Y = 0.004 to avoid z-fighting with the lawn) */}
+      {/* Internal longitudinal mowing stripes (placed at Y = 0.010 to avoid z-fighting with the lawn) */}
       {stripes.map((stripe, idx) => (
         <mesh 
           key={`stripe-${idx}`} 
-          position={[stripe.x, 0.004, 0]} 
+          position={[stripe.x, 0.010, 0]} 
           rotation={[-Math.PI / 2, 0, 0]} 
           receiveShadow
         >
@@ -171,8 +171,8 @@ export default function CourtSurface() {
             color={stripe.color} 
             roughness={0.85} 
             polygonOffset
-            polygonOffsetFactor={-1}
-            polygonOffsetUnits={-1}
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
           />
         </mesh>
       ))}

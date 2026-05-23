@@ -283,38 +283,41 @@ code {
   transform: translateX(-50%);
   z-index: 1000;
   pointer-events: none;
-  animation: toastFadeIn 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  animation: toastEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .toast-content {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 28px;
-  background: rgba(18, 18, 18, 0.75);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1.5px solid rgba(212, 175, 55, 0.6); /* Gold rim matching control panel */
-  border-radius: 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  gap: 16px;
+  padding: 16px 36px;
+  background: rgba(10, 15, 13, 0.7);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(212, 175, 55, 0.35); /* Warm gold thin border */
+  border-radius: 30px;
+  box-shadow: 
+    0 24px 60px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(212, 175, 55, 0.1);
   font-family: 'Outfit', 'Inter', var(--sans);
   color: #ffffff;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
 .toast-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   color: #f6e297; /* Warm gold alert icon */
+  filter: drop-shadow(0 0 4px rgba(246, 226, 151, 0.5));
 }
 
-@keyframes toastFadeIn {
+@keyframes toastEntrance {
   0% {
     opacity: 0;
-    transform: translate(-50%, -20px) scale(0.9);
+    transform: translate(-50%, -40px) scale(0.92);
   }
   100% {
     opacity: 1;

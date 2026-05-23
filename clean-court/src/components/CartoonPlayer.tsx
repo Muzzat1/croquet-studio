@@ -43,7 +43,7 @@ export default function CartoonPlayer({
   const ux = dist > 0 ? dx / dist : 0;
   const uz = dist > 0 ? dz / dist : -1;
 
-  const playerDistance = 0.22; // yards behind ball (placed in a professional, centered croquet stance)
+  const playerDistance = 0.55; // yards behind ball (approx 20 inches for natural stance and close arm hang)
   const px = ballPosition[0] - ux * playerDistance;
   const py = 0; // standing on grass
   const pz = ballPosition[2] - uz * playerDistance;
@@ -77,7 +77,7 @@ export default function CartoonPlayer({
     // --- ANIMATION STATE MACHINE ---
     if (phase === 'stalking') {
       const progress = Math.min(timer.current / 1.5, 1);
-      const currentDistance = 1.6 - progress * (1.6 - 0.22);
+      const currentDistance = 1.6 - progress * (1.6 - 0.55);
       
       const currPx = ballPosition[0] - ux * currentDistance;
       const currPz = ballPosition[2] - uz * currentDistance;
@@ -99,7 +99,7 @@ export default function CartoonPlayer({
 
       if (progress >= 1) {
         // Reset player posture to settled standard stance
-        if (player) player.position.set(ballPosition[0] - ux * 0.22, 0, ballPosition[2] - uz * 0.22);
+        if (player) player.position.set(ballPosition[0] - ux * 0.55, 0, ballPosition[2] - uz * 0.55);
         if (leftFoot) leftFoot.position.set(-0.12, 0.04, 0);
         if (rightFoot) rightFoot.position.set(0.12, 0.04, 0);
         
@@ -111,8 +111,8 @@ export default function CartoonPlayer({
     else if (phase === 'aiming') {
       const progress = Math.min(timer.current / 1.5, 1);
       if (arm) {
-        // Two gentle practice waggles
-        arm.rotation.x = Math.sin(progress * Math.PI * 4) * (Math.PI / 20);
+        // Two gentle practice waggles (always >= 0 to only swing backward and back to the ball, never cutting through it)
+        arm.rotation.x = (1 - Math.cos(progress * Math.PI * 4)) * (Math.PI / 40);
       }
 
       if (progress >= 1) {
@@ -229,36 +229,36 @@ export default function CartoonPlayer({
       </mesh>
 
       {/* 7. Swing Arm & Mallet Assembly */}
-      <group ref={armGroupRef} position={[0, 0.85, 0.08]}>
+      <group ref={armGroupRef} position={[0, 0.85, 0.10]}>
         {/* Left Arm holding mallet */}
-        <mesh position={[-0.18, -0.22, 0.07]} rotation={[-0.12, 0, 0]} castShadow>
+        <mesh position={[-0.18, -0.22, 0.08]} rotation={[-0.18, 0, 0]} castShadow>
           <cylinderGeometry args={[0.03, 0.03, 0.42, 8]} />
           <meshStandardMaterial color={colorMap[color]} roughness={0.5} />
         </mesh>
         {/* Right Arm holding mallet */}
-        <mesh position={[0.18, -0.22, 0.07]} rotation={[-0.12, 0, 0]} castShadow>
+        <mesh position={[0.18, -0.22, 0.08]} rotation={[-0.18, 0, 0]} castShadow>
           <cylinderGeometry args={[0.03, 0.03, 0.42, 8]} />
           <meshStandardMaterial color={colorMap[color]} roughness={0.5} />
         </mesh>
 
         {/* 3D Croquet Mallet */}
-        <group position={[0, -0.36, 0.14]} rotation={[0, 0, 0]}>
+        <group position={[0, -0.34, 0.16]} rotation={[-0.28, 0, 0]}>
           {/* Wooden Shaft */}
           <mesh castShadow>
             <cylinderGeometry args={[0.012, 0.012, 0.72, 8]} />
             <meshStandardMaterial color="#8b5a2b" roughness={0.8} />
           </mesh>
           {/* Mallet Hammer Head */}
-          <mesh position={[0, -0.36, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <mesh position={[0, -0.36, 0]} rotation={[Math.PI / 2 + 0.28, 0, 0]} castShadow>
             <cylinderGeometry args={[0.055, 0.055, 0.22, 12]} />
             <meshStandardMaterial color="#3a2512" roughness={0.9} />
           </mesh>
           {/* Gold Brass End-Caps */}
-          <mesh position={[0, -0.36, -0.11]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh position={[0, -0.36, -0.11]} rotation={[Math.PI / 2 + 0.28, 0, 0]}>
             <cylinderGeometry args={[0.056, 0.056, 0.015, 12]} />
             <meshStandardMaterial color="#d4af37" metalness={0.9} roughness={0.1} />
           </mesh>
-          <mesh position={[0, -0.36, 0.11]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh position={[0, -0.36, 0.11]} rotation={[Math.PI / 2 + 0.28, 0, 0]}>
             <cylinderGeometry args={[0.056, 0.056, 0.015, 12]} />
             <meshStandardMaterial color="#d4af37" metalness={0.9} roughness={0.1} />
           </mesh>

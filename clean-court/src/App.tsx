@@ -801,6 +801,7 @@ export default function App() {
               lineWidth={4.0} // Thicker and brighter line guide
               dashed 
               dashScale={1.5} 
+              frustumCulled={false} // Disable frustum culling to prevent it from disappearing at certain compass angles
             />
           );
         })()}

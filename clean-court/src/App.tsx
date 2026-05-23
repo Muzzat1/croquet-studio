@@ -251,7 +251,7 @@ function PanoramaBackground() {
   });
 
   return (
-    <mesh ref={meshRef} rotation={[0, -Math.PI / 3, 0]} scale={[1, -1, 1]}>
+    <mesh ref={meshRef} rotation={[0, -Math.PI / 3, 0]} scale={[-1, 1, 1]}>
       <sphereGeometry args={[1000, 60, 40]} />
       <meshBasicMaterial map={texture} side={THREE.BackSide} toneMapped={false} fog={false} />
     </mesh>

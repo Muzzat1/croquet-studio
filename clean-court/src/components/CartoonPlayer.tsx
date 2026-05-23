@@ -43,7 +43,7 @@ export default function CartoonPlayer({
   const ux = dist > 0 ? dx / dist : 0;
   const uz = dist > 0 ? dz / dist : -1;
 
-  const playerDistance = 0.65; // yards behind ball
+  const playerDistance = 0.22; // yards behind ball (placed in a professional, centered croquet stance)
   const px = ballPosition[0] - ux * playerDistance;
   const py = 0; // standing on grass
   const pz = ballPosition[2] - uz * playerDistance;
@@ -77,7 +77,7 @@ export default function CartoonPlayer({
     // --- ANIMATION STATE MACHINE ---
     if (phase === 'stalking') {
       const progress = Math.min(timer.current / 1.5, 1);
-      const currentDistance = 1.6 - progress * (1.6 - 0.65);
+      const currentDistance = 1.6 - progress * (1.6 - 0.22);
       
       const currPx = ballPosition[0] - ux * currentDistance;
       const currPz = ballPosition[2] - uz * currentDistance;
@@ -99,7 +99,7 @@ export default function CartoonPlayer({
 
       if (progress >= 1) {
         // Reset player posture to settled standard stance
-        if (player) player.position.set(ballPosition[0] - ux * 0.65, 0, ballPosition[2] - uz * 0.65);
+        if (player) player.position.set(ballPosition[0] - ux * 0.22, 0, ballPosition[2] - uz * 0.22);
         if (leftFoot) leftFoot.position.set(-0.12, 0.04, 0);
         if (rightFoot) rightFoot.position.set(0.12, 0.04, 0);
         
@@ -229,20 +229,20 @@ export default function CartoonPlayer({
       </mesh>
 
       {/* 7. Swing Arm & Mallet Assembly */}
-      <group ref={armGroupRef} position={[0, 0.85, 0]}>
+      <group ref={armGroupRef} position={[0, 0.85, 0.08]}>
         {/* Left Arm holding mallet */}
-        <mesh position={[-0.18, -0.22, 0.06]} rotation={[-0.35, 0, 0]} castShadow>
+        <mesh position={[-0.18, -0.22, 0.07]} rotation={[-0.12, 0, 0]} castShadow>
           <cylinderGeometry args={[0.03, 0.03, 0.42, 8]} />
           <meshStandardMaterial color={colorMap[color]} roughness={0.5} />
         </mesh>
         {/* Right Arm holding mallet */}
-        <mesh position={[0.18, -0.22, 0.06]} rotation={[-0.35, 0, 0]} castShadow>
+        <mesh position={[0.18, -0.22, 0.07]} rotation={[-0.12, 0, 0]} castShadow>
           <cylinderGeometry args={[0.03, 0.03, 0.42, 8]} />
           <meshStandardMaterial color={colorMap[color]} roughness={0.5} />
         </mesh>
 
         {/* 3D Croquet Mallet */}
-        <group position={[0, -0.32, 0.12]} rotation={[-Math.PI / 2.3, 0, 0]}>
+        <group position={[0, -0.36, 0.14]} rotation={[0, 0, 0]}>
           {/* Wooden Shaft */}
           <mesh castShadow>
             <cylinderGeometry args={[0.012, 0.012, 0.72, 8]} />

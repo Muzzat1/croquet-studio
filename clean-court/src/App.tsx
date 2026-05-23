@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useTexture } from '@react-three/drei';
+import { OrbitControls, useTexture, Line } from '@react-three/drei';
 import * as THREE from 'three';
 import CourtSurface from './components/CourtSurface';
 import ParkSurroundings from './components/ParkSurroundings';
@@ -404,6 +404,10 @@ export default function App() {
   const [selectedBall, setSelectedBall] = useState<'blue' | 'red' | 'black' | 'yellow'>('blue');
   const [strikeTarget, setStrikeTarget] = useState<{ x: number; z: number } | null>(null);
 
+  // Aiming guides state
+  const [showAimingLines, setShowAimingLines] = useState(false);
+  const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
+
   // Mesh reference map for zero-render physics loops
   const blueMeshRef = useRef<THREE.Mesh>(null);
   const redMeshRef = useRef<THREE.Mesh>(null);
@@ -612,6 +616,7 @@ export default function App() {
       setStrikeTarget({ x: clickPoint.x, z: clickPoint.z });
       setActiveStriker(selectedBall);
       setIsStriking(true);
+      setHoverPoint(null); // Hide aiming line immediately when strike is initiated
     }
   };
 
@@ -755,10 +760,49 @@ export default function App() {
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={handleCourtPointerDown}
           onPointerUp={handleCourtPointerUp}
+          onPointerMove={(e) => {
+            if (activeStriker !== null) return;
+            setHoverPoint({ x: e.point.x, z: e.point.z });
+          }}
+          onPointerOut={() => {
+            setHoverPoint(null);
+          }}
         >
           <planeGeometry args={[120, 120]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
+
+        {/* Aiming guideline */}
+        {(() => {
+          const activeBallCoords = balls[selectedBall];
+          const isSelectedBallOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+
+          const shouldShowAimingLine = 
+            showAimingLines && 
+            activeStriker === null && 
+            !isSelectedBallOffCourt && 
+            hoverPoint !== null;
+
+          if (!shouldShowAimingLine || !hoverPoint) return null;
+
+          return (
+            <Line 
+              points={[
+                [balls[selectedBall].x, 0.02, balls[selectedBall].z],
+                [hoverPoint.x, 0.02, hoverPoint.z]
+              ]} 
+              color={
+                selectedBall === 'blue' ? '#3b82f6' :
+                selectedBall === 'red' ? '#ef4444' :
+                selectedBall === 'black' ? '#e4e4e7' :
+                '#fde047'
+              }
+              lineWidth={2.5} 
+              dashed 
+              dashScale={1.5} 
+            />
+          );
+        })()}
 
         {/* Dynamic Croquet Balls */}
         <CroquetBall
@@ -871,7 +915,7 @@ export default function App() {
         <div className="panel-divider" />
         
         <div className="panel-title">Controls</div>
-        <div className="btn-container" style={{ gap: '12px' }}>
+        <div className="btn-container" style={{ gap: '12px', marginBottom: '10px' }}>
           <button 
             className="control-action-btn" 
             onClick={handleUndo} 
@@ -897,6 +941,22 @@ export default function App() {
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
             </svg>
             <span>Reset</span>
+          </button>
+        </div>
+
+        <div className="btn-container" style={{ justifyContent: 'center' }}>
+          <button
+            className={`control-action-btn ${showAimingLines ? 'active-toggle' : ''}`}
+            onClick={() => setShowAimingLines(!showAimingLines)}
+            title="Toggle Aiming Guides"
+            style={{ width: '100%', minWidth: '180px', justifyContent: 'center', gap: '8px' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon" style={{ stroke: showAimingLines ? '#ffe680' : 'currentColor' }}>
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+            <span>Aiming Lines: {showAimingLines ? 'ON' : 'OFF'}</span>
           </button>
         </div>
       </div>

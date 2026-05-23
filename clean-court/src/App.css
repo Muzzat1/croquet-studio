@@ -231,3 +231,16 @@
   stroke: currentColor;
 }
 
+.control-action-btn.active-toggle {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: #d4af37;
+  color: #ffe680;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+}
+
+.control-action-btn.active-toggle:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.32);
+  border-color: #ffe680;
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.45);
+}
+

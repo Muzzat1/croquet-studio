@@ -25,7 +25,7 @@ function PhysicsManager({
   selectedRingRef
 }: {
   physicsBalls: React.MutableRefObject<Record<string, PhysicsBallState>>;
-  meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Mesh | null>>>;
+  meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Object3D | null>>>;
   onPositionChange: (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => void;
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   selectedRingRef: React.RefObject<THREE.Mesh | null>;
@@ -345,24 +345,88 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
   const controls = threeState.controls;
   const lastReset = useRef(0);
 
+  // Smooth cinematic camera transition targets
+  const targetPosition = useRef<THREE.Vector3 | null>(null);
+  const targetTarget = useRef<THREE.Vector3 | null>(null);
+  const targetFov = useRef<number | null>(null);
+
   useEffect(() => {
     if (resetCounter > 0 && resetCounter !== lastReset.current) {
       lastReset.current = resetCounter;
       
-      // Custom camera position requested by user: [48.27, 10.84, 27.98]
-      camera.position.set(48.27, 10.84, 27.98);
-      camera.fov = 15.0; // Set deep telephoto zoom (fov = 15) to focus on the starting area
-      camera.updateProjectionMatrix();
-
+      // Smoothly transition to Preset 0 coordinates
+      targetPosition.current = new THREE.Vector3(41.79, 7.23, 24.46);
+      targetFov.current = 15.0;
       if (controls) {
-        // Target pointing directly to the requested area: [12.81, 2.21, 18.04]
-        controls.target.set(12.81, 2.21, 18.04);
-        controls.update();
+        targetTarget.current = new THREE.Vector3(-3.45, 1.52, 10.27);
       }
     }
   }, [resetCounter, camera, controls]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
+    // Limit delta time steps to prevent huge jumps during frame hiccups
+    const dt = Math.min(delta, 0.1);
+    const lerpSpeed = 2.1; // Speed multiplier for smooth camera gliding (halved for a more cinematic, slower pace)
+    const step = lerpSpeed * dt;
+
+    let needsUpdate = false;
+
+    if (targetPosition.current) {
+      // Spherical orbital sweep to pan around the court beautifully
+      const r_curr = Math.max(camera.position.length(), 0.1);
+      const theta_curr = Math.acos(camera.position.y / r_curr);
+      const phi_curr = Math.atan2(camera.position.z, camera.position.x);
+
+      const r_targ = Math.max(targetPosition.current.length(), 0.1);
+      const theta_targ = Math.acos(targetPosition.current.y / r_targ);
+      let phi_targ = Math.atan2(targetPosition.current.z, targetPosition.current.x);
+
+      // Interpolate along the shortest path on the azimuthal circle
+      let diff = phi_targ - phi_curr;
+      while (diff < -Math.PI) { diff += 2 * Math.PI; phi_targ += 2 * Math.PI; }
+      while (diff > Math.PI) { diff -= 2 * Math.PI; phi_targ -= 2 * Math.PI; }
+
+      // Adjust transition speed depending on the size of the azimuthal arc sweep
+      const sweepSpeedFactor = Math.abs(diff) > 2.0 ? 0.72 : 1.0;
+      const adaptiveStep = step * sweepSpeedFactor;
+
+      const r_next = THREE.MathUtils.lerp(r_curr, r_targ, adaptiveStep);
+      const theta_next = THREE.MathUtils.lerp(theta_curr, theta_targ, adaptiveStep);
+      const phi_next = THREE.MathUtils.lerp(phi_curr, phi_targ, adaptiveStep);
+
+      camera.position.x = r_next * Math.sin(theta_next) * Math.cos(phi_next);
+      camera.position.y = r_next * Math.cos(theta_next);
+      camera.position.z = r_next * Math.sin(theta_next) * Math.sin(phi_next);
+
+      if (camera.position.distanceTo(targetPosition.current) < 0.05) {
+        camera.position.copy(targetPosition.current);
+        targetPosition.current = null;
+      }
+      needsUpdate = true;
+    }
+
+    if (targetTarget.current && controls) {
+      controls.target.lerp(targetTarget.current, step);
+      if (controls.target.distanceTo(targetTarget.current) < 0.01) {
+        controls.target.copy(targetTarget.current);
+        targetTarget.current = null;
+      }
+      needsUpdate = true;
+    }
+
+    if (targetFov.current) {
+      camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov.current, step);
+      camera.updateProjectionMatrix();
+      if (Math.abs(camera.fov - targetFov.current) < 0.1) {
+        camera.fov = targetFov.current;
+        targetFov.current = null;
+      }
+    }
+
+    if (controls && (needsUpdate || targetPosition.current || targetTarget.current)) {
+      controls.update();
+    }
+
     if (controls) {
       // Prevent focus target from dipping below ground level
       if (controls.target.y < 0.0) {
@@ -377,7 +441,7 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
     }
   });
 
-  // Listen for 'c' to log and keypad/number-row 1-9 keys to snap to custom camera views
+  // Listen for 'c' to log and custom keys (0-9, N, W, E, S, O) to snap to camera views
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'c') {
@@ -391,83 +455,110 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
         return;
       }
 
-      // Snapping to custom camera views 1-9 (works for both standard top-row numbers and keypad/numpad numbers)
+      // Smooth zoom in or out 20% per keypress (+/-)
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        const currentFov = targetFov.current ?? camera.fov;
+        targetFov.current = Math.max(5.0, currentFov * 0.8);
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        const currentFov = targetFov.current ?? camera.fov;
+        targetFov.current = Math.min(75.0, currentFov * 1.25);
+        return;
+      }
+
+      // Snapping to custom camera views (0-6, N, W, E, S, O)
       const numKey = e.key;
-      if (['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(numKey)) {
-        let posX = 48.27;
-        let posY = 10.84;
-        let posZ = 27.98;
-        let tarX = 12.81;
-        let tarY = 2.21;
-        let tarZ = 18.04;
+      if (['0', '1', '2', '3', '4', '5', '6', 'n', 'N', 'w', 'W', 'e', 'E', 's', 'S', 'o', 'O'].includes(numKey)) {
+        let posX = -7.0;
+        let posY = 18.25;
+        let posZ = 54.79;
+        let tarX = -7.0;
+        let tarY = 1.52;
+        let tarZ = 10.27;
         let fovValue = 15.0;
 
         switch (numKey) {
-          case '1': // Standard Starting/Reset View
-            posX = 48.27; posY = 10.84; posZ = 27.98;
-            tarX = 12.81; tarY = 2.21; tarZ = 18.04;
-            fovValue = 15.0;
-            break;
-          case '2': // Dynamic Striker View (Behind the Selected Ball)
-            if (selectedBall && balls[selectedBall]) {
-              const bx = balls[selectedBall].x;
-              const bz = balls[selectedBall].z;
-              // Position camera 4 yards behind the ball (along Z direction) and 1.8 yards high
-              posX = bx; posY = 1.8; posZ = bz + 4.0;
-              // Target is 8 yards in front of the ball
-              tarX = bx; tarY = 0.2; tarZ = bz - 8.0;
-              fovValue = 45.0;
+          case 'o':
+          case 'O': { // Custom Preset O (Top-down overhead view)
+            const isLandscape = window.innerWidth > window.innerHeight;
+            if (isLandscape) {
+              posX = -0.1; posY = 50.0; posZ = 0.0;
             } else {
-              // Fallback if no ball is selected: center oblique
-              posX = 0.0; posY = 15.0; posZ = 25.0;
-              tarX = 0.0; tarY = 0.0; tarZ = 0.0;
-              fovValue = 45.0;
+              posX = 0.0; posY = 50.0; posZ = 0.1;
             }
-            break;
-          case '3': // Top-Down Blueprint View
-            posX = 0.0; posY = 45.0; posZ = 0.1; // Offset Z slightly to maintain controls orientation
             tarX = 0.0; tarY = 0.0; tarZ = 0.0;
             fovValue = 45.0;
             break;
-          case '4': // South Side View (Looking North)
-            posX = 0.0; posY = 16.0; posZ = 36.0;
-            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
-            fovValue = 35.0;
+          }
+          case 's':
+          case 'S': // Custom Preset S (South View Looking North - Symmetrical to N)
+            posX = -2.35; posY = 30.77; posZ = 89.13;
+            tarX = 0.26; tarY = 0.00; tarZ = 1.87;
+            fovValue = 15.0;
             break;
-          case '5': // North Side View (Looking South)
-            posX = 0.0; posY = 16.0; posZ = -36.0;
-            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
-            fovValue = 35.0;
+          case 'w':
+          case 'W': // Custom Preset W (West View)
+            posX = -31.49; posY = 13.87; posZ = -0.11;
+            tarX = -3.19; tarY = 0.17; tarZ = 0.28;
+            fovValue = 45.0;
             break;
-          case '6': // East Side View (Looking West)
+          case 'n':
+          case 'N': // Custom Preset N (North View)
+            posX = -2.35; posY = 30.77; posZ = -89.13;
+            tarX = 0.26; tarY = -0.00; tarZ = -1.87;
+            fovValue = 15.0;
+            break;
+          case '0': // Custom Preset 0
+            posX = 41.79; posY = 7.23; posZ = 24.46;
+            tarX = -3.45; tarY = 1.52; tarZ = 10.27;
+            fovValue = 15.0;
+            break;
+          case '1': // Hoop 1 (South-West Corner looking straight North)
+            posX = -7.0; posY = 18.25; posZ = 54.79;
+            tarX = -7.0; tarY = 1.52; tarZ = 10.27;
+            fovValue = 15.0;
+            break;
+          case '2': // Hoop 2 (North-West Corner looking straight South)
+            posX = -7.0; posY = 18.25; posZ = -54.79;
+            tarX = -7.0; tarY = 1.52; tarZ = -10.27;
+            fovValue = 15.0;
+            break;
+          case '3': // Hoop 3 (North-East Corner looking straight South)
+            posX = 7.0; posY = 18.25; posZ = -54.79;
+            tarX = 7.0; tarY = 1.52; tarZ = -10.27;
+            fovValue = 15.0;
+            break;
+          case '4': // Hoop 4 (South-East Corner looking straight North)
+            posX = 7.0; posY = 18.25; posZ = 54.79;
+            tarX = 7.0; tarY = 1.52; tarZ = 10.27;
+            fovValue = 15.0;
+            break;
+          case '5': // South Boundary View pointing at South Center Hoop
+            posX = 0.0; posY = 18.25; posZ = 51.29;
+            tarX = 0.0; tarY = 1.52; tarZ = 6.77;
+            fovValue = 15.0;
+            break;
+          case 'e':
+          case 'E': // Custom Preset E (East View Looking West)
             posX = 36.0; posY = 16.0; posZ = 0.0;
             tarX = 0.0; tarY = 0.0; tarZ = 0.0;
             fovValue = 35.0;
             break;
-          case '7': // West Side View (Looking East)
-            posX = -36.0; posY = 16.0; posZ = 0.0;
-            tarX = 0.0; tarY = 0.0; tarZ = 0.0;
-            fovValue = 35.0;
-            break;
-          case '8': // Cinematic Clubhouse View (Default scene start view)
-            posX = -29.45; posY = 38.43; posZ = 0.23;
-            tarX = 4.83; tarY = 0.0; tarZ = 0.19;
-            fovValue = 45.0;
-            break;
-          case '9': // Corner 4 close-up
-            posX = -22.0; posY = 4.5; posZ = -24.0;
-            tarX = -14.0; tarY = 0.2; tarZ = -17.5;
-            fovValue = 30.0;
+          case '6': // North Boundary View pointing at North Center Hoop
+            posX = 0.0; posY = 18.25; posZ = -51.29;
+            tarX = 0.0; tarY = 1.52; tarZ = -6.77;
+            fovValue = 15.0;
             break;
         }
 
-        camera.position.set(posX, posY, posZ);
-        camera.fov = fovValue;
-        camera.updateProjectionMatrix();
+        targetPosition.current = new THREE.Vector3(posX, posY, posZ);
+        targetFov.current = fovValue;
 
         if (controls) {
-          controls.target.set(tarX, tarY, tarZ);
-          controls.update();
+          targetTarget.current = new THREE.Vector3(tarX, tarY, tarZ);
         }
       }
     };
@@ -520,7 +611,37 @@ export default function App() {
 
   // Aiming guides state
   const [showAimingLines, setShowAimingLines] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
+
+  // Track spacebar held state for "Drive Mode" (blast ball off court)
+  const isSpaceDown = useRef(false);
+  const isDriveMode = useRef(false);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        // Prevent default spacebar scrolling
+        e.preventDefault();
+        isSpaceDown.current = true;
+        setIsSpacePressed(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        isSpaceDown.current = false;
+        setIsSpacePressed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // Automatically shut off aiming lines if the selected ball is off-court, if no ball is selected, or if any ball starts moving
   useEffect(() => {
@@ -537,12 +658,12 @@ export default function App() {
   }, [balls, selectedBall, showAimingLines]);
 
   // Mesh reference map for zero-render physics loops
-  const blueMeshRef = useRef<THREE.Mesh>(null);
-  const redMeshRef = useRef<THREE.Mesh>(null);
-  const blackMeshRef = useRef<THREE.Mesh>(null);
-  const yellowMeshRef = useRef<THREE.Mesh>(null);
+  const blueMeshRef = useRef<THREE.Object3D>(null);
+  const redMeshRef = useRef<THREE.Object3D>(null);
+  const blackMeshRef = useRef<THREE.Object3D>(null);
+  const yellowMeshRef = useRef<THREE.Object3D>(null);
 
-  const meshRefs = useRef<Record<string, React.RefObject<THREE.Mesh | null>>>({
+  const meshRefs = useRef<Record<string, React.RefObject<THREE.Object3D | null>>>({
     blue: blueMeshRef,
     red: redMeshRef,
     black: blackMeshRef,
@@ -741,6 +862,7 @@ export default function App() {
       });
 
       saveToHistory(); // Save snapshot before strike begins
+      isDriveMode.current = isSpaceDown.current;
 
       setStrikeTarget({ x: clickPoint.x, z: clickPoint.z });
       setActiveStriker(selectedBall);
@@ -771,9 +893,17 @@ export default function App() {
     // Apply Turf grass deceleration friction math to stop exactly on target.
     // v(t) = v0 * e^(-0.85 * t)
     // d = (v0 - 0.045) / 0.85 => v0 = d * 0.85 + 0.045
-    // Capped at 25.0 yards/second.
-    const targetSpeed = dist * 0.85 + 0.045;
-    const impulseSpeed = Math.min(targetSpeed, 25.0);
+    // Capped at 60.0 yards/second (perfectly accommodating power mode speed and extreme diagonal boundary shots).
+    let targetSpeed = dist * 0.85 + 0.045;
+
+    // If Drive Mode is active (Spacebar was held down during click),
+    // set initial speed to a high constant driving speed (54.0 yards/second, which is 50% faster than 36.0)
+    // that will easily blast the ball off the court in a split second!
+    if (isDriveMode.current) {
+      targetSpeed = 54.0;
+    }
+
+    const impulseSpeed = Math.min(targetSpeed, 60.0);
 
     b.vx = ux * impulseSpeed;
     b.vz = uz * impulseSpeed;
@@ -801,7 +931,7 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
       
       {/* 3D WebGL Canvas Scene */}
-      <Canvas camera={{ position: [-29.45, 38.43, 0.23], fov: 45, far: 5000 }} shadows>
+      <Canvas camera={{ position: [-7.0, 18.25, 54.79], fov: 15.0, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 80, 500]} />
         <CameraController 
@@ -1039,7 +1169,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[4.83, 0.0, 0.19]} />
+        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[-7.0, 1.52, 10.27]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
@@ -1128,13 +1258,27 @@ export default function App() {
             )}
             <span>Aim</span>
           </button>
+
+          <button
+            className={`control-action-btn ${showHelp ? 'active-toggle' : ''}`}
+            onClick={() => setShowHelp(!showHelp)}
+            title="Toggle Help Manual"
+            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>Help</span>
+          </button>
         </div>
       </div>
 
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.15 BETA)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.51 BETA)</div>
       </div>
 
       {/* Premium Glassmorphic Toast Notification */}
@@ -1147,6 +1291,225 @@ export default function App() {
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ Drive Mode / Power Strike Active Symbol HUD Overlay */}
+      {isSpacePressed && activeStriker === null && !isSelectedBallOffCourt && (
+        <div className="drive-mode-badge">
+          <svg className="drive-mode-icon" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          <span className="drive-mode-text">Drive Mode Active</span>
+        </div>
+      )}
+
+      {/* Premium Glassmorphic Help Modal Overlay */}
+      {showHelp && (
+        <div className="help-modal-overlay" onClick={() => setShowHelp(false)}>
+          <div className="help-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="help-modal-header">
+              <h3 className="help-modal-title">GC Croquet 3D Visualiser Guide</h3>
+              <button className="help-modal-close-btn" onClick={() => setShowHelp(false)} title="Close Guide">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px' }}>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="help-modal-body">
+              {/* Getting Started */}
+              <div className="help-section">
+                <h4 className="help-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="control-icon" style={{ width: '16px', height: '16px', fill: 'none' }}>
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  Getting Started & Playing Shots
+                </h4>
+                <ol className="help-step-list">
+                  <li className="help-step-item">
+                    <span className="help-step-num">1</span>
+                    <div className="help-gesture-desc">
+                      <span className="help-gesture-title">Start the Game</span>
+                      The game loads automatically. You can click the <strong style={{ color: '#ffe680' }}>Start / Restart</strong> button in the control panel to set the 4 balls at their starting positions near Corner 4 (South-East). Drag your ball(s) onto the lawn to activate play.
+                    </div>
+                  </li>
+                  <li className="help-step-item">
+                    <span className="help-step-num">2</span>
+                    <div className="help-gesture-desc">
+                      <span className="help-gesture-title">Select a ball and hit</span>
+                      Click directly on any ball on the court and then click a location on the court. The ball if selected will go there. (you may also select a ball from the control panel). If a ball is knocked "off-court", simply drag it back onto the court where it went out.
+                    </div>
+                  </li>
+                  <li className="help-step-item">
+                    <span className="help-step-num">3</span>
+                    <div className="help-gesture-desc" style={{ flexGrow: 1 }}>
+                      <span className="help-gesture-title" style={{ color: '#ffe680' }}>
+                        Extra Shot Options
+                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                        {/* Aim Mode */}
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '4px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#ffe680' }}>
+                              <circle cx="12" cy="12" r="10" />
+                              <circle cx="12" cy="12" r="6" />
+                              <circle cx="12" cy="12" r="2" fill="currentColor" />
+                            </svg>
+                            Aim Mode
+                          </div>
+                          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            Click the <strong style={{ color: '#ffe680' }}>Aim</strong> Button in Control Panel if aiming assistance for a single shot is required.
+                          </div>
+                        </div>
+
+                        {/* Drive Mode */}
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '4px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#ffb300' }}>
+                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor" />
+                            </svg>
+                            Drive Mode
+                          </div>
+                          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            Hold down the <kbd className="help-key-badge">Spacebar</kbd> when clicking or tapping the court to activate **Drive Mode**. The ball will be struck at a high driving speed (54 yd/s) that will easily blast it off the court, unless it strikes another ball, a hoop leg, or the center peg!
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Mouse & Touch Gestures */}
+              <div className="help-section">
+                <h4 className="help-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="control-icon" style={{ width: '16px', height: '16px', fill: 'none' }}>
+                    <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5" />
+                    <path d="M14 10V5a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5" />
+                    <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8.5" />
+                    <path d="M6 14v0a4 4 0 0 0 4 4h4a6 6 0 0 0 6-6V11a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2" />
+                  </svg>
+                  3D Navigation & Gestures
+                </h4>
+                <div className="help-grid">
+                  <div className="help-grid-item">
+                    <div className="help-gesture-icon">
+                      <svg viewBox="0 0 24 24" fill="none" style={{ width: '20px', height: '20px' }}>
+                        <path d="M 12 2 A 6 6 0 0 0 6 8 L 6 10 L 12 10 Z" fill="#ffe680" opacity="0.9" />
+                        <rect x="6" y="2" width="12" height="20" rx="6" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        <line x1="12" y1="2" x2="12" y2="10" stroke="currentColor" strokeWidth="1.5" />
+                        <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="1.5" />
+                        <rect x="11" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.3" />
+                      </svg>
+                    </div>
+                    <div className="help-gesture-desc">
+                      <span className="help-gesture-title">Rotate (Orbit) View</span>
+                      <strong style={{ color: '#ffe680' }}>Mouse:</strong> Click and drag Left Mouse Button (LMB).<br />
+                      <strong style={{ color: '#ffe680' }}>Touchscreen:</strong> Drag with a single finger.
+                    </div>
+                  </div>
+                  <div className="help-grid-item">
+                    <div className="help-gesture-icon">
+                      <svg viewBox="0 0 24 24" fill="none" style={{ width: '20px', height: '20px' }}>
+                        <path d="M 12 2 A 6 6 0 0 1 18 8 L 18 10 L 12 10 Z" fill="#ffe680" opacity="0.9" />
+                        <rect x="6" y="2" width="12" height="20" rx="6" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        <line x1="12" y1="2" x2="12" y2="10" stroke="currentColor" strokeWidth="1.5" />
+                        <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="1.5" />
+                        <rect x="11" y="4" width="2" height="4" rx="1" fill="currentColor" opacity="0.3" />
+                      </svg>
+                    </div>
+                    <div className="help-gesture-desc">
+                      <span className="help-gesture-title">Pan (Move Focus)</span>
+                      <strong style={{ color: '#ffe680' }}>Mouse:</strong> Click and drag Right Mouse Button (RMB) or hold <kbd style={{ fontFamily: 'monospace', background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: '4px' }}>Shift</kbd> + LMB drag.<br />
+                      <strong style={{ color: '#ffe680' }}>Touchscreen:</strong> Drag with two fingers.
+                    </div>
+                  </div>
+                  <div className="help-grid-item" style={{ gridColumn: 'span 2' }}>
+                    <div className="help-gesture-icon">
+                      <svg viewBox="0 0 24 24" fill="none" style={{ width: '20px', height: '20px' }}>
+                        <rect x="6" y="2" width="12" height="20" rx="6" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        <line x1="12" y1="2" x2="12" y2="10" stroke="currentColor" strokeWidth="1.5" />
+                        <line x1="6" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="1.5" />
+                        <rect x="11" y="4" width="2" height="4" rx="1" fill="#ffe680" stroke="#ffe680" strokeWidth="0.5" />
+                      </svg>
+                    </div>
+                    <div className="help-gesture-desc">
+                      <span className="help-gesture-title">Zoom In & Out</span>
+                      <strong style={{ color: '#ffe680' }}>Mouse Scroll:</strong> Scroll wheel up to Zoom In, down to Zoom Out.<br />
+                      <strong style={{ color: '#ffe680' }}>Touchscreen Gesture:</strong> Pinch two fingers together to Zoom Out, spread apart to Zoom In.<br />
+                      <strong style={{ color: '#ffe680' }}>Keyboard Option:</strong> Press <kbd className="help-key-badge">+</kbd> or <kbd className="help-key-badge">-</kbd> to zoom in or out 20% dynamically.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Keyboard Camera Controls */}
+              <div className="help-section">
+                <h4 className="help-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="control-icon" style={{ width: '16px', height: '16px', fill: 'none' }}>
+                    <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+                    <line x1="6" y1="8" x2="6.01" y2="8" /><line x1="10" y1="8" x2="10.01" y2="8" /><line x1="14" y1="8" x2="14.01" y2="8" /><line x1="18" y1="8" x2="18.01" y2="8" />
+                    <line x1="6" y1="12" x2="6.01" y2="12" /><line x1="10" y1="12" x2="10.01" y2="12" /><line x1="14" y1="12" x2="14.01" y2="12" /><line x1="18" y1="12" x2="18.01" y2="12" />
+                    <line x1="7" y1="16" x2="17" y2="16" />
+                  </svg>
+                  Keyboard Camera Shortcuts
+                </h4>
+                <div className="help-controls-table">
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">O</kbd>
+                    </div>
+                    <div className="help-controls-desc">Overhead View (landscape-rotated 90° anti-clockwise on PC/Mac)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">N</kbd>
+                      <kbd className="help-key-badge">S</kbd>
+                    </div>
+                    <div className="help-controls-desc">North View (looking South) / South View (looking North)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">E</kbd>
+                      <kbd className="help-key-badge">W</kbd>
+                    </div>
+                    <div className="help-controls-desc">East View (looking West) / West View (looking East)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">1</kbd>
+                      <kbd className="help-key-badge">2</kbd>
+                      <kbd className="help-key-badge">3</kbd>
+                      <kbd className="help-key-badge">4</kbd>
+                      <kbd className="help-key-badge">5</kbd>
+                      <kbd className="help-key-badge">6</kbd>
+                    </div>
+                    <div className="help-controls-desc">Camera View of Hoop Area</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">0</kbd>
+                    </div>
+                    <div className="help-controls-desc">GC Game Start View</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">+</kbd>
+                      <kbd className="help-key-badge">-</kbd>
+                    </div>
+                    <div className="help-controls-desc">Zoom In (+20%) / Zoom Out (-20%) per tap</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">C</kbd>
+                    </div>
+                    <div className="help-controls-desc">Log exact camera position & target details to developer console</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

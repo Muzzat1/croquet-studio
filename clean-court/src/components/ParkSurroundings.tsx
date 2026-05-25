@@ -100,32 +100,46 @@ interface TreeProps {
 export function Tree({ position }: TreeProps) {
   // Use state to assign permanent random factors so they don't change on every render
   const [treeDims] = useState(() => {
-    const trunkHeight = 1.8 + Math.random() * 0.6;
-    const trunkRadius = 0.08 + Math.random() * 0.04;
-    const foliageRadius = 1.0 + Math.random() * 0.3;
-    return { trunkHeight, trunkRadius, foliageRadius };
+    const trunkHeight = 0.9 + Math.random() * 0.4; // Sits lower for a lush conifer appearance
+    const trunkRadius = 0.09 + Math.random() * 0.03;
+    const baseRadius = 0.85 + Math.random() * 0.25; // Base radius of the bottom cone segment
+    const treeHeight = 2.6 + Math.random() * 0.6; // Total foliage height of stacked cones
+    return { trunkHeight, trunkRadius, baseRadius, treeHeight };
   });
+
+  const H1 = treeDims.treeHeight * 0.5;
+  const H2 = treeDims.treeHeight * 0.45;
+  const H3 = treeDims.treeHeight * 0.4;
+
+  const y1 = treeDims.trunkHeight + H1 / 2;
+  const y2 = treeDims.trunkHeight + H1 * 0.4 + H2 / 2;
+  const y3 = treeDims.trunkHeight + H1 * 0.4 + H2 * 0.4 + H3 / 2;
 
   return (
     <group position={position}>
       {/* Trunk */}
       <mesh position={[0, treeDims.trunkHeight / 2, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[treeDims.trunkRadius * 0.7, treeDims.trunkRadius, treeDims.trunkHeight, 8]} />
-        <meshStandardMaterial color="#4a3319" roughness={0.9} />
+        <meshStandardMaterial color="#4a3319" roughness={0.95} />
       </mesh>
 
-      {/* Foliage */}
-      <mesh position={[0, treeDims.trunkHeight + treeDims.foliageRadius * 0.3, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[treeDims.foliageRadius, 16, 16]} />
-        <meshStandardMaterial color="#2d5e2e" roughness={0.8} />
+      {/* Layered Conifer/Pine Foliage Cones */}
+      {/* Bottom Layer - Deep Forest Green */}
+      <mesh position={[0, y1, 0]} castShadow receiveShadow>
+        <coneGeometry args={[treeDims.baseRadius, H1, 8]} />
+        <meshStandardMaterial color="#1a3d1c" roughness={0.85} />
       </mesh>
-      <mesh position={[-treeDims.foliageRadius * 0.4, treeDims.trunkHeight + treeDims.foliageRadius * 0.7, treeDims.foliageRadius * 0.2]} castShadow receiveShadow>
-        <sphereGeometry args={[treeDims.foliageRadius * 0.7, 12, 12]} />
-        <meshStandardMaterial color="#3d753d" roughness={0.8} />
+
+      {/* Middle Layer - Classic Pine Green */}
+      <mesh position={[0, y2, 0]} castShadow receiveShadow>
+        <coneGeometry args={[treeDims.baseRadius * 0.76, H2, 8]} />
+        <meshStandardMaterial color="#214d24" roughness={0.85} />
       </mesh>
-      <mesh position={[treeDims.foliageRadius * 0.4, treeDims.trunkHeight + treeDims.foliageRadius * 0.6, -treeDims.foliageRadius * 0.3]} castShadow receiveShadow>
-        <sphereGeometry args={[treeDims.foliageRadius * 0.75, 12, 12]} />
-        <meshStandardMaterial color="#224d23" roughness={0.8} />
+
+      {/* Top Layer - Slightly Lighter Fresh Pine Green */}
+      <mesh position={[0, y3, 0]} castShadow receiveShadow>
+        <coneGeometry args={[treeDims.baseRadius * 0.52, H3, 8]} />
+        <meshStandardMaterial color="#2c5c30" roughness={0.85} />
       </mesh>
     </group>
   );

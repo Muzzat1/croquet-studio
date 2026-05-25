@@ -3,7 +3,7 @@ import type { ThreeElements } from '@react-three/fiber';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
-type CroquetBallProps = Omit<ThreeElements['mesh'], 'position' | 'onPointerDown'> & {
+type CroquetBallProps = Omit<ThreeElements['group'], 'position' | 'onPointerDown'> & {
   color: string;
   x: number;
   z: number;
@@ -19,7 +19,7 @@ interface CustomThreeState {
   raycaster: THREE.Raycaster;
 }
 
-const CroquetBall = forwardRef<THREE.Mesh, CroquetBallProps>(
+const CroquetBall = forwardRef<THREE.Object3D, CroquetBallProps>(
   ({ color, x, z, onPositionChange, ...props }, ref) => {
     // Hoop clearance width between legs: crownWidth - 2 * staveRadius = 0.375 - 2 * 0.05 = 0.275
     // Ball diameter = 97% of 0.275 = 0.26675
@@ -27,6 +27,7 @@ const CroquetBall = forwardRef<THREE.Mesh, CroquetBallProps>(
     const radius = 0.133375;
 
     const [isDragging, setIsDragging] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
 
   // Retrieve R3F state properties and store them in mutable refs to avoid react-hooks/immutability lint warnings.
   const threeState = useThree() as unknown as CustomThreeState;
@@ -98,26 +99,43 @@ const CroquetBall = forwardRef<THREE.Mesh, CroquetBallProps>(
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   return (
-    <mesh
-      ref={ref}
+    <group 
+      ref={ref} 
       position={[x, radius, z]}
       {...props}
-      castShadow
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
     >
-      <sphereGeometry args={[radius, 32, 32]} />
-      <meshStandardMaterial 
-        color={color} 
-        roughness={0.4} 
-        metalness={0.1}
-        // Visually highlight the ball during dragging by adding a subtle emissive glow
-        emissive={isDragging ? color : '#000000'}
-        emissiveIntensity={isDragging ? 0.25 : 0}
-      />
-    </mesh>
+      {/* 1. Visual Ball Mesh (Remains realistic physical size) */}
+      <mesh castShadow>
+        <sphereGeometry args={[radius, 32, 32]} />
+        <meshStandardMaterial 
+          color={color} 
+          roughness={0.4} 
+          metalness={0.1}
+          // Highlight ball with white emissive glow on hover, or its own color on drag
+          emissive={isDragging ? color : (isHovered ? '#ffffff' : '#000000')}
+          emissiveIntensity={isDragging ? 0.25 : (isHovered ? 0.2 : 0)}
+        />
+      </mesh>
+
+      {/* 2. Invisible Click & Pointer Interaction Helper (Generous clickable area: radius = 0.35) */}
+      <mesh
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setIsHovered(true);
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          setIsHovered(false);
+        }}
+      >
+        <sphereGeometry args={[0.35, 16, 16]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </group>
   );
 });
 

@@ -1319,6 +1319,13 @@ export default function App() {
         </div>
       )}
 
+      {/* Onboarding Title Banner */}
+      {!hasClickedStart && !showHelp && (
+        <div className="onboarding-title-banner">
+          <div className="onboarding-title-text">3D Golf Croquet Visualiser</div>
+        </div>
+      )}
+
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>

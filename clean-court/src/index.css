@@ -729,3 +729,49 @@ code {
     transform: translateY(0) scale(1) rotate(0deg);
   }
 }
+
+/* Floating Onboarding Title Banner */
+.onboarding-title-banner {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000; /* Above regular elements but below modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 40px;
+  background: rgba(10, 15, 13, 0.65);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1.5px solid rgba(212, 175, 55, 0.45); /* Gold rim */
+  border-radius: 20px;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 0 25px rgba(212, 175, 55, 0.12);
+  pointer-events: none; /* Make non-blocking */
+  user-select: none;
+  animation: bannerEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.onboarding-title-text {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #ffe680; /* Soft glowing yellow-gold */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+@keyframes bannerEntrance {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}

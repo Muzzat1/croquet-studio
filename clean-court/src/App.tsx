@@ -931,7 +931,7 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
       
       {/* 3D WebGL Canvas Scene */}
-      <Canvas camera={{ position: [-7.0, 18.25, 54.79], fov: 15.0, far: 5000 }} shadows>
+      <Canvas camera={{ position: [-31.49, 13.87, -0.11], fov: 45.0, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 80, 500]} />
         <CameraController 
@@ -1169,7 +1169,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[-7.0, 1.52, 10.27]} />
+        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[-3.19, 0.17, 0.28]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}

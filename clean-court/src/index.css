@@ -677,7 +677,9 @@ code {
   color: #000000;
   font-family: 'Outfit', 'Inter', sans-serif;
   font-weight: 900;
-  font-size: 15px;
+  font-size: 13.5px; /* Slightly smaller for multi-line balance */
+  max-width: 250px; /* Force clean wrapping on two lines */
+  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
@@ -686,6 +688,7 @@ code {
   align-items: center;
   justify-content: center;
   position: relative;
+  line-height: 1.35;
 }
 
 /* Small speech bubble pointer */

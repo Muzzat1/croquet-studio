@@ -1278,7 +1278,7 @@ export default function App() {
       {!hasClickedStart && (
         <div className="cartoon-start-overlay">
           <div className="cartoon-start-badge">
-            <span>Press Start!</span>
+            <span>Click Help to learn, or press Start to play!</span>
           </div>
           <div className="cartoon-start-arrow">
             <svg viewBox="0 0 100 100" style={{ width: '60px', height: '60px' }}>

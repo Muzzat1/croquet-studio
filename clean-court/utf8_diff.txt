@@ -1,0 +1,1073 @@
+﻿diff --git a/clean-court/src/App.tsx b/clean-court/src/App.tsx
+index 7a8ed8d..35336e6 100644
+--- a/clean-court/src/App.tsx
++++ b/clean-court/src/App.tsx
+@@ -326,16 +326,14 @@ interface CameraControllerProps {
+   resetCounter: number;
+   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
+   balls: Record<string, { x: number; z: number }>;
+-  demoCameraPreset?: string | null;
+ }
+ 
+-function CameraController({ resetCounter, selectedBall, balls, demoCameraPreset }: CameraControllerProps) {
++function CameraController({ resetCounter, selectedBall, balls }: CameraControllerProps) {
+   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   const threeState = useThree() as any;
+   const camera = threeState.camera;
+   const controls = threeState.controls;
+   const lastReset = useRef(0);
+-  const lastDemoPreset = useRef<string | null>(null);
+ 
+   // Smooth cinematic camera transition targets
+   const targetPosition = useRef<THREE.Vector3 | null>(null);
+@@ -355,102 +353,6 @@ function CameraController({ resetCounter, selectedBall, balls, demoCameraPreset
+     }
+   }, [resetCounter, camera, controls]);
+ 
+-  useEffect(() => {
+-    if (demoCameraPreset && demoCameraPreset !== lastDemoPreset.current) {
+-      lastDemoPreset.current = demoCameraPreset;
+-      
+-      let posX = -7.0;
+-      let posY = 18.25;
+-      let posZ = 54.79;
+-      let tarX = -7.0;
+-      let tarY = 1.52;
+-      let tarZ = 10.27;
+-      let fovValue = 15.0;
+-
+-      switch (demoCameraPreset) {
+-        case 'o':
+-        case 'O': {
+-          const isLandscape = window.innerWidth > window.innerHeight;
+-          if (isLandscape) {
+-            posX = -0.1; posY = 50.0; posZ = 0.0;
+-          } else {
+-            posX = 0.0; posY = 50.0; posZ = 0.1;
+-          }
+-          tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+-          fovValue = 45.0;
+-          break;
+-        }
+-        case 's':
+-        case 'S':
+-          posX = -2.35; posY = 30.77; posZ = 89.13;
+-          tarX = 0.26; tarY = 0.00; tarZ = 1.87;
+-          fovValue = 15.0;
+-          break;
+-        case 'w':
+-        case 'W':
+-          posX = -31.49; posY = 13.87; posZ = -0.11;
+-          tarX = -3.19; tarY = 0.17; tarZ = 0.28;
+-          fovValue = 45.0;
+-          break;
+-        case 'n':
+-        case 'N':
+-          posX = -2.35; posY = 30.77; posZ = -89.13;
+-          tarX = 0.26; tarY = -0.00; tarZ = -1.87;
+-          fovValue = 15.0;
+-          break;
+-        case '0':
+-          posX = 41.79; posY = 7.23; posZ = 24.46;
+-          tarX = -3.45; tarY = 1.52; tarZ = 10.27;
+-          fovValue = 15.0;
+-          break;
+-        case '1':
+-          posX = -7.0; posY = 18.25; posZ = 54.79;
+-          tarX = -7.0; tarY = 1.52; tarZ = 10.27;
+-          fovValue = 15.0;
+-          break;
+-        case '2':
+-          posX = -7.0; posY = 18.25; posZ = -54.79;
+-          tarX = -7.0; tarY = 1.52; tarZ = -10.27;
+-          fovValue = 15.0;
+-          break;
+-        case '3':
+-          posX = 7.0; posY = 18.25; posZ = -54.79;
+-          tarX = 7.0; tarY = 1.52; tarZ = -10.27;
+-          fovValue = 15.0;
+-          break;
+-        case '4':
+-          posX = 7.0; posY = 18.25; posZ = 54.79;
+-          tarX = 7.0; tarY = 1.52; tarZ = 10.27;
+-          fovValue = 15.0;
+-          break;
+-        case '5':
+-          posX = 0.0; posY = 18.25; posZ = 51.29;
+-          tarX = 0.0; tarY = 1.52; tarZ = 6.77;
+-          fovValue = 15.0;
+-          break;
+-        case 'e':
+-        case 'E':
+-          posX = 36.0; posY = 16.0; posZ = 0.0;
+-          tarX = 0.0; tarY = 0.0; tarZ = 0.0;
+-          fovValue = 35.0;
+-          break;
+-        case '6':
+-          posX = 0.0; posY = 18.25; posZ = -51.29;
+-          tarX = 0.0; tarY = 1.52; tarZ = -6.77;
+-          fovValue = 15.0;
+-          break;
+-      }
+-
+-      targetPosition.current = new THREE.Vector3(posX, posY, posZ);
+-      targetFov.current = fovValue;
+-      if (controls) {
+-        targetTarget.current = new THREE.Vector3(tarX, tarY, tarZ);
+-      }
+-    } else if (demoCameraPreset === null) {
+-      lastDemoPreset.current = null;
+-    }
+-  }, [demoCameraPreset, camera, controls]);
+-
+   useFrame((_, delta) => {
+     // Limit delta time steps to prevent huge jumps during frame hiccups
+     const dt = Math.min(delta, 0.1);
+@@ -693,384 +595,7 @@ function AimLineController({
+   return null;
+ }
+ 
+-interface DemoStep {
+-  ball: 'blue' | 'red' | 'black' | 'yellow';
+-  startPos: { x: number; z: number };
+-  targetPos: { x: number; z: number };
+-  cameraPreset: string;
+-  isHoopRun: boolean;
+-  annotation: string;
+-  positions: Record<string, { x: number; z: number }>;
+-}
+-
+-const DEMO_SEQUENCE: DemoStep[] = [
+-  // --- Hoop 1 SW (S -> N) ---
+-  {
+-    ball: 'blue',
+-    startPos: { x: 13.8, z: 17.6667 },
+-    targetPos: { x: -6.0, z: 13.0 },
+-    cameraPreset: '0',
+-    isHoopRun: false,
+-    annotation: "Blue starts from Corner 4 and plays towards Hoop 1",
+-    positions: {
+-      blue: { x: 13.8, z: 17.6667 },
+-      red: { x: 13.4, z: 17.6667 },
+-      black: { x: 13.0, z: 17.6667 },
+-      yellow: { x: 12.6, z: 17.6667 }
+-    }
+-  },
+-  {
+-    ball: 'red',
+-    startPos: { x: 13.4, z: 17.6667 },
+-    targetPos: { x: -7.0, z: 12.5 },
+-    cameraPreset: '0',
+-    isHoopRun: false,
+-    annotation: "Red plays from Corner 4, gaining a strong position at Hoop 1",
+-    positions: {
+-      blue: { x: -6.0, z: 13.0 },
+-      red: { x: 13.4, z: 17.6667 },
+-      black: { x: 13.0, z: 17.6667 },
+-      yellow: { x: 12.6, z: 17.6667 }
+-    }
+-  },
+-  {
+-    ball: 'black',
+-    startPos: { x: 13.0, z: 17.6667 },
+-    targetPos: { x: -7.0, z: 13.0 },
+-    cameraPreset: '0',
+-    isHoopRun: false,
+-    annotation: "Tactical play: Black clears Red away from Hoop 1!",
+-    positions: {
+-      blue: { x: -6.0, z: 13.0 },
+-      red: { x: -7.0, z: 12.5 },
+-      black: { x: 13.0, z: 17.6667 },
+-      yellow: { x: 12.6, z: 17.6667 }
+-    }
+-  },
+-  {
+-    ball: 'yellow',
+-    startPos: { x: 12.6, z: 17.6667 },
+-    targetPos: { x: -7.0, z: 11.5 },
+-    cameraPreset: '0',
+-    isHoopRun: false,
+-    annotation: "Yellow plays a blocking shot, stopping in the jaws of Hoop 1",
+-    positions: {
+-      blue: { x: -6.0, z: 13.0 },
+-      red: { x: -9.5, z: 9.5 },
+-      black: { x: -7.0, z: 13.0 },
+-      yellow: { x: 12.6, z: 17.6667 }
+-    }
+-  },
+-  {
+-    ball: 'blue',
+-    startPos: { x: -6.0, z: 13.0 },
+-    targetPos: { x: -6.5, z: 12.8 },
+-    cameraPreset: '1',
+-    isHoopRun: false,
+-    annotation: "Blue clears Yellow out of the hoop's jaws!",
+-    positions: {
+-      blue: { x: -6.0, z: 13.0 },
+-      red: { x: -9.5, z: 9.5 },
+-      black: { x: -7.0, z: 13.0 },
+-      yellow: { x: -7.0, z: 11.5 }
+-    }
+-  },
+-  {
+-    ball: 'red',
+-    startPos: { x: -9.5, z: 9.5 },
+-    targetPos: { x: -8.5, z: 12.0 },
+-    cameraPreset: '1',
+-    isHoopRun: false,
+-    annotation: "Red attempts a long shot but misses to the side",
+-    positions: {
+-      blue: { x: -6.5, z: 12.8 },
+-      red: { x: -9.5, z: 9.5 },
+-      black: { x: -7.0, z: 13.0 },
+-      yellow: { x: -5.0, z: 9.0 }
+-    }
+-  },
+-  {
+-    ball: 'black',
+-    startPos: { x: -7.0, z: 13.0 },
+-    targetPos: { x: -7.0, z: 5.0 },
+-    cameraPreset: '1',
+-    isHoopRun: true,
+-    annotation: "Black runs Hoop 1! Blue/Black scores 1st Point!",
+-    positions: {
+-      blue: { x: -6.5, z: 12.8 },
+-      red: { x: -8.5, z: 12.0 },
+-      black: { x: -7.0, z: 13.0 },
+-      yellow: { x: -5.0, z: 9.0 }
+-    }
+-  },
+-  // --- Hoop 2 NW (S -> N) ---
+-  {
+-    ball: 'yellow',
+-    startPos: { x: -5.0, z: 9.0 },
+-    targetPos: { x: -7.0, z: -8.0 },
+-    cameraPreset: '2',
+-    isHoopRun: false,
+-    annotation: "Yellow plays first towards the new target: Hoop 2",
+-    positions: {
+-      blue: { x: -6.5, z: 12.8 },
+-      red: { x: -8.5, z: 12.0 },
+-      black: { x: -7.0, z: 5.0 },
+-      yellow: { x: -5.0, z: 9.0 }
+-    }
+-  },
+-  {
+-    ball: 'blue',
+-    startPos: { x: -6.5, z: 12.8 },
+-    targetPos: { x: -8.0, z: -7.5 },
+-    cameraPreset: '2',
+-    isHoopRun: false,
+-    annotation: "Blue plays a long-distance approach to Hoop 2",
+-    positions: {
+-      blue: { x: -6.5, z: 12.8 },
+-      red: { x: -8.5, z: 12.0 },
+-      black: { x: -7.0, z: 5.0 },
+-      yellow: { x: -7.0, z: -8.0 }
+-    }
+-  },
+-  {
+-    ball: 'red',
+-    startPos: { x: -8.5, z: 12.0 },
+-    targetPos: { x: -6.0, z: -7.5 },
+-    cameraPreset: '2',
+-    isHoopRun: false,
+-    annotation: "Red joins the race, approaching Hoop 2",
+-    positions: {
+-      blue: { x: -8.0, z: -7.5 },
+-      red: { x: -8.5, z: 12.0 },
+-      black: { x: -7.0, z: 5.0 },
+-      yellow: { x: -7.0, z: -8.0 }
+-    }
+-  },
+-  {
+-    ball: 'black',
+-    startPos: { x: -7.0, z: 5.0 },
+-    targetPos: { x: -7.0, z: -8.5 },
+-    cameraPreset: '2',
+-    isHoopRun: false,
+-    annotation: "Black positions right in front of Hoop 2",
+-    positions: {
+-      blue: { x: -8.0, z: -7.5 },
+-      red: { x: -6.0, z: -7.5 },
+-      black: { x: -7.0, z: 5.0 },
+-      yellow: { x: -7.0, z: -8.0 }
+-    }
+-  },
+-  {
+-    ball: 'yellow',
+-    startPos: { x: -7.0, z: -8.0 },
+-    targetPos: { x: -7.0, z: -15.5 },
+-    cameraPreset: '2',
+-    isHoopRun: true,
+-    annotation: "Yellow runs Hoop 2! Red/Yellow scores! (1 - 1)",
+-    positions: {
+-      blue: { x: -8.0, z: -7.5 },
+-      red: { x: -6.0, z: -7.5 },
+-      black: { x: -7.0, z: -8.5 },
+-      yellow: { x: -7.0, z: -8.0 }
+-    }
+-  },
+-  // --- Hoop 3 NE (N -> S) ---
+-  {
+-    ball: 'blue',
+-    startPos: { x: -8.0, z: -7.5 },
+-    targetPos: { x: 7.0, z: -12.5 },
+-    cameraPreset: '3',
+-    isHoopRun: false,
+-    annotation: "Blue plays first to the new target: Hoop 3",
+-    positions: {
+-      blue: { x: -8.0, z: -7.5 },
+-      red: { x: -6.0, z: -7.5 },
+-      black: { x: -7.0, z: -8.5 },
+-      yellow: { x: -7.0, z: -15.5 }
+-    }
+-  },
+-  {
+-    ball: 'red',
+-    startPos: { x: -6.0, z: -7.5 },
+-    targetPos: { x: 7.0, z: -13.0 },
+-    cameraPreset: '3',
+-    isHoopRun: false,
+-    annotation: "Red approaches Hoop 3, aiming to block Blue",
+-    positions: {
+-      blue: { x: 7.0, z: -12.5 },
+-      red: { x: -6.0, z: -7.5 },
+-      black: { x: -7.0, z: -8.5 },
+-      yellow: { x: -7.0, z: -15.5 }
+-    }
+-  },
+-  {
+-    ball: 'black',
+-    startPos: { x: -7.0, z: -8.5 },
+-    targetPos: { x: 6.0, z: -12.0 },
+-    cameraPreset: '3',
+-    isHoopRun: false,
+-    annotation: "Black places an approach shot, ready to run the hoop",
+-    positions: {
+-      blue: { x: 7.0, z: -12.5 },
+-      red: { x: 7.0, z: -13.0 },
+-      black: { x: -7.0, z: -8.5 },
+-      yellow: { x: -7.0, z: -15.5 }
+-    }
+-  },
+-  {
+-    ball: 'yellow',
+-    startPos: { x: -7.0, z: -15.5 },
+-    targetPos: { x: 8.0, z: -12.0 },
+-    cameraPreset: '3',
+-    isHoopRun: false,
+-    annotation: "Yellow approaches Hoop 3 from the far side",
+-    positions: {
+-      blue: { x: 7.0, z: -12.5 },
+-      red: { x: 7.0, z: -13.0 },
+-      black: { x: 6.0, z: -12.0 },
+-      yellow: { x: -7.0, z: -15.5 }
+-    }
+-  },
+-  {
+-    ball: 'blue',
+-    startPos: { x: 7.0, z: -12.5 },
+-    targetPos: { x: 7.0, z: -5.0 },
+-    cameraPreset: '3',
+-    isHoopRun: true,
+-    annotation: "Blue runs Hoop 3! Blue/Black scores! (2 - 1)",
+-    positions: {
+-      blue: { x: 7.0, z: -12.5 },
+-      red: { x: 7.0, z: -13.0 },
+-      black: { x: 6.0, z: -12.0 },
+-      yellow: { x: 8.0, z: -12.0 }
+-    }
+-  },
+-  // --- Hoop 4 SE (N -> S) ---
+-  {
+-    ball: 'red',
+-    startPos: { x: 7.0, z: -13.0 },
+-    targetPos: { x: 7.0, z: 7.5 },
+-    cameraPreset: '4',
+-    isHoopRun: false,
+-    annotation: "Red plays first to the new target: Hoop 4",
+-    positions: {
+-      blue: { x: 7.0, z: -5.0 },
+-      red: { x: 7.0, z: -13.0 },
+-      black: { x: 6.0, z: -12.0 },
+-      yellow: { x: 8.0, z: -12.0 }
+-    }
+-  },
+-  {
+-    ball: 'black',
+-    startPos: { x: 6.0, z: -12.0 },
+-    targetPos: { x: 8.0, z: 8.0 },
+-    cameraPreset: '4',
+-    isHoopRun: false,
+-    annotation: "Black approaches Hoop 4, contesting the position",
+-    positions: {
+-      blue: { x: 7.0, z: -5.0 },
+-      red: { x: 7.0, z: 7.5 },
+-      black: { x: 6.0, z: -12.0 },
+-      yellow: { x: 8.0, z: -12.0 }
+-    }
+-  },
+-  {
+-    ball: 'yellow',
+-    startPos: { x: 8.0, z: -12.0 },
+-    targetPos: { x: 6.0, z: 8.0 },
+-    cameraPreset: '4',
+-    isHoopRun: false,
+-    annotation: "Yellow positions for Hoop 4, ready to defend",
+-    positions: {
+-      blue: { x: 7.0, z: -5.0 },
+-      red: { x: 7.0, z: 7.5 },
+-      black: { x: 8.0, z: 8.0 },
+-      yellow: { x: 8.0, z: -12.0 }
+-    }
+-  },
+-  {
+-    ball: 'blue',
+-    startPos: { x: 7.0, z: -5.0 },
+-    targetPos: { x: 7.0, z: 8.5 },
+-    cameraPreset: '4',
+-    isHoopRun: false,
+-    annotation: "Blue places an approach shot in the scoring lane",
+-    positions: {
+-      blue: { x: 7.0, z: -5.0 },
+-      red: { x: 7.0, z: 7.5 },
+-      black: { x: 8.0, z: 8.0 },
+-      yellow: { x: 6.0, z: 8.0 }
+-    }
+-  },
+-  {
+-    ball: 'red',
+-    startPos: { x: 7.0, z: 7.5 },
+-    targetPos: { x: 7.0, z: 15.0 },
+-    cameraPreset: '4',
+-    isHoopRun: true,
+-    annotation: "Red runs Hoop 4! Red/Yellow scores! (2 - 2)",
+-    positions: {
+-      blue: { x: 7.0, z: 8.5 },
+-      red: { x: 7.0, z: 7.5 },
+-      black: { x: 8.0, z: 8.0 },
+-      yellow: { x: 6.0, z: 8.0 }
+-    }
+-  }
+-];
+-
+-export default function App() {
+-  // React State for initial ball positioning & synchronization (drag and drop)
+-  const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
+-    blue: { x: 13.8, z: 17.6667 },
+-    red: { x: 13.4, z: 17.6667 },
+-    black: { x: 13.0, z: 17.6667 },
+-    yellow: { x: 12.6, z: 17.6667 }
+-  });
+-
+-  // Toast state for premium notifications
+-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+-  const toastTimeoutRef = useRef<number | null>(null);
+-
+-  const showToast = (message: string) => {
+-    if (toastTimeoutRef.current) {
+-      window.clearTimeout(toastTimeoutRef.current);
+-    }
+-    setToastMessage(message);
+-    toastTimeoutRef.current = window.setTimeout(() => {
+-      setToastMessage(null);
+-    }, 3000);
+-  };
+ 
+-  // Undo position history stack (capped at 50 entries)
+-  const [history, setHistory] = useState<Record<string, { x: number; z: number }>[]>([]);
+-  
+-  // Reset trigger state counter for the CameraController
+-  const [cameraResetCounter, setCameraResetCounter] = useState(0);
+-
+-  // Striker State Machine parameters
+-  const [activeStriker, setActiveStriker] = useState<'blue' | 'red' | 'black' | 'yellow' | null>(null);
+-  const [isStriking, setIsStriking] = useState(false);
+-
+-  // Selection & striking target state
+-  const [selectedBall, setSelectedBall] = useState<'blue' | 'red' | 'black' | 'yellow' | null>('blue');
+-  const [strikeTarget, setStrikeTarget] = useState<{ x: number; z: number } | null>(null);
+-
+-  // Aiming guides state
+-  const [showAimingLines, setShowAimingLines] = useState(false);
+-  const [showHelp, setShowHelp] = useState(false);
+-  const [hasClickedStart, setHasClickedStart] = useState(false);
+-  const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
+-
+-  // Track spacebar held state for "Drive Mode" (blast ball off court)
+-  const isSpaceDown = useRef(false);
+-  const isDriveMode = useRef(false);
+-  const [isSpacePressed, setIsSpacePressed] = useState(false);
+-
+-  // Cinematic Demo Mode state variables
+-  const [isDemoPlaying, setIsDemoPlaying] = useState(false);
+-  const [demoStep, setDemoStep] = useState(-1);
+-  const [demoCameraPreset, setDemoCameraPreset] = useState<string | null>(null);
+-  const [isWaitingForNextDemoShot, setIsWaitingForNextDemoShot] = useState(false);
+ 
+   useEffect(() => {
+     const handleKeyDown = (e: KeyboardEvent) => {
+@@ -1110,6 +635,13 @@ export default function App() {
+     }
+   }, [balls, selectedBall, showAimingLines]);
+ 
++  // Show starting toast when game restarts or loads
++  useEffect(() => {
++    if (isStrictTurns && !hasPlayedFirstShot.blue && isGameReset) {
++      showToast("­ƒæë Blue's Turn: Placed in starting segment!");
++    }
++  }, [isStrictTurns, hasPlayedFirstShot.blue, isGameReset]);
++
+   // Mesh reference map for zero-render physics loops
+   const blueMeshRef = useRef<THREE.Object3D>(null);
+   const redMeshRef = useRef<THREE.Object3D>(null);
+@@ -1131,19 +663,24 @@ export default function App() {
+ 
+   // Physics engine coordinate, velocity, and state refs
+   const physicsBalls = useRef<Record<string, PhysicsBallState>>({
+-    blue: { x: 13.8, z: 17.6667, vx: 0, vz: 0, isRolling: false },
+-    red: { x: 13.4, z: 17.6667, vx: 0, vz: 0, isRolling: false },
+-    black: { x: 13.0, z: 17.6667, vx: 0, vz: 0, isRolling: false },
+-    yellow: { x: 12.6, z: 17.6667, vx: 0, vz: 0, isRolling: false }
++    blue: { x: START_CORNER_POS.x, z: START_CORNER_POS.z, vx: 0, vz: 0, isRolling: false },
++    red: { x: STAGING_POSITIONS.red.x, z: STAGING_POSITIONS.red.z, vx: 0, vz: 0, isRolling: false },
++    black: { x: STAGING_POSITIONS.black.x, z: STAGING_POSITIONS.black.z, vx: 0, vz: 0, isRolling: false },
++    yellow: { x: STAGING_POSITIONS.yellow.x, z: STAGING_POSITIONS.yellow.z, vx: 0, vz: 0, isRolling: false }
+   });
+ 
+   // Save current layout of all balls to history before any action
+   const saveToHistory = () => {
+     const snapshot = {
+-      blue: { x: physicsBalls.current.blue.x, z: physicsBalls.current.blue.z },
+-      red: { x: physicsBalls.current.red.x, z: physicsBalls.current.red.z },
+-      black: { x: physicsBalls.current.black.x, z: physicsBalls.current.black.z },
+-      yellow: { x: physicsBalls.current.yellow.x, z: physicsBalls.current.yellow.z }
++      balls: {
++        blue: { x: physicsBalls.current.blue.x, z: physicsBalls.current.blue.z },
++        red: { x: physicsBalls.current.red.x, z: physicsBalls.current.red.z },
++        black: { x: physicsBalls.current.black.x, z: physicsBalls.current.black.z },
++        yellow: { x: physicsBalls.current.yellow.x, z: physicsBalls.current.yellow.z }
++      },
++      currentTurn,
++      hasPlayedFirstShot: { ...hasPlayedFirstShot },
++      selectedBall
+     };
+     
+     setHistory(prev => {
+@@ -1166,29 +703,32 @@ export default function App() {
+     const previousSnapshot = history[history.length - 1];
+     setHistory(prev => prev.slice(0, prev.length - 1));
+ 
+-    // Restore the balls state
+-    setBalls(previousSnapshot);
++    // Restore positions, turn, and selection states
++    setBalls(previousSnapshot.balls);
++    setCurrentTurn(previousSnapshot.currentTurn);
++    setHasPlayedFirstShot(previousSnapshot.hasPlayedFirstShot);
++    setSelectedBall(previousSnapshot.selectedBall);
+ 
+     // Sync physics reference engine and instant visual meshes
+     const colors = ['blue', 'red', 'black', 'yellow'] as const;
+     colors.forEach(c => {
+-      physicsBalls.current[c].x = previousSnapshot[c].x;
+-      physicsBalls.current[c].z = previousSnapshot[c].z;
++      physicsBalls.current[c].x = previousSnapshot.balls[c].x;
++      physicsBalls.current[c].z = previousSnapshot.balls[c].z;
+       physicsBalls.current[c].vx = 0;
+       physicsBalls.current[c].vz = 0;
+       physicsBalls.current[c].isRolling = false;
+ 
+       const mesh = meshRefs.current[c].current;
+       if (mesh) {
+-        mesh.position.x = previousSnapshot[c].x;
+-        mesh.position.z = previousSnapshot[c].z;
++        mesh.position.x = previousSnapshot.balls[c].x;
++        mesh.position.z = previousSnapshot.balls[c].z;
+       }
+     });
+ 
+     // Update selection ring positions
+-    if (selectedRingRef.current && selectedBall) {
+-      selectedRingRef.current.position.x = previousSnapshot[selectedBall].x;
+-      selectedRingRef.current.position.z = previousSnapshot[selectedBall].z;
++    if (selectedRingRef.current && previousSnapshot.selectedBall) {
++      selectedRingRef.current.position.x = previousSnapshot.balls[previousSnapshot.selectedBall].x;
++      selectedRingRef.current.position.z = previousSnapshot.balls[previousSnapshot.selectedBall].z;
+     }
+   };
+ 
+@@ -1203,16 +743,16 @@ export default function App() {
+     // Snapshot the current state before resetting so that reset itself can be undone!
+     saveToHistory();
+ 
+-    // 6 inches back: south boundary is Z = 17.5 yards, 6 inches back is Z = 17.6667
+-    // Spaced out near starting flag (X = 14) to prevent overlap
+     const resetPositions = {
+-      blue: { x: 13.8, z: 17.6667 },
+-      red: { x: 13.4, z: 17.6667 },
+-      black: { x: 13.0, z: 17.6667 },
+-      yellow: { x: 12.6, z: 17.6667 }
++      blue: START_CORNER_POS,
++      red: STAGING_POSITIONS.red,
++      black: STAGING_POSITIONS.black,
++      yellow: STAGING_POSITIONS.yellow
+     };
+ 
+     setBalls(resetPositions);
++    setCurrentTurn('blue');
++    setHasPlayedFirstShot({ blue: false, red: false, black: false, yellow: false });
+ 
+     const colors = ['blue', 'red', 'black', 'yellow'] as const;
+     colors.forEach(c => {
+@@ -1241,119 +781,94 @@ export default function App() {
+     setCameraResetCounter(prev => prev + 1);
+   };
+ 
+-  // Synchronize a specific demo step
+-  const executeDemoStep = (stepIndex: number) => {
+-    if (stepIndex < 0 || stepIndex >= DEMO_SEQUENCE.length) return;
+-    const step = DEMO_SEQUENCE[stepIndex];
+-
+-    // Dismiss animated onboarding arrows
+-    setHasClickedStart(true);
+-
+-    // Snap all balls (visual states)
+-    setBalls(step.positions);
+-
+-    // Sync physics refs
+-    const colors = ['blue', 'red', 'black', 'yellow'] as const;
+-    colors.forEach(c => {
+-      const pos = step.positions[c];
+-      physicsBalls.current[c].x = pos.x;
+-      physicsBalls.current[c].z = pos.z;
+-      physicsBalls.current[c].vx = 0;
+-      physicsBalls.current[c].vz = 0;
+-      physicsBalls.current[c].isRolling = false;
++  const handleAllBallsStopped = () => {
++    // --- Strict Turn Progression ---
++    if (isStrictTurns) {
++      const justPlayed = lastStrikerRef.current;
++      if (justPlayed) {
++        setHasPlayedFirstShot(prev => {
++          const nextPlayed = { ...prev, [justPlayed]: true };
++          
++          // Determine the next ball in sequence
++          const sequence: ('blue' | 'red' | 'black' | 'yellow')[] = ['blue', 'red', 'black', 'yellow'];
++          const currentIndex = sequence.indexOf(justPlayed);
++          const nextIndex = (currentIndex + 1) % 4;
++          const nextBall = sequence[nextIndex];
++          
++          setCurrentTurn(nextBall);
++          
++          // Auto-select the next ball
++          setSelectedBall(nextBall);
++
++          // If the next ball hasn't played its first shot yet, automatically place it in the starting corner!
++          if (!nextPlayed[nextBall]) {
++            setBalls(prevBalls => {
++              const updatedBalls = {
++                ...prevBalls,
++                [nextBall]: START_CORNER_POS
++              };
++              
++              // Sync physics engine
++              physicsBalls.current[nextBall].x = START_CORNER_POS.x;
++              physicsBalls.current[nextBall].z = START_CORNER_POS.z;
++              physicsBalls.current[nextBall].vx = 0;
++              physicsBalls.current[nextBall].vz = 0;
++              physicsBalls.current[nextBall].isRolling = false;
++              
++              const mesh = meshRefs.current[nextBall].current;
++              if (mesh) {
++                mesh.position.x = START_CORNER_POS.x;
++                mesh.position.z = START_CORNER_POS.z;
++              }
++              return updatedBalls;
++            });
++            showToast(`­ƒæë ${nextBall.toUpperCase()}'s Turn: Placed in starting segment!`);
++          } else {
++            showToast(`­ƒæë It is now ${nextBall.toUpperCase()}'s turn!`);
++          }
+ 
+-      const mesh = meshRefs.current[c].current;
+-      if (mesh) {
+-        mesh.position.x = pos.x;
+-        mesh.position.z = pos.z;
++          return nextPlayed;
++        });
++        
++        lastStrikerRef.current = null;
+       }
+-    });
+-
+-    // Snap target ball's specific starting position
+-    physicsBalls.current[step.ball].x = step.startPos.x;
+-    physicsBalls.current[step.ball].z = step.startPos.z;
+-    const mesh = meshRefs.current[step.ball].current;
+-    if (mesh) {
+-      mesh.position.x = step.startPos.x;
+-      mesh.position.z = step.startPos.z;
+     }
+-
+-    // Command camera preset
+-    setDemoCameraPreset(step.cameraPreset);
+-
+-    // Defer visual target settings and striking to give OrbitControls a smooth window to pan and settle
+-    setIsWaitingForNextDemoShot(true);
+-    const delayTimer = window.setTimeout(() => {
+-      setSelectedBall(null);
+-      setHoverPoint(null);
+-      setShowAimingLines(false);
+-      setStrikeTarget({ x: step.targetPos.x, z: step.targetPos.z });
+-      setActiveStriker(step.ball);
+-      setIsStriking(true);
+-      setIsWaitingForNextDemoShot(false);
+-    }, 1200); // 1.2 second panning window is premium, professional, and visually spectacular
+-
+-    return () => window.clearTimeout(delayTimer);
+   };
+ 
+-  const handleAllBallsStopped = () => {
+-    if (!isDemoPlaying || demoStep < 0) return;
+-
+-    // Check if this was a scoring run to show a magnificent toast
+-    const step = DEMO_SEQUENCE[demoStep];
+-    if (step.isHoopRun) {
+-      let hoopName = "";
+-      if (demoStep === 6) hoopName = "Hoop 1 (Southwest)";
+-      else if (demoStep === 11) hoopName = "Hoop 2 (Northwest)";
+-      else if (demoStep === 16) hoopName = "Hoop 3 (Northeast)";
+-      else if (demoStep === 21) hoopName = "Hoop 4 (Southeast)";
+-      
+-      showToast(`­ƒÅå Goal! ${step.ball.toUpperCase()} scores ${hoopName}!`);
+-    }
+ 
+-    // Settle for 1.8 seconds before advancing so the user can admire the layout and toast, then advance!
+-    const advanceTimer = window.setTimeout(() => {
+-      const nextStep = demoStep + 1;
+-      if (nextStep >= DEMO_SEQUENCE.length) {
+-        showToast("­ƒÄë Demo Match Complete! Score tied at 2-2 after 4 hoops!");
+-        setIsDemoPlaying(false);
+-        setDemoStep(-1);
+-        setDemoCameraPreset(null);
+-        handleReset();
+-      } else {
+-        setDemoStep(nextStep);
++  // Handler for syncing positions from drags and stops
++  const handleBallChange = (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => {
++    if (isStrictTurns) {
++      // 1. If it is not this ball's turn, dragging is blocked (it maintains its position perfectly)
++      // EXCEPT if the ball has been introduced but is knocked off-court. In that case, dragging back is allowed.
++      if (currentTurn !== color) {
++        const isOffCourt = Math.abs(physicsBalls.current[color].x) > 14 || Math.abs(physicsBalls.current[color].z) > 17.5;
++        const hasPlayed = hasPlayedFirstShot[color];
++        if (!hasPlayed || !isOffCourt) {
++          return;
++        }
+       }
+-    }, 1800);
+ 
+-    return () => window.clearTimeout(advanceTimer);
+-  };
+-
+-  const toggleDemoMode = () => {
+-    if (isDemoPlaying) {
+-      // Turn off
+-      setIsDemoPlaying(false);
+-      setDemoStep(-1);
+-      setDemoCameraPreset(null);
+-      handleReset();
+-      showToast("Demo Mode stopped. Controls restored.");
+-    } else {
+-      // Turn on
+-      saveToHistory();
+-      setIsDemoPlaying(true);
+-      setDemoStep(0);
+-      showToast("­ƒÄ¼ Starting Golf Croquet Demo Tour...");
+-    }
+-  };
+-
+-  useEffect(() => {
+-    if (isDemoPlaying && demoStep >= 0 && demoStep < DEMO_SEQUENCE.length) {
+-      const cleanup = executeDemoStep(demoStep);
+-      return cleanup;
++      // 2. If it is this ball's turn, but it hasn't played its first shot yet:
++      // Dragging is clamped strictly within the marked 1-yard Corner 4 quarter-circle starting segment.
++      if (!hasPlayedFirstShot[color]) {
++        let finalX = x;
++        let finalZ = z;
++        const dx = x - 14;
++        const dz = z - 17.5;
++        const dist = Math.sqrt(dx * dx + dz * dz);
++        if (dist > 1.0) {
++          finalX = 14 + (dx / dist) * 1.0;
++          finalZ = 17.5 + (dz / dist) * 1.0;
++        }
++        if (finalX > 14) finalX = 14;
++        if (finalZ > 17.5) finalZ = 17.5;
++        
++        x = finalX;
++        z = finalZ;
++      }
+     }
+-  }, [isDemoPlaying, demoStep]);
+ 
+-  // Handler for syncing positions from drags and stops
+-  const handleBallChange = (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => {
+     setBalls(prev => ({
+       ...prev,
+       [color]: { x, z }
+@@ -1377,21 +892,25 @@ export default function App() {
+ 
+   // HUD Button Selection handler
+   const handleHUDSelect = (color: 'blue' | 'red' | 'black' | 'yellow') => {
+-    if (activeStriker !== null || isDemoPlaying) return; // Prevent selection changes during active striking or demo mode
++    if (activeStriker !== null) return; // Prevent selection changes during active striking
++    if (isStrictTurns && currentTurn !== color) {
++      showToast(`Strict Turns Active: It is ${currentTurn.toUpperCase()}'s turn!`);
++      return;
++    }
+     setHasClickedStart(true); // Dismiss initial start arrow on direct ball selection
+     setSelectedBall(selectedBall === color ? null : color);
+   };
+ 
+   /* eslint-disable @typescript-eslint/no-explicit-any */
+   const handleCourtPointerDown = (e: any) => {
+-    if (activeStriker !== null || isDemoPlaying) return;
++    if (activeStriker !== null) return;
+     const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+     const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+     pointerDownPos.current = { x: clientX, y: clientY };
+   };
+ 
+   const handleCourtPointerUp = (e: any) => {
+-    if (activeStriker !== null || !pointerDownPos.current || isDemoPlaying) return;
++    if (activeStriker !== null || !pointerDownPos.current) return;
+ 
+     setHasClickedStart(true); // Dismiss initial start arrow on click/strike
+ 
+@@ -1432,6 +951,7 @@ export default function App() {
+ 
+       saveToHistory(); // Save snapshot before strike begins
+       isDriveMode.current = isSpaceDown.current;
++      lastStrikerRef.current = selectedBall; // Track which ball was just struck!
+ 
+       setStrikeTarget({ x: clickPoint.x, z: clickPoint.z });
+       setActiveStriker(selectedBall);
+@@ -1491,11 +1011,7 @@ export default function App() {
+     ? (Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5)
+     : true;
+ 
+-  const isGameReset = 
+-    balls.blue.x === 13.8 && balls.blue.z === 17.6667 &&
+-    balls.red.x === 13.4 && balls.red.z === 17.6667 &&
+-    balls.black.x === 13.0 && balls.black.z === 17.6667 &&
+-    balls.yellow.x === 12.6 && balls.yellow.z === 17.6667;
++
+ 
+   return (
+     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
+@@ -1508,7 +1024,6 @@ export default function App() {
+           resetCounter={cameraResetCounter} 
+           selectedBall={selectedBall}
+           balls={balls}
+-          demoCameraPreset={demoCameraPreset}
+         />
+         <AimLineController
+           showAimingLines={showAimingLines}
+@@ -1664,6 +1179,10 @@ export default function App() {
+           onPointerDown={() => {
+             if (activeStriker === null) {
+               setHasClickedStart(true); // Dismiss initial start arrow
++              if (isStrictTurns && currentTurn !== 'blue') {
++                showToast(`Strict Turns Active: It is ${currentTurn.toUpperCase()}'s turn!`);
++                return;
++              }
+               saveToHistory();
+               setSelectedBall('blue');
+               const activeBallCoords = physicsBalls.current.blue;
+@@ -1683,6 +1202,10 @@ export default function App() {
+           onPointerDown={() => {
+             if (activeStriker === null) {
+               setHasClickedStart(true); // Dismiss initial start arrow
++              if (isStrictTurns && currentTurn !== 'red') {
++                showToast(`Strict Turns Active: It is ${currentTurn.toUpperCase()}'s turn!`);
++                return;
++              }
+               saveToHistory();
+               setSelectedBall('red');
+               const activeBallCoords = physicsBalls.current.red;
+@@ -1702,6 +1225,10 @@ export default function App() {
+           onPointerDown={() => {
+             if (activeStriker === null) {
+               setHasClickedStart(true); // Dismiss initial start arrow
++              if (isStrictTurns && currentTurn !== 'black') {
++                showToast(`Strict Turns Active: It is ${currentTurn.toUpperCase()}'s turn!`);
++                return;
++              }
+               saveToHistory();
+               setSelectedBall('black');
+               const activeBallCoords = physicsBalls.current.black;
+@@ -1721,6 +1248,10 @@ export default function App() {
+           onPointerDown={() => {
+             if (activeStriker === null) {
+               setHasClickedStart(true); // Dismiss initial start arrow
++              if (isStrictTurns && currentTurn !== 'yellow') {
++                showToast(`Strict Turns Active: It is ${currentTurn.toUpperCase()}'s turn!`);
++                return;
++              }
+               saveToHistory();
+               setSelectedBall('yellow');
+               const activeBallCoords = physicsBalls.current.yellow;
+@@ -1737,31 +1268,41 @@ export default function App() {
+ 
+       {/* Floating Control Panel HUD (HTML Overlay) */}
+       <div className="floating-control-panel">
++        {isStrictTurns && (
++          <div className="turn-banner-container">
++            <span className="turn-banner-title">Current Turn</span>
++            <div className="turn-banner-badge">
++              <span className={`turn-dot dot-${currentTurn}`} />
++              <span className="turn-text">{currentTurn.toUpperCase()}{!hasPlayedFirstShot[currentTurn] ? " (First Shot)" : ""}</span>
++            </div>
++          </div>
++        )}
++
+         <div className="panel-title">Active Ball</div>
+         <div className="btn-container">
+           <button 
+             className={`strike-btn btn-blue ${selectedBall === 'blue' ? 'selected' : ''}`} 
+             onClick={() => handleHUDSelect('blue')} 
+-            title="Select Blue Ball"
+-            disabled={activeStriker !== null || isDemoPlaying}
++            title={`Select Blue Ball${!hasPlayedFirstShot.blue ? " (Staged)" : ""}`}
++            disabled={activeStriker !== null}
+           />
+           <button 
+             className={`strike-btn btn-red ${selectedBall === 'red' ? 'selected' : ''}`} 
+             onClick={() => handleHUDSelect('red')} 
+-            title="Select Red Ball"
+-            disabled={activeStriker !== null || isDemoPlaying}
++            title={`Select Red Ball${!hasPlayedFirstShot.red ? " (Staged)" : ""}`}
++            disabled={activeStriker !== null}
+           />
+           <button 
+             className={`strike-btn btn-black ${selectedBall === 'black' ? 'selected' : ''}`} 
+             onClick={() => handleHUDSelect('black')} 
+-            title="Select Black Ball"
+-            disabled={activeStriker !== null || isDemoPlaying}
++            title={`Select Black Ball${!hasPlayedFirstShot.black ? " (Staged)" : ""}`}
++            disabled={activeStriker !== null}
+           />
+           <button 
+             className={`strike-btn btn-yellow ${selectedBall === 'yellow' ? 'selected' : ''}`} 
+             onClick={() => handleHUDSelect('yellow')} 
+-            title="Select Yellow Ball"
+-            disabled={activeStriker !== null || isDemoPlaying}
++            title={`Select Yellow Ball${!hasPlayedFirstShot.yellow ? " (Staged)" : ""}`}
++            disabled={activeStriker !== null}
+           />
+         </div>
+ 
+@@ -1773,7 +1314,7 @@ export default function App() {
+           <button 
+             className="control-action-btn" 
+             onClick={handleUndo} 
+-            disabled={activeStriker !== null || history.length === 0 || isDemoPlaying}
++            disabled={activeStriker !== null || history.length === 0}
+             title="Undo Last Action"
+             style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
+           >
+@@ -1787,7 +1328,7 @@ export default function App() {
+           <button 
+             className="control-action-btn" 
+             onClick={handleReset} 
+-            disabled={activeStriker !== null || isDemoPlaying}
++            disabled={activeStriker !== null}
+             title={isGameReset ? "Start Game" : "Restart Game"}
+             style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
+           >
+@@ -1800,7 +1341,7 @@ export default function App() {
+           <button
+             className={`control-action-btn ${showAimingLines ? 'active-toggle' : ''}`}
+             onClick={() => setShowAimingLines(!showAimingLines)}
+-            disabled={activeStriker !== null || isSelectedBallOffCourt || isDemoPlaying}
++            disabled={activeStriker !== null || isSelectedBallOffCourt}
+             title="Toggle Aiming Guides"
+             style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
+           >
+@@ -1835,26 +1376,28 @@ export default function App() {
+             </svg>
+             <span>Help</span>
+           </button>
+-
+-          <button
+-            className={`control-action-btn ${isDemoPlaying ? 'active-toggle demo-pulse' : ''}`}
+-            onClick={toggleDemoMode}
+-            disabled={isWaitingForNextDemoShot}
+-            title={isDemoPlaying ? "Stop Demo Autoplay" : "Start Demo Autoplay"}
+-            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
+-          >
+-            {isDemoPlaying ? (
+-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon" style={{ stroke: '#ffe680' }}>
+-                <rect x="4" y="4" width="16" height="16" rx="2" />
+-              </svg>
+-            ) : (
+-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
+-                <polygon points="5 3 19 12 5 21 5 3" />
+-              </svg>
+-            )}
+-            <span>{isDemoPlaying ? 'Stop' : 'Demo'}</span>
+-          </button>
+         </div>
++
++        {/* Premium Divider and Game Mode */}
++        <div className="panel-divider" />
++        
++        <div className="panel-title">Game Mode</div>
++        <button
++          className={`mode-toggle-btn ${isStrictTurns ? 'strict-mode' : 'free-mode'}`}
++          onClick={() => {
++            if (activeStriker !== null) return;
++            saveToHistory();
++            setIsStrictTurns(!isStrictTurns);
++            showToast(!isStrictTurns ? "Strict Turns Mode: Sequence active" : "Free Play Mode: Unrestricted selection");
++          }}
++          disabled={activeStriker !== null}
++          title="Toggle Turn Mode"
++        >
++          <div className="toggle-switch">
++            <div className="toggle-handle" />
++          </div>
++          <span>{isStrictTurns ? 'Strict Turns' : 'Free Play'}</span>
++        </button>
+       </div>
+ 
+       {/* Cartoon "Press Start!" Animated Arrow Overlay */}
+@@ -1902,24 +1445,7 @@ export default function App() {
+         </div>
+       )}
+ 
+-      {/* Cinematic Demo Mode Overlay Banner */}
+-      {isDemoPlaying && demoStep >= 0 && demoStep < DEMO_SEQUENCE.length && (
+-        <div className="demo-status-banner">
+-          <div className="demo-banner-title">
+-            <span className="demo-live-badge">DEMO</span>
+-            <span>Golf Croquet 13-Hoop Tour</span>
+-          </div>
+-          <div className="demo-banner-subtitle">
+-            {DEMO_SEQUENCE[demoStep].annotation}
+-          </div>
+-          <div className="demo-progress-container">
+-            <div className="demo-progress-track">
+-              <div className="demo-progress-bar" style={{ width: `${((demoStep + 1) / DEMO_SEQUENCE.length) * 100}%` }} />
+-            </div>
+-            <div className="demo-progress-text">Shot {demoStep + 1} of {DEMO_SEQUENCE.length}</div>
+-          </div>
+-        </div>
+-      )}
++
+ 
+       {/* Onboarding Title Banner */}
+       {!hasClickedStart && !showHelp && (

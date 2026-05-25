@@ -9,6 +9,31 @@ import QuadwayHoop from './components/QuadwayHoop';
 import CroquetBall from './components/CroquetBall';
 import CartoonPlayer from './components/CartoonPlayer';
 
+const BOUNDARY_X = 18 - 0.133375;  // 17.866625
+const BOUNDARY_Z = 21.5 - 0.133375; // 21.366625
+
+// 12 Hoop Leg Positions (Offset from 6 hoops by +/- 0.1875 yards along the X axis)
+const HOOP_LEGS = [
+  // Hoop 1: [-7, 10.5]
+  { x: -7 - 0.1875, z: 10.5 },
+  { x: -7 + 0.1875, z: 10.5 },
+  // Hoop 2: [-7, -10.5]
+  { x: -7 - 0.1875, z: -10.5 },
+  { x: -7 + 0.1875, z: -10.5 },
+  // Hoop 3: [7, -10.5]
+  { x: 7 - 0.1875, z: -10.5 },
+  { x: 7 + 0.1875, z: -10.5 },
+  // Hoop 4: [7, 10.5]
+  { x: 7 - 0.1875, z: 10.5 },
+  { x: 7 + 0.1875, z: 10.5 },
+  // Hoop 5: [0, -7]
+  { x: 0 - 0.1875, z: -7 },
+  { x: 0 + 0.1875, z: -7 },
+  // Hoop 6: [0, 7]
+  { x: 0 - 0.1875, z: 7 },
+  { x: 0 + 0.1875, z: 7 }
+];
+
 interface PhysicsBallState {
   x: number;
   z: number;
@@ -22,241 +47,234 @@ function PhysicsManager({
   meshRefs,
   onPositionChange,
   selectedBall,
-  selectedRingRef
+  selectedRingRef,
+  activeStriker,
+  isStriking,
+  setActiveStriker
 }: {
   physicsBalls: React.MutableRefObject<Record<string, PhysicsBallState>>;
   meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Object3D | null>>>;
   onPositionChange: (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => void;
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   selectedRingRef: React.RefObject<THREE.Mesh | null>;
+  activeStriker: 'blue' | 'red' | 'black' | 'yellow' | null;
+  isStriking: boolean;
+  setActiveStriker: (color: 'blue' | 'red' | 'black' | 'yellow' | null) => void;
 }) {
-  // Perimeter boundaries based on picket fences:
-  // Fences are at X = +/- 18, Z = +/- 21.5 yards.
-  // Ball radius is 0.133375.
-  const BOUNDARY_X = 18 - 0.133375;  // 17.866625
-  const BOUNDARY_Z = 21.5 - 0.133375; // 21.366625
-
-  // 12 Hoop Leg Positions (Offset from 6 hoops by +/- 0.1875 yards along the X axis)
-  const HOOP_LEGS = [
-    // Hoop 1: [-7, 10.5]
-    { x: -7 - 0.1875, z: 10.5 },
-    { x: -7 + 0.1875, z: 10.5 },
-    // Hoop 2: [-7, -10.5]
-    { x: -7 - 0.1875, z: -10.5 },
-    { x: -7 + 0.1875, z: -10.5 },
-    // Hoop 3: [7, -10.5]
-    { x: 7 - 0.1875, z: -10.5 },
-    { x: 7 + 0.1875, z: -10.5 },
-    // Hoop 4: [7, 10.5]
-    { x: 7 - 0.1875, z: 10.5 },
-    { x: 7 + 0.1875, z: 10.5 },
-    // Hoop 5: [0, -7]
-    { x: 0 - 0.1875, z: -7 },
-    { x: 0 + 0.1875, z: -7 },
-    // Hoop 6: [0, 7]
-    { x: 0 - 0.1875, z: 7 },
-    { x: 0 + 0.1875, z: 7 }
-  ];
 
   useFrame((_, delta) => {
     // Limit delta time steps to avoid tunnel-through behaviors during frame rate stutters
     const dt = Math.min(delta, 0.03);
+    const SUB_STEPS = 10;
+    const subDt = dt / SUB_STEPS;
 
     const balls = physicsBalls.current;
     const refs = meshRefs.current;
     const colors = ['blue', 'red', 'black', 'yellow'] as const;
 
-    // 1. Process individual movement, lawn friction, obstacle/perimeter collisions
-    colors.forEach(c => {
-      const b = balls[c];
-      if (b.vx !== 0 || b.vz !== 0 || b.isRolling) {
-        b.x += b.vx * dt;
-        b.z += b.vz * dt;
+    for (let step = 0; step < SUB_STEPS; step++) {
+      // 1. Process individual movement, lawn friction, obstacle/perimeter collisions
+      colors.forEach(c => {
+        const b = balls[c];
+        if (b.vx !== 0 || b.vz !== 0 || b.isRolling) {
+          b.x += b.vx * subDt;
+          b.z += b.vz * subDt;
 
-        // Apply turf grass friction deceleration (exponential decay)
-        b.vx *= Math.exp(-0.85 * dt);
-        b.vz *= Math.exp(-0.85 * dt);
+          // Apply turf grass friction deceleration (exponential decay)
+          b.vx *= Math.exp(-0.85 * subDt);
+          b.vz *= Math.exp(-0.85 * subDt);
 
-        // --- PEG COLLISION ---
-        const dxPeg = b.x - 0;
-        const dzPeg = b.z - 0;
-        const distPeg = Math.sqrt(dxPeg * dxPeg + dzPeg * dzPeg);
-        const minPegDist = 0.208375; // 0.133375 (ball radius) + 0.075 (peg radius)
-        if (distPeg < minPegDist && distPeg > 0.001) {
-          const nx = dxPeg / distPeg;
-          const nz = dzPeg / distPeg;
-          const velAlongNormal = b.vx * nx + b.vz * nz;
-          if (velAlongNormal < 0) {
-            const j = -(1 + 0.5) * velAlongNormal;
-            b.vx += j * nx;
-            b.vz += j * nz;
-            b.isRolling = true;
-          }
-          b.x = nx * minPegDist;
-          b.z = nz * minPegDist;
-        }
-
-        // --- HOOP RUNNING GROOVE & CENTERING ASSIST ---
-        // In real croquet, the grass under a hoop becomes worn into a subtle "groove" 
-        // that naturally guides balls straight through. If the ball enters the mouth 
-        // of a hoop, we apply a gentle alignment assist to help it run the hoop.
-        const HOOPS = [
-          { x: -7, z: 10.5 },
-          { x: -7, z: -10.5 },
-          { x: 7, z: -10.5 },
-          { x: 7, z: 10.5 },
-          { x: 0, z: -7 },
-          { x: 0, z: 7 }
-        ];
-
-        HOOPS.forEach(hoop => {
-          const dx = b.x - hoop.x;
-          const dz = b.z - hoop.z;
-          // If the ball is between the hoop legs (X-offset < 0.175 yards) 
-          // and close to passing through the hoop opening (Z-offset within 0.35 yards)
-          if (Math.abs(dx) < 0.175 && Math.abs(dz) < 0.35) {
-            if (Math.abs(b.vz) > 0.05) {
-              // Gently guide X position toward the exact center line (the groove)
-              b.x += (hoop.x - b.x) * 0.15 * dt * 60; // 15% centering force per frame
-              // Softly damp lateral X velocity to allow a smooth slide rather than a ricochet
-              b.vx *= Math.exp(-2.5 * dt);
-            }
-          }
-        });
-
-        // --- HOOP LEGS COLLISION ---
-        const minLegDist = 0.168375; // 0.133375 (ball radius) + 0.035 (leg radius)
-        HOOP_LEGS.forEach(leg => {
-          const dxLeg = b.x - leg.x;
-          const dzLeg = b.z - leg.z;
-          const distLeg = Math.sqrt(dxLeg * dxLeg + dzLeg * dzLeg);
-          if (distLeg < minLegDist && distLeg > 0.001) {
-            const nx = dxLeg / distLeg;
-            const nz = dzLeg / distLeg;
+          // --- PEG COLLISION ---
+          const dxPeg = b.x - 0;
+          const dzPeg = b.z - 0;
+          const distPeg = Math.sqrt(dxPeg * dxPeg + dzPeg * dzPeg);
+          const minPegDist = 0.208375; // 0.133375 (ball radius) + 0.075 (peg radius)
+          if (distPeg < minPegDist && distPeg > 0.001) {
+            const nx = dxPeg / distPeg;
+            const nz = dzPeg / distPeg;
             const velAlongNormal = b.vx * nx + b.vz * nz;
             if (velAlongNormal < 0) {
-              // Reduced restitution from 0.4 to 0.02 (highly absorbing steel legs)
-              // This mimics the sliding physical reaction of hitting a heavy steel hoop leg at an angle.
-              const j = -(1 + 0.02) * velAlongNormal;
+              const j = -(1 + 0.5) * velAlongNormal;
               b.vx += j * nx;
               b.vz += j * nz;
               b.isRolling = true;
             }
-            b.x = leg.x + nx * minLegDist;
-            b.z = leg.z + nz * minLegDist;
+            b.x = nx * minPegDist;
+            b.z = nz * minPegDist;
           }
-        });
 
-        const speed = Math.sqrt(b.vx * b.vx + b.vz * b.vz);
+          // --- HOOP RUNNING GROOVE & CENTERING ASSIST ---
+          // In real croquet, the grass under a hoop becomes worn into a subtle "groove" 
+          // that naturally guides balls straight through. If the ball enters the mouth 
+          // of a hoop, we apply a gentle alignment assist to help it run the hoop.
+          const HOOPS = [
+            { x: -7, z: 10.5 },
+            { x: -7, z: -10.5 },
+            { x: 7, z: -10.5 },
+            { x: 7, z: 10.5 },
+            { x: 0, z: -7 },
+            { x: 0, z: 7 }
+          ];
 
-        // Under 0.045 yards/sec, we come to a clean stop and synchronize to React state
-        if (speed < 0.045) {
-          b.vx = 0;
-          b.vz = 0;
-          b.isRolling = false;
-          onPositionChange(c, b.x, b.z);
+          HOOPS.forEach(hoop => {
+            const dx = b.x - hoop.x;
+            const dz = b.z - hoop.z;
+            // If the ball is between the hoop legs (X-offset < 0.175 yards) 
+            // and close to passing through the hoop opening (Z-offset within 0.35 yards)
+            if (Math.abs(dx) < 0.175 && Math.abs(dz) < 0.35) {
+              if (Math.abs(b.vz) > 0.05) {
+                // Gently guide X position toward the exact center line (the groove)
+                b.x += (hoop.x - b.x) * 0.15 * subDt * 60; // 15% centering force per frame
+                // Softly damp lateral X velocity to allow a smooth slide rather than a ricochet
+                b.vx *= Math.exp(-2.5 * subDt);
+              }
+            }
+          });
+
+          // --- HOOP LEGS COLLISION ---
+          const minLegDist = 0.168375; // 0.133375 (ball radius) + 0.035 (leg radius)
+          HOOP_LEGS.forEach(leg => {
+            const dxLeg = b.x - leg.x;
+            const dzLeg = b.z - leg.z;
+            const distLeg = Math.sqrt(dxLeg * dxLeg + dzLeg * dzLeg);
+            if (distLeg < minLegDist && distLeg > 0.001) {
+              const nx = dxLeg / distLeg;
+              const nz = dzLeg / distLeg;
+              const velAlongNormal = b.vx * nx + b.vz * nz;
+              if (velAlongNormal < 0) {
+                // Reduced restitution from 0.4 to 0.02 (highly absorbing steel legs)
+                // This mimics the sliding physical reaction of hitting a heavy steel hoop leg at an angle.
+                const j = -(1 + 0.02) * velAlongNormal;
+                b.vx += j * nx;
+                b.vz += j * nz;
+                b.isRolling = true;
+              }
+              b.x = leg.x + nx * minLegDist;
+              b.z = leg.z + nz * minLegDist;
+            }
+          });
+
+          const speed = Math.sqrt(b.vx * b.vx + b.vz * b.vz);
+
+          // Under 0.045 yards/sec, we come to a clean stop and synchronize to React state
+          if (speed < 0.045) {
+            b.vx = 0;
+            b.vz = 0;
+            b.isRolling = false;
+            onPositionChange(c, b.x, b.z);
+          }
+
+          // Perimeter fence collisions (elastic reflection with 95% energy loss - 5% bounce)
+          if (b.x > BOUNDARY_X) {
+            b.x = BOUNDARY_X;
+            b.vx = -Math.abs(b.vx) * 0.05;
+          } else if (b.x < -BOUNDARY_X) {
+            b.x = -BOUNDARY_X;
+            b.vx = Math.abs(b.vx) * 0.05;
+          }
+
+          if (b.z > BOUNDARY_Z) {
+            b.z = BOUNDARY_Z;
+            b.vz = -Math.abs(b.vz) * 0.05;
+          } else if (b.z < -BOUNDARY_Z) {
+            b.z = -BOUNDARY_Z;
+            b.vz = Math.abs(b.vz) * 0.05;
+          }
+
+          // Apply immediate visual update directly to WebGL mesh
+          const mesh = refs[c].current;
+          if (mesh) {
+            mesh.position.x = b.x;
+            mesh.position.z = b.z;
+          }
+
+          // If this rolling ball is the selected ball, also update the selection ring position
+          if (c === selectedBall && selectedRingRef.current) {
+            selectedRingRef.current.position.x = b.x;
+            selectedRingRef.current.position.z = b.z;
+          }
         }
+      });
 
-        // Perimeter fence collisions (elastic reflection with 45% energy loss)
-        if (b.x > BOUNDARY_X) {
-          b.x = BOUNDARY_X;
-          b.vx = -Math.abs(b.vx) * 0.55;
-        } else if (b.x < -BOUNDARY_X) {
-          b.x = -BOUNDARY_X;
-          b.vx = Math.abs(b.vx) * 0.55;
-        }
+      // 2. Process elastic ball-to-ball collisions with coordinate overlap resolutions
+      for (let i = 0; i < colors.length; i++) {
+        for (let j = i + 1; j < colors.length; j++) {
+          const cA = colors[i];
+          const cB = colors[j];
+          const bA = balls[cA];
+          const bB = balls[cB];
 
-        if (b.z > BOUNDARY_Z) {
-          b.z = BOUNDARY_Z;
-          b.vz = -Math.abs(b.vz) * 0.55;
-        } else if (b.z < -BOUNDARY_Z) {
-          b.z = -BOUNDARY_Z;
-          b.vz = Math.abs(b.vz) * 0.55;
-        }
+          const dx = bA.x - bB.x;
+          const dz = bA.z - bB.z;
+          const distSq = dx * dx + dz * dz;
+          const minContactDist = 0.26675; // 2 * 0.133375
+          const minContactDistSq = minContactDist * minContactDist;
 
-        // Apply immediate visual update directly to WebGL mesh
-        const mesh = refs[c].current;
-        if (mesh) {
-          mesh.position.x = b.x;
-          mesh.position.z = b.z;
-        }
+          if (distSq < minContactDistSq) {
+            const dist = Math.sqrt(distSq);
+            if (dist > 0.001) {
+              const relVX = bA.vx - bB.vx;
+              const relVZ = bA.vz - bB.vz;
+              const dotProduct = dx * relVX + dz * relVZ;
 
-        // If this rolling ball is the selected ball, also update the selection ring position
-        if (c === selectedBall && selectedRingRef.current) {
-          selectedRingRef.current.position.x = b.x;
-          selectedRingRef.current.position.z = b.z;
+              if (dotProduct < 0) {
+                const nx = dx / dist;
+                const nz = dz / dist;
+                const v_dot_n = relVX * nx + relVZ * nz;
+                
+                const restitution = 0.92;
+                const j_impulse = (-(1 + restitution) * v_dot_n) / 2;
+
+                bA.vx += j_impulse * nx;
+                bA.vz += j_impulse * nz;
+                bB.vx -= j_impulse * nx;
+                bB.vz -= j_impulse * nz;
+              }
+
+              const overlap = minContactDist - dist;
+              const nx_pos = dx / dist;
+              const nz_pos = dz / dist;
+              bA.x += nx_pos * overlap / 2;
+              bA.z += nz_pos * overlap / 2;
+              bB.x -= nx_pos * overlap / 2;
+              bB.z -= nz_pos * overlap / 2;
+
+              bA.isRolling = true;
+              bB.isRolling = true;
+
+              // Instantly sync visual WebGL meshes
+              const meshA = refs[cA].current;
+              if (meshA) {
+                meshA.position.x = bA.x;
+                meshA.position.z = bA.z;
+              }
+              const meshB = refs[cB].current;
+              if (meshB) {
+                meshB.position.x = bB.x;
+                meshB.position.z = bB.z;
+              }
+
+              // If either bumped ball is the selected ball, also update the selection ring position
+              if (cA === selectedBall && selectedRingRef.current) {
+                selectedRingRef.current.position.x = bA.x;
+                selectedRingRef.current.position.z = bA.z;
+              } else if (cB === selectedBall && selectedRingRef.current) {
+                selectedRingRef.current.position.x = bB.x;
+                selectedRingRef.current.position.z = bB.z;
+              }
+            }
+          }
         }
       }
-    });
+    }
 
-    // 2. Process elastic ball-to-ball collisions with coordinate overlap resolutions
-    for (let i = 0; i < colors.length; i++) {
-      for (let j = i + 1; j < colors.length; j++) {
-        const cA = colors[i];
-        const cB = colors[j];
-        const bA = balls[cA];
-        const bB = balls[cB];
-
-        const dx = bA.x - bB.x;
-        const dz = bA.z - bB.z;
-        const distSq = dx * dx + dz * dz;
-        const minContactDist = 0.26675; // 2 * 0.133375
-        const minContactDistSq = minContactDist * minContactDist;
-
-        if (distSq < minContactDistSq) {
-          const dist = Math.sqrt(distSq);
-          if (dist > 0.001) {
-            const relVX = bA.vx - bB.vx;
-            const relVZ = bA.vz - bB.vz;
-            const dotProduct = dx * relVX + dz * relVZ;
-
-            if (dotProduct < 0) {
-              const nx = dx / dist;
-              const nz = dz / dist;
-              const v_dot_n = relVX * nx + relVZ * nz;
-              
-              const restitution = 0.92;
-              const j_impulse = (-(1 + restitution) * v_dot_n) / 2;
-
-              bA.vx += j_impulse * nx;
-              bA.vz += j_impulse * nz;
-              bB.vx -= j_impulse * nx;
-              bB.vz -= j_impulse * nz;
-            }
-
-            const overlap = minContactDist - dist;
-            const nx_pos = dx / dist;
-            const nz_pos = dz / dist;
-            bA.x += nx_pos * overlap / 2;
-            bA.z += nz_pos * overlap / 2;
-            bB.x -= nx_pos * overlap / 2;
-            bB.z -= nz_pos * overlap / 2;
-
-            bA.isRolling = true;
-            bB.isRolling = true;
-
-            // Instantly sync visual WebGL meshes
-            const meshA = refs[cA].current;
-            if (meshA) {
-              meshA.position.x = bA.x;
-              meshA.position.z = bA.z;
-            }
-            const meshB = refs[cB].current;
-            if (meshB) {
-              meshB.position.x = bB.x;
-              meshB.position.z = bB.z;
-            }
-
-            // If either bumped ball is the selected ball, also update the selection ring position
-            if (cA === selectedBall && selectedRingRef.current) {
-              selectedRingRef.current.position.x = bA.x;
-              selectedRingRef.current.position.z = bA.z;
-            } else if (cB === selectedBall && selectedRingRef.current) {
-              selectedRingRef.current.position.x = bB.x;
-              selectedRingRef.current.position.z = bB.z;
-            }
-          }
-        }
+    // Clear active striker after balls come to a complete halt
+    if (activeStriker !== null && !isStriking) {
+      const isAnyBallMoving = Object.values(balls).some(b => b.vx !== 0 || b.vz !== 0 || b.isRolling);
+      if (!isAnyBallMoving) {
+        setTimeout(() => {
+          setActiveStriker(null);
+        }, 150); // Small visual follow-through stay delay
       }
     }
   });
@@ -572,6 +590,260 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
   return null;
 }
 
+interface AimLineControllerProps {
+  showAimingLines: boolean;
+  selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
+  activeStriker: 'blue' | 'red' | 'black' | 'yellow' | null;
+  setHoverPoint: (point: { x: number; z: number } | null) => void;
+  balls: Record<string, { x: number; z: number }>;
+  hoverPoint: { x: number; z: number } | null;
+}
+
+function AimLineController({
+  showAimingLines,
+  selectedBall,
+  activeStriker,
+  setHoverPoint,
+  balls,
+  hoverPoint
+}: AimLineControllerProps) {
+  const { raycaster } = useThree();
+  const groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+
+  useFrame(() => {
+    if (showAimingLines && selectedBall && activeStriker === null) {
+      const target = new THREE.Vector3();
+      const intersection = raycaster.ray.intersectPlane(groundPlane, target);
+      if (intersection) {
+        setHoverPoint({ x: target.x, z: target.z });
+      } else {
+        setHoverPoint(null);
+      }
+    } else {
+      setHoverPoint(null);
+    }
+  });
+
+  if (!showAimingLines || !selectedBall || activeStriker !== null || !hoverPoint) {
+    return null;
+  }
+
+  const activeBall = balls[selectedBall];
+  const dx = hoverPoint.x - activeBall.x;
+  const dz = hoverPoint.z - activeBall.z;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+  if (dist < 0.01) return null;
+
+  const ux = dx / dist;
+  const uz = dz / dist;
+
+  let firstCollision: {
+    type: 'ball' | 'peg' | 'leg';
+    id?: string;
+    x: number;
+    z: number;
+    t: number;
+    radius: number;
+  } | null = null;
+
+  // 1. Collision with other balls
+  const otherBalls = (['blue', 'red', 'black', 'yellow'] as const).filter(c => c !== selectedBall);
+  for (const c of otherBalls) {
+    const ob = balls[c];
+    const isOffCourt = Math.abs(ob.x) > 18 || Math.abs(ob.z) > 21.5;
+    if (isOffCourt) continue;
+
+    const R_contact = 2 * 0.133375;
+    const obDx = activeBall.x - ob.x;
+    const obDz = activeBall.z - ob.z;
+    const b_q = 2 * (ux * obDx + uz * obDz);
+    const c_q = obDx * obDx + obDz * obDz - R_contact * R_contact;
+    const disc = b_q * b_q - 4 * c_q;
+    if (disc >= 0) {
+      const t = (-b_q - Math.sqrt(disc)) / 2;
+      if (t > 0 && (firstCollision === null || t < firstCollision.t)) {
+        firstCollision = {
+          type: 'ball',
+          id: c,
+          x: ob.x,
+          z: ob.z,
+          t,
+          radius: 0.133375
+        };
+      }
+    }
+  }
+
+  // 2. Collision with center peg
+  const R_contactPeg = 0.133375 + 0.075;
+  const pegDx = activeBall.x - 0;
+  const pegDz = activeBall.z - 0;
+  const pegB = 2 * (ux * pegDx + uz * pegDz);
+  const pegC = pegDx * pegDx + pegDz * pegDz - R_contactPeg * R_contactPeg;
+  const pegDisc = pegB * pegB - 4 * pegC;
+  if (pegDisc >= 0) {
+    const t = (-pegB - Math.sqrt(pegDisc)) / 2;
+    if (t > 0 && (firstCollision === null || t < firstCollision.t)) {
+      firstCollision = {
+        type: 'peg',
+        x: 0,
+        z: 0,
+        t,
+        radius: 0.075
+      };
+    }
+  }
+
+  // 3. Collision with hoop legs
+  for (const leg of HOOP_LEGS) {
+    const R_contactLeg = 0.133375 + 0.035;
+    const legDx = activeBall.x - leg.x;
+    const legDz = activeBall.z - leg.z;
+    const legB = 2 * (ux * legDx + uz * legDz);
+    const legC = legDx * legDx + legDz * legDz - R_contactLeg * R_contactLeg;
+    const legDisc = legB * legB - 4 * legC;
+    if (legDisc >= 0) {
+      const t = (-legB - Math.sqrt(legDisc)) / 2;
+      if (t > 0 && (firstCollision === null || t < firstCollision.t)) {
+        firstCollision = {
+          type: 'leg',
+          x: leg.x,
+          z: leg.z,
+          t,
+          radius: 0.035
+        };
+      }
+    }
+  }
+
+  let linePoints: [number, number, number][] = [];
+  let scatterStrikerPoints: [number, number, number][] = [];
+  let scatterTargetPoints: [number, number, number][] = [];
+  let ghostPos: { x: number; z: number } | null = null;
+
+  const getBallColor = (color: string) => {
+    if (color === 'blue') return '#1565c0';
+    if (color === 'red') return '#d32f2f';
+    if (color === 'black') return '#888888'; // Lighter stands out better on lawn than pure black
+    if (color === 'yellow') return '#fbc02d';
+    return '#ffffff';
+  };
+
+  const activeColor = getBallColor(selectedBall);
+  let hitTargetColor = '#ffffff';
+
+  if (firstCollision) {
+    const c = firstCollision as any;
+    const impactX = activeBall.x + c.t * ux;
+    const impactZ = activeBall.z + c.t * uz;
+    ghostPos = { x: impactX, z: impactZ };
+
+    linePoints = [
+      [activeBall.x, 0.133375, activeBall.z],
+      [impactX, 0.133375, impactZ]
+    ];
+
+    // Compute split-shot scattering angles
+    const normX = c.x - impactX;
+    const normZ = c.z - impactZ;
+    const normDist = Math.sqrt(normX * normX + normZ * normZ);
+    const nx = normDist > 0 ? normX / normDist : 0;
+    const nz = normDist > 0 ? normZ / normDist : 0;
+
+    const v_dot_n = ux * nx + uz * nz;
+    const targetVx = v_dot_n * nx;
+    const targetVz = v_dot_n * nz;
+    const strikerVx = ux - targetVx;
+    const strikerVz = uz - targetVz;
+
+    const targetMag = Math.sqrt(targetVx * targetVx + targetVz * targetVz);
+    const strikerMag = Math.sqrt(strikerVx * strikerVx + strikerVz * strikerVz);
+
+    const scatterLength = 3.0; // yards to draw in 3D space
+
+    if (strikerMag > 0.01) {
+      const sDirX = strikerVx / strikerMag;
+      const sDirZ = strikerVz / strikerMag;
+      scatterStrikerPoints = [
+        [impactX, 0.133375, impactZ],
+        [impactX + sDirX * scatterLength, 0.133375, impactZ + sDirZ * scatterLength]
+      ];
+    }
+
+    if (c.type === 'ball') {
+      hitTargetColor = getBallColor(c.id);
+      if (targetMag > 0.01) {
+        const tDirX = targetVx / targetMag;
+        const tDirZ = targetVz / targetMag;
+        scatterTargetPoints = [
+          [c.x, 0.133375, c.z],
+          [c.x + tDirX * scatterLength, 0.133375, c.z + tDirZ * scatterLength]
+        ];
+      }
+    }
+  } else {
+    linePoints = [
+      [activeBall.x, 0.133375, activeBall.z],
+      [hoverPoint.x, 0.133375, hoverPoint.z]
+    ];
+  }
+
+  return (
+    <>
+      {/* 3D Ghost Ball representation */}
+      {ghostPos && (
+        <mesh position={[ghostPos.x, 0.133375, ghostPos.z]} castShadow>
+          <sphereGeometry args={[0.133375, 32, 32]} />
+          <meshStandardMaterial
+            color={activeColor}
+            transparent
+            opacity={0.35}
+            roughness={0.2}
+            metalness={0.1}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+
+      {/* Main dashed aim line */}
+      {linePoints.length > 0 && (
+        <Line
+          points={linePoints}
+          color="#ffffff"
+          lineWidth={2.5}
+          dashed
+          dashScale={1.5}
+          frustumCulled={false}
+        />
+      )}
+
+      {/* Striker scattering path */}
+      {scatterStrikerPoints.length > 0 && (
+        <Line
+          points={scatterStrikerPoints}
+          color={activeColor}
+          lineWidth={2.0}
+          dashed
+          dashScale={2.0}
+          frustumCulled={false}
+        />
+      )}
+
+      {/* Target scattering path */}
+      {scatterTargetPoints.length > 0 && (
+        <Line
+          points={scatterTargetPoints}
+          color={hitTargetColor}
+          lineWidth={2.0}
+          dashed
+          dashScale={2.0}
+          frustumCulled={false}
+        />
+      )}
+    </>
+  );
+}
+
 export default function App() {
   // React State for initial ball positioning & synchronization (drag and drop)
   const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
@@ -622,6 +894,20 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setShowAimingLines(prev => !prev);
+        return;
+      }
+
       if (e.code === 'Space') {
         // Prevent default spacebar scrolling
         e.preventDefault();
@@ -919,7 +1205,6 @@ export default function App() {
 
   // End of player swing cycle
   const handleFinished = () => {
-    setActiveStriker(null);
     setIsStriking(false);
   };
 
@@ -945,6 +1230,14 @@ export default function App() {
           resetCounter={cameraResetCounter} 
           selectedBall={selectedBall}
           balls={balls}
+        />
+        <AimLineController
+          showAimingLines={showAimingLines}
+          selectedBall={selectedBall}
+          activeStriker={activeStriker}
+          setHoverPoint={setHoverPoint}
+          balls={balls}
+          hoverPoint={hoverPoint}
         />
         <PanoramaBackground />
         <ambientLight intensity={0.5} />
@@ -1016,41 +1309,18 @@ export default function App() {
           onPositionChange={handleBallChange}
           selectedBall={selectedBall}
           selectedRingRef={selectedRingRef}
+          activeStriker={activeStriker}
+          isStriking={isStriking}
+          setActiveStriker={setActiveStriker}
         />
 
-        {/* Selected Ball Ring Visualizer */}
-        {selectedBall && (
-          <mesh
-            ref={selectedRingRef}
-            position={[balls[selectedBall].x, 0.025, balls[selectedBall].z]}
-            rotation={[-Math.PI / 2, 0, 0]}
-          >
-            <ringGeometry args={[0.16, 0.20, 32]} />
-            <meshBasicMaterial 
-              color={
-                selectedBall === 'blue' ? '#1565c0' :
-                selectedBall === 'red' ? '#d32f2f' :
-                selectedBall === 'black' ? '#ffffff' :
-                '#fbc02d'
-              } 
-              side={THREE.DoubleSide} 
-            />
-          </mesh>
-        )}
 
-        {/* Invisible court surface clicking helper to capture striking clicks */}
+
         <mesh 
           position={[0, 0.015, 0]} 
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={handleCourtPointerDown}
           onPointerUp={handleCourtPointerUp}
-          onPointerMove={(e) => {
-            if (activeStriker !== null) return;
-            setHoverPoint({ x: e.point.x, z: e.point.z });
-          }}
-          onPointerOut={() => {
-            setHoverPoint(null);
-          }}
         >
           <planeGeometry args={[120, 120]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -1097,6 +1367,7 @@ export default function App() {
           x={balls.blue.x}
           z={balls.blue.z}
           onPositionChange={(x, z) => handleBallChange('blue', x, z)}
+          isSelected={selectedBall === 'blue'}
           onPointerDown={() => {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
@@ -1116,6 +1387,7 @@ export default function App() {
           x={balls.red.x}
           z={balls.red.z}
           onPositionChange={(x, z) => handleBallChange('red', x, z)}
+          isSelected={selectedBall === 'red'}
           onPointerDown={() => {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
@@ -1135,6 +1407,7 @@ export default function App() {
           x={balls.black.x}
           z={balls.black.z}
           onPositionChange={(x, z) => handleBallChange('black', x, z)}
+          isSelected={selectedBall === 'black'}
           onPointerDown={() => {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
@@ -1154,6 +1427,7 @@ export default function App() {
           x={balls.yellow.x}
           z={balls.yellow.z}
           onPositionChange={(x, z) => handleBallChange('yellow', x, z)}
+          isSelected={selectedBall === 'yellow'}
           onPointerDown={() => {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
@@ -1329,7 +1603,7 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.51 BETA)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.57 Beta)</div>
       </div>
 
       {/* Premium Glassmorphic Toast Notification */}

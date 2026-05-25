@@ -873,6 +873,7 @@ export default function App() {
       setStrikeTarget({ x: clickPoint.x, z: clickPoint.z });
       setActiveStriker(selectedBall);
       setIsStriking(true);
+      setSelectedBall(null); // Clear selected ball as the shot is now being played!
       setHoverPoint(null); // Hide aiming line immediately when strike is initiated
       setShowAimingLines(false); // Deactivate aiming lines globally once the shot is played
     }
@@ -1100,14 +1101,11 @@ export default function App() {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
-              const nextBall = selectedBall === 'blue' ? null : 'blue';
-              setSelectedBall(nextBall);
-              if (nextBall) {
-                const activeBallCoords = physicsBalls.current.blue;
-                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-                if (isOffCourt) {
-                  showToast("Drag ball onto court");
-                }
+              setSelectedBall('blue');
+              const activeBallCoords = physicsBalls.current.blue;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
               }
             }
           }}
@@ -1122,14 +1120,11 @@ export default function App() {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
-              const nextBall = selectedBall === 'red' ? null : 'red';
-              setSelectedBall(nextBall);
-              if (nextBall) {
-                const activeBallCoords = physicsBalls.current.red;
-                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-                if (isOffCourt) {
-                  showToast("Drag ball onto court");
-                }
+              setSelectedBall('red');
+              const activeBallCoords = physicsBalls.current.red;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
               }
             }
           }}
@@ -1144,14 +1139,11 @@ export default function App() {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
-              const nextBall = selectedBall === 'black' ? null : 'black';
-              setSelectedBall(nextBall);
-              if (nextBall) {
-                const activeBallCoords = physicsBalls.current.black;
-                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-                if (isOffCourt) {
-                  showToast("Drag ball onto court");
-                }
+              setSelectedBall('black');
+              const activeBallCoords = physicsBalls.current.black;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
               }
             }
           }}
@@ -1166,14 +1158,11 @@ export default function App() {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
-              const nextBall = selectedBall === 'yellow' ? null : 'yellow';
-              setSelectedBall(nextBall);
-              if (nextBall) {
-                const activeBallCoords = physicsBalls.current.yellow;
-                const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
-                if (isOffCourt) {
-                  showToast("Drag ball onto court");
-                }
+              setSelectedBall('yellow');
+              const activeBallCoords = physicsBalls.current.yellow;
+              const isOffCourt = Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5;
+              if (isOffCourt) {
+                showToast("Drag ball onto court");
               }
             }
           }}

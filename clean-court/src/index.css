@@ -655,3 +655,74 @@ code {
     border-color: rgba(212, 175, 55, 0.7);
   }
 }
+
+/* Animated Cartoon Start Arrow & Badge Overlay */
+.cartoon-start-overlay {
+  position: absolute;
+  bottom: 120px; /* Positioned just above the control panel */
+  left: 90px;
+  z-index: 1001; /* Above control panel but below help modal */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none; /* Make non-blocking */
+  animation: cartoonFloat 2.2s infinite ease-in-out;
+}
+
+.cartoon-start-badge {
+  background: #ffe680; /* Bright gold-yellow */
+  border: 4px solid #000000; /* Thick cartoon outline */
+  padding: 8px 16px;
+  border-radius: 16px;
+  color: #000000;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45);
+  transform: rotate(-5deg); /* Playful angle */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Small speech bubble pointer */
+.cartoon-start-badge::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: 20px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: #000000 transparent transparent transparent;
+}
+.cartoon-start-badge::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 20px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: #ffe680 transparent transparent transparent;
+  z-index: 1;
+}
+
+.cartoon-start-arrow {
+  margin-top: 6px;
+  transform: rotate(-10deg);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes cartoonFloat {
+  0% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.04) rotate(-2deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}

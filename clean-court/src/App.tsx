@@ -612,6 +612,7 @@ export default function App() {
   // Aiming guides state
   const [showAimingLines, setShowAimingLines] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [hasClickedStart, setHasClickedStart] = useState(false);
   const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
 
   // Track spacebar held state for "Drive Mode" (blast ball off court)
@@ -745,6 +746,8 @@ export default function App() {
     const isAnyBallMoving = Object.values(physicsBalls.current).some(b => b.vx !== 0 || b.vz !== 0 || b.isRolling);
     if (isAnyBallMoving) return;
 
+    setHasClickedStart(true); // Disable the cartoon animated arrow overlay permanently
+
     // Snapshot the current state before resetting so that reset itself can be undone!
     saveToHistory();
 
@@ -812,6 +815,7 @@ export default function App() {
   // HUD Button Selection handler
   const handleHUDSelect = (color: 'blue' | 'red' | 'black' | 'yellow') => {
     if (activeStriker !== null) return; // Prevent selection changes during active striking
+    setHasClickedStart(true); // Dismiss initial start arrow on direct ball selection
     setSelectedBall(selectedBall === color ? null : color);
   };
 
@@ -825,6 +829,8 @@ export default function App() {
 
   const handleCourtPointerUp = (e: any) => {
     if (activeStriker !== null || !pointerDownPos.current) return;
+
+    setHasClickedStart(true); // Dismiss initial start arrow on click/strike
 
     const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
     const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
@@ -1092,6 +1098,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('blue', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
               const nextBall = selectedBall === 'blue' ? null : 'blue';
               setSelectedBall(nextBall);
@@ -1113,6 +1120,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('red', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
               const nextBall = selectedBall === 'red' ? null : 'red';
               setSelectedBall(nextBall);
@@ -1134,6 +1142,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('black', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
               const nextBall = selectedBall === 'black' ? null : 'black';
               setSelectedBall(nextBall);
@@ -1155,6 +1164,7 @@ export default function App() {
           onPositionChange={(x, z) => handleBallChange('yellow', x, z)}
           onPointerDown={() => {
             if (activeStriker === null) {
+              setHasClickedStart(true); // Dismiss initial start arrow
               saveToHistory();
               const nextBall = selectedBall === 'yellow' ? null : 'yellow';
               setSelectedBall(nextBall);
@@ -1274,6 +1284,51 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* Cartoon "Press Start!" Animated Arrow Overlay */}
+      {!hasClickedStart && (
+        <div className="cartoon-start-overlay">
+          <div className="cartoon-start-badge">
+            <span>Press Start!</span>
+          </div>
+          <div className="cartoon-start-arrow">
+            <svg viewBox="0 0 100 100" style={{ width: '60px', height: '60px' }}>
+              {/* Thick Black Outline */}
+              <path 
+                d="M70,15 Q40,15 25,45" 
+                fill="none" 
+                stroke="#000000" 
+                strokeWidth="10" 
+                strokeLinecap="round" 
+              />
+              <path 
+                d="M15,45 L33,43 M15,45 L23,27" 
+                fill="none" 
+                stroke="#000000" 
+                strokeWidth="10" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+              />
+              {/* Bright Gold Inner Fill */}
+              <path 
+                d="M70,15 Q40,15 25,45" 
+                fill="none" 
+                stroke="#ffe680" 
+                strokeWidth="5" 
+                strokeLinecap="round" 
+              />
+              <path 
+                d="M15,45 L33,43 M15,45 L23,27" 
+                fill="none" 
+                stroke="#ffe680" 
+                strokeWidth="5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+              />
+            </svg>
+          </div>
+        </div>
+      )}
 
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">

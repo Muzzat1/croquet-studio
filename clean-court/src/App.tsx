@@ -1826,10 +1826,12 @@ export default function App() {
                               <circle cx="12" cy="12" r="6" />
                               <circle cx="12" cy="12" r="2" fill="currentColor" />
                             </svg>
-                            Aim Mode
+                            Aim Mode & Ghost Ball
                           </div>
                           <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                            Click the <strong style={{ color: '#ffe680' }}>Aim</strong> Button in Control Panel if aiming assistance for a single shot is required.
+                            Click the <strong style={{ color: '#ffe680' }}>Aim</strong> Button in the Control Panel or press the <kbd className="help-key-badge">A</kbd> key to toggle **Aim Mode**.
+                            <br/><br/>
+                            When aiming your selected striker ball towards another ball, the center peg, or any hoop leg, a semi-transparent **Ghost Ball** will appear at the exact contact boundary. Dynamic dashed lines will project the mathematically precise post-impact **scattering trajectories** of both balls.
                           </div>
                         </div>
 
@@ -1923,9 +1925,21 @@ export default function App() {
                     <line x1="6" y1="12" x2="6.01" y2="12" /><line x1="10" y1="12" x2="10.01" y2="12" /><line x1="14" y1="12" x2="14.01" y2="12" /><line x1="18" y1="12" x2="18.01" y2="12" />
                     <line x1="7" y1="16" x2="17" y2="16" />
                   </svg>
-                  Keyboard Camera Shortcuts
+                  Keyboard Shortcuts
                 </h4>
                 <div className="help-controls-table">
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">A</kbd>
+                    </div>
+                    <div className="help-controls-desc">Toggle Aim Mode (displays 3D Ghost Ball & elastic collision lines)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">Space</kbd>
+                    </div>
+                    <div className="help-controls-desc">Hold down for Drive Mode (Power Strike at 54 yd/s)</div>
+                  </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">
                       <kbd className="help-key-badge">O</kbd>

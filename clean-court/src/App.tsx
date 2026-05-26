@@ -1747,7 +1747,7 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.57 Beta)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.58 Beta)</div>
       </div>
 
       {/* Premium Glassmorphic Toast Notification */}

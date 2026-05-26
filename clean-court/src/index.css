@@ -279,6 +279,16 @@ code {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
+.signature-copyright {
+  font-family: 'Outfit', 'Inter', var(--sans);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  margin-top: 1px;
+}
+
 /* Premium Glassmorphic Toast Notification */
 .toast-notification {
   position: absolute;

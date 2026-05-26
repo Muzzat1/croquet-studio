@@ -134,17 +134,40 @@ code {
   align-items: center;
   gap: 12px;
   padding: 16px 28px;
-  background: rgba(18, 18, 18, 0.6);
+  background: rgba(18, 18, 18, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(212, 175, 55, 0.4); /* Gold rim */
+  border: 1.5px solid rgba(212, 175, 55, 0.45); /* Gold rim */
   border-radius: 24px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   font-family: 'Outfit', 'Inter', var(--sans);
   color: #ffffff;
   pointer-events: auto;
-  transform: scale(0.4);
+  transform: scale(0.9);
   transform-origin: bottom left;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.floating-control-panel:hover {
+  border-color: rgba(212, 175, 55, 0.85); /* Vibrant gold glow */
+  box-shadow: 0 20px 60px rgba(212, 175, 55, 0.15), 0 16px 48px rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 1024px) {
+  .floating-control-panel {
+    transform: scale(0.75);
+    bottom: 12px;
+    left: 12px;
+    padding: 12px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .floating-control-panel {
+    transform: scale(0.65);
+    bottom: 8px;
+    left: 8px;
+  }
 }
 
 .panel-title {

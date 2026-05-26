@@ -466,9 +466,15 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
         const camPos = camera.position;
         const targetPos = controls ? (controls as unknown as { target: THREE.Vector3 }).target : new THREE.Vector3();
         console.log(
-          `%c[Camera Angle Captured]%c\nPosition: [${camPos.x.toFixed(2)}, ${camPos.y.toFixed(2)}, ${camPos.z.toFixed(2)}]\nTarget: [${targetPos.x.toFixed(2)}, ${targetPos.y.toFixed(2)}, ${targetPos.z.toFixed(2)}]\nFOV: ${camera.fov.toFixed(1)}`,
-          'color: #f6e297; font-weight: bold; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);',
-          'color: #8bc34a; font-weight: 500;'
+          `%c 📷 CAMERA ANGLE CAPTURED %c\n` +
+          `%c  Position %c: [${camPos.x.toFixed(4)}, ${camPos.y.toFixed(4)}, ${camPos.z.toFixed(4)}]\n` +
+          `%c  Target   %c: [${targetPos.x.toFixed(4)}, ${targetPos.y.toFixed(4)}, ${targetPos.z.toFixed(4)}]\n` +
+          `%c  FOV      %c: ${camera.fov.toFixed(1)}°`,
+          'background: #1e3c2f; color: #ffe680; font-weight: bold; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #d4af37;',
+          '',
+          'color: #ffe680; font-weight: bold;', 'color: #38bdf8;',
+          'color: #ffe680; font-weight: bold;', 'color: #38bdf8;',
+          'color: #ffe680; font-weight: bold;', 'color: #38bdf8;'
         );
         return;
       }
@@ -921,6 +927,23 @@ export default function App() {
       `;
       throw new Error("Unauthorized local copy or domain detected.");
     }
+
+    // Print premium developer console welcome banner
+    console.log(
+      `%c 👑 GC CROQUET 3D VISUALISER %c Version 0.61 Beta %c\n` +
+      `%cMurray Tinker's Professional Coaching Suite%c\n` +
+      `--------------------------------------------------\n` +
+      `• Host Domain     : ${window.location.hostname}\n` +
+      `• Connection      : ${navigator.onLine ? 'ONLINE 🟢' : 'OFFLINE 🔴'}\n` +
+      `• Origin Guard    : LOCKED ✅\n` +
+      `--------------------------------------------------\n` +
+      `👉 Press 'C' key on the lawn to capture exact 3D camera coordinates!`,
+      'background: #111827; color: #ffe680; font-weight: bold; font-size: 13px; padding: 4px 8px; border-radius: 4px 0 0 4px; border-left: 4px solid #d4af37;',
+      'background: #d4af37; color: #000000; font-weight: bold; font-size: 11px; padding: 4px 8px; border-radius: 0 4px 4px 0;',
+      '',
+      'color: #ffe680; font-weight: bold; font-size: 11px; margin-top: 6px;',
+      'color: #94a3b8; font-size: 10px;'
+    );
 
     // C. Register online/offline event listeners
     const handleOnline = () => setIsOnline(true);
@@ -1932,7 +1955,7 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.60 Beta)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.61 Beta)</div>
         <div className="signature-copyright">© 2026</div>
       </div>
 

@@ -930,7 +930,7 @@ export default function App() {
 
     // Print premium developer console welcome banner
     console.log(
-      `%c 👑 GC CROQUET 3D VISUALISER %c Version 0.61 Beta %c\n` +
+      `%c 👑 GC CROQUET 3D VISUALISER %c Version 0.62 Beta %c\n` +
       `%cMurray Tinker's Professional Coaching Suite%c\n` +
       `--------------------------------------------------\n` +
       `• Host Domain     : ${window.location.hostname}\n` +
@@ -1955,7 +1955,7 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.61 Beta)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.62 Beta)</div>
         <div className="signature-copyright">© 2026</div>
       </div>
 

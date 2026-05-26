@@ -126,47 +126,44 @@ code {
 /* Premium Glassmorphic Floating Control Panel styling */
 .floating-control-panel {
   position: absolute;
-  bottom: 24px;
-  left: 24px;
+  bottom: 16px;
+  left: 16px;
   z-index: 100;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 16px 28px;
-  background: rgba(18, 18, 18, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1.5px solid rgba(212, 175, 55, 0.45); /* Gold rim */
-  border-radius: 24px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  gap: 10px;
+  padding: 14px 20px;
+  background: rgba(10, 12, 16, 0.9); /* Carbon slate black */
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1.5px solid rgba(212, 175, 55, 0.55); /* Technical gold line */
+  border-radius: 10px; /* Sharp high-end console corners */
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   font-family: 'Outfit', 'Inter', var(--sans);
   color: #ffffff;
   pointer-events: auto;
-  transform: scale(0.9);
+  transform: scale(0.55); /* Exquisite compact sports analytics scale */
   transform-origin: bottom left;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .floating-control-panel:hover {
-  border-color: rgba(212, 175, 55, 0.85); /* Vibrant gold glow */
-  box-shadow: 0 20px 60px rgba(212, 175, 55, 0.15), 0 16px 48px rgba(0, 0, 0, 0.8);
+  border-color: rgba(212, 175, 55, 0.9);
+  box-shadow: 0 20px 50px rgba(212, 175, 55, 0.15), 0 16px 40px rgba(0, 0, 0, 0.95);
 }
 
 @media (max-width: 1024px) {
   .floating-control-panel {
-    transform: scale(0.75);
-    bottom: 12px;
-    left: 12px;
-    padding: 12px 20px;
+    transform: scale(0.48);
+    bottom: 8px;
+    left: 8px;
   }
 }
 
 @media (max-width: 480px) {
   .floating-control-panel {
-    transform: scale(0.65);
-    bottom: 8px;
-    left: 8px;
+    transform: scale(0.42);
   }
 }
 
@@ -190,21 +187,21 @@ code {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: 2px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 .strike-btn:hover {
-  transform: translateY(-5px) scale(1.08);
+  transform: translateY(-2px) scale(1.05);
 }
 
 .strike-btn:active {
-  transform: translateY(-1px) scale(0.95);
+  transform: translateY(0px) scale(0.96);
 }
 
 /* Ball-Specific custom colored buttons with HSL glow */
@@ -246,8 +243,8 @@ code {
 
 /* Premium active styling for the selected ball button */
 .strike-btn.selected {
-  transform: translateY(-4px) scale(1.06);
-  border-color: #ffffff !important;
+  transform: translateY(-2px) scale(1.05);
+  border-color: #ffe680 !important; /* Elegant gold indicator */
 }
 
 .btn-blue.selected {

@@ -845,6 +845,96 @@ function AimLineController({
 }
 
 export default function App() {
+  // 1. Security Origin Guard & PWA Offline Prevention
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    // A. Detect if opened as a downloaded local file
+    const isLocalFile = window.location.protocol === 'file:';
+    
+    // B. Detect if run on an unauthorized hostname (supports preview pages ending in .pages.dev)
+    const isAllowedDomain = 
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' || 
+      window.location.hostname.endsWith('.pages.dev');
+
+    if (isLocalFile || !isAllowedDomain) {
+      // Instantly clear body and render premium glassmorphic lock screen
+      document.body.innerHTML = `
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+          margin: 0;
+          padding: 24px;
+          box-sizing: border-box;
+          background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+          color: #ef4444;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          text-align: center;
+        ">
+          <div style="
+            padding: 40px;
+            border-radius: 24px;
+            background: rgba(17, 24, 39, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            max-width: 440px;
+            width: 100%;
+          ">
+            <div style="
+              width: 72px;
+              height: 72px;
+              border-radius: 20px;
+              background: rgba(239, 68, 68, 0.15);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 24px auto;
+              border: 1px solid rgba(239, 68, 68, 0.3);
+            ">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 32px; height: 32px;">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <h1 style="
+              font-size: 26px;
+              font-weight: 800;
+              color: #ffffff;
+              margin: 0 0 12px 0;
+              letter-spacing: -0.025em;
+            ">Security Access Alert</h1>
+            <p style="
+              color: #94a3b8;
+              font-size: 15px;
+              line-height: 1.6;
+              margin: 0;
+            ">This application is protected and cannot be downloaded or hosted on unauthorized domains.<br/><br/>Please access the official live version online.</p>
+          </div>
+        </div>
+      `;
+      throw new Error("Unauthorized local copy or domain detected.");
+    }
+
+    // C. Register online/offline event listeners
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // React State for initial ball positioning & synchronization (drag and drop)
   const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
     blue: { x: 13.8, z: 17.6667 },
@@ -1218,6 +1308,60 @@ export default function App() {
     balls.red.x === 13.4 && balls.red.z === 17.6667 &&
     balls.black.x === 13.0 && balls.black.z === 17.6667 &&
     balls.yellow.x === 12.6 && balls.yellow.z === 17.6667;
+
+  if (!isOnline) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100vw',
+        background: '#090d16',
+        color: '#fbc02d',
+        fontFamily: 'sans-serif',
+        textAlign: 'center',
+        padding: '20px',
+        boxSizing: 'border-box'
+      }}>
+        <div style={{
+          padding: '40px',
+          borderRadius: '24px',
+          background: 'rgba(17, 24, 39, 0.6)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(251, 192, 45, 0.2)',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+          maxWidth: '440px',
+          width: '100%'
+        }}>
+          <div style={{
+            width: '72px',
+            height: '72px',
+            borderRadius: '20px',
+            background: 'rgba(251, 192, 45, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px auto',
+            border: '1px solid rgba(251, 192, 45, 0.3)'
+          }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fbc02d" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '32px', height: '32px' }}>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+              <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+              <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+              <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+              <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+              <line x1="12" y1="20" x2="12.01" y2="20"></line>
+            </svg>
+          </div>
+          <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#ffffff', margin: '0 0 12px 0' }}>Connection Lost</h2>
+          <p style={{ color: '#94a3b8', fontSize: '15px', lineHeight: '1.6', margin: 0 }}>An active internet connection is required to run the visualiser. Please check your network connection.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>

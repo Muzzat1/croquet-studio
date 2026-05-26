@@ -982,6 +982,63 @@ export default function App() {
   const isDriveMode = useRef(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
+  // Fullscreen & orientation tracking state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+
+  const toggleFullscreen = () => {
+    const doc = document.documentElement as any;
+    const requestFS = doc.requestFullscreen || doc.webkitRequestFullscreen || doc.msRequestFullscreen;
+    const exitFS = document.exitFullscreen || (document as any).webkitExitFullscreen || (document as any).msExitFullscreen;
+
+    if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      if (requestFS) {
+        requestFS.call(doc).then(() => {
+          if (window.screen && window.screen.orientation && (window.screen.orientation as any).lock) {
+            (window.screen.orientation as any).lock('landscape').catch(() => { });
+          }
+        }).catch(() => { });
+      }
+    } else {
+      if (exitFS) {
+        exitFS.call(document);
+      }
+      if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+        window.screen.orientation.unlock();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFS = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullscreen(isFS);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const checkMobileAndOrientation = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+      setIsMobile(mobile);
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+
+    checkMobileAndOrientation();
+    window.addEventListener('resize', checkMobileAndOrientation);
+    window.addEventListener('orientationchange', checkMobileAndOrientation);
+    return () => {
+      window.removeEventListener('resize', checkMobileAndOrientation);
+      window.removeEventListener('orientationchange', checkMobileAndOrientation);
+    };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -1366,6 +1423,116 @@ export default function App() {
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}>
       
+      {/* Premium Glassmorphic Mobile Landscape Prompt */}
+      {isMobile && isPortrait && !isFullscreen && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(9, 13, 22, 0.85)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+          boxSizing: 'border-box',
+          textAlign: 'center',
+          color: '#ffffff',
+          fontFamily: 'sans-serif'
+        }}>
+          <div style={{
+            padding: '32px 24px',
+            borderRadius: '24px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1.5px solid rgba(212, 175, 55, 0.4)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            maxWidth: '340px',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(212, 175, 55, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '20px',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              animation: 'rotate-phone-anim 2s infinite ease-in-out'
+            }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#ffe680" strokeWidth="2.0" strokeLinecap="round" strokeLinejoin="round" style={{ width: '28px', height: '28px' }}>
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <path d="M12 18h.01" />
+              </svg>
+            </div>
+            
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: '800', color: '#ffe680', letterSpacing: '-0.02em' }}>
+              Landscape Recommended
+            </h3>
+            
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', lineHeight: '1.5', color: '#94a3b8' }}>
+              For the best 3D perspective and ball controls, rotate your phone or enter Fullscreen mode.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
+              <button 
+                onClick={toggleFullscreen}
+                style={{
+                  background: 'linear-gradient(135deg, #d4af37 0%, #aa8010 100%)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#000000',
+                  padding: '12px 20px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(212, 175, 55, 0.4)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Enter Fullscreen Landscape
+              </button>
+              
+              <button 
+                onClick={() => {
+                  setIsMobile(false);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '12px',
+                  color: '#94a3b8',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Continue in Portrait
+              </button>
+            </div>
+          </div>
+          
+          <style>{`
+            @keyframes rotate-phone-anim {
+              0% { transform: rotate(0deg); }
+              50% { transform: rotate(90deg); }
+              100% { transform: rotate(0deg); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* 3D WebGL Canvas Scene */}
       <Canvas camera={{ position: [-31.49, 13.87, -0.11], fov: 45.0, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
@@ -1689,6 +1856,24 @@ export default function App() {
             </svg>
             <span>Help</span>
           </button>
+
+          <button
+            className={`control-action-btn ${isFullscreen ? 'active-toggle' : ''}`}
+            onClick={toggleFullscreen}
+            title="Toggle Fullscreen Mode"
+            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
+          >
+            {isFullscreen ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
+                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3M10 21v-6H4M14 3v6h6" />
+              </svg>
+            )}
+            <span>Fullscreen</span>
+          </button>
         </div>
       </div>
 
@@ -1747,7 +1932,7 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.58 Beta)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.59 Beta)</div>
       </div>
 
       {/* Premium Glassmorphic Toast Notification */}

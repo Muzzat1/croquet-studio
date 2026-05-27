@@ -10,6 +10,7 @@ interface CartoonPlayerProps {
   isStriking: boolean;
   onImpact: () => void;
   onFinished: () => void;
+  ballSet: 'primary' | 'secondary';
 }
 
 export default function CartoonPlayer({
@@ -18,7 +19,8 @@ export default function CartoonPlayer({
   targetPosition,
   isStriking,
   onImpact,
-  onFinished
+  onFinished,
+  ballSet
 }: CartoonPlayerProps) {
   const armGroupRef = useRef<THREE.Group>(null);
   const playerGroupRef = useRef<THREE.Group>(null);
@@ -30,10 +32,10 @@ export default function CartoonPlayer({
 
   // Hex colors matching our court balls
   const colorMap = {
-    blue: '#1565c0',
-    red: '#d32f2f',
-    black: '#212121',
-    yellow: '#fbc02d'
+    blue: ballSet === 'primary' ? '#2196f3' : '#00e676',
+    red: ballSet === 'primary' ? '#ff1744' : '#ff4081',
+    black: ballSet === 'primary' ? '#424242' : '#8d6e63',
+    yellow: ballSet === 'primary' ? '#ffea00' : '#ffffff'
   };
 
   // Position player behind the ball based on target direction

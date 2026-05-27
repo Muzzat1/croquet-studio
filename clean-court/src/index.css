@@ -130,137 +130,337 @@ code {
   left: 16px;
   z-index: 100;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
-  background: rgba(10, 12, 16, 0.9); /* Carbon slate black */
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1.5px solid rgba(212, 175, 55, 0.55); /* Technical gold line */
-  border-radius: 10px; /* Sharp high-end console corners */
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  flex-direction: row;
+  align-items: stretch;
+  gap: 16px;
+  padding: 22px 24px;
+  
+  /* Mockup-Accurate Frosted Glassmorphism */
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  
+  /* Mockup-Accurate Chamfer Top Right Corner */
+  border-radius: 16px;
+  border-top-right-radius: 46px;
+  border: 1.5px solid rgba(255, 255, 255, 0.38); /* Thin, crisp white outline */
+  
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   font-family: 'Outfit', 'Inter', var(--sans);
   color: #ffffff;
   pointer-events: auto;
-  transform: scale(0.55); /* Exquisite compact sports analytics scale */
+  transform: scale(0.65); /* Elegant compact scale matching mockup */
   transform-origin: bottom left;
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .floating-control-panel:hover {
-  border-color: rgba(212, 175, 55, 0.9);
-  box-shadow: 0 20px 50px rgba(212, 175, 55, 0.15), 0 16px 40px rgba(0, 0, 0, 0.95);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 1024px) {
   .floating-control-panel {
-    transform: scale(0.48);
+    transform: scale(0.55);
     bottom: 8px;
     left: 8px;
+    padding: 16px 20px;
   }
 }
 
 @media (max-width: 480px) {
   .floating-control-panel {
-    transform: scale(0.42);
+    transform: scale(0.48);
   }
 }
 
-.panel-title {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #f6e297; /* Warm gold */
-  margin-bottom: 2px;
-}
-
-.btn-container {
+/* Two-Column Vertical Layout Structures */
+.hud-left-column {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
 }
 
-/* Base button styling */
+.hud-selector-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+.hud-ball-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hud-vertical-divider {
+  width: 1.5px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 8px;
+  align-self: stretch;
+}
+
+.hud-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: space-between;
+  min-width: 160px;
+}
+
+/* PRI/SEC Selection Buttons Stack */
+.pri-sec-btn-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pri-sec-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px; /* Rounded square to match strike buttons */
+  background: #0d1117; /* Solid dark carbon backing matching mockup switch background */
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  color: #555e65; /* Dark grey when inactive */
+  font-family: 'Outfit', 'Inter', var(--sans);
+  font-size: 9.5px; /* Slightly smaller for premium readability in square */
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+}
+
+.pri-sec-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.pri-sec-btn.active {
+  color: #00ff88; /* Bright mockup-accurate neon cyan-teal green active text */
+  border-color: #00ff88 !important; /* Active teal border */
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
+}
+
+.pri-sec-btn:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe680; /* Warm gold title matching alignment hud */
+  margin-bottom: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Right Column Action Row elements - Capitalized Bold Telemetry */
+.hud-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: 'Outfit', 'Inter', var(--sans);
+  font-size: 15px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.85), 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.hud-action-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  padding-left: 18px; /* Smooth shifting transition */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.hud-action-row:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.hud-action-row:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+}
+
+.hud-action-row.active-toggle {
+  background: rgba(212, 175, 55, 0.15);
+  color: #ffe680;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+}
+
+.hud-action-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  stroke: currentColor;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+}
+
+/* Base button styling - High contrast dark shadow */
 .strike-btn {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px; /* High-end rounded square button shape */
+  background: #0d1117; /* Solid dark carbon backing plate matching pri-sec-btn */
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 4px 10px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+}
+
+.strike-btn::after {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border-radius: 50%; /* Perfect round ball! */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .strike-btn:hover {
+  border-color: rgba(255, 255, 255, 0.35);
   transform: translateY(-2px) scale(1.05);
+}
+
+.strike-btn:hover::after {
+  transform: scale(1.12); /* Interactive scaling on the ball itself */
 }
 
 .strike-btn:active {
   transform: translateY(0px) scale(0.96);
 }
 
-/* Ball-Specific custom colored buttons with HSL glow */
-.btn-blue {
-  background: radial-gradient(circle at 35% 35%, #42a5f5, #1565c0);
-  box-shadow: 0 0 0px rgba(21, 101, 192, 0);
-}
-.btn-blue:hover {
-  border-color: #90caf9;
-  box-shadow: 0 0 20px rgba(21, 101, 192, 0.75);
-}
-
-.btn-red {
-  background: radial-gradient(circle at 35% 35%, #ef5350, #d32f2f);
-  box-shadow: 0 0 0px rgba(211, 47, 47, 0);
-}
-.btn-red:hover {
-  border-color: #ef9a9a;
-  box-shadow: 0 0 20px rgba(211, 47, 47, 0.75);
-}
-
-.btn-black {
-  background: radial-gradient(circle at 35% 35%, #424242, #212121);
-  box-shadow: 0 0 0px rgba(33, 33, 33, 0);
-}
-.btn-black:hover {
-  border-color: #888888;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
-}
-
-.btn-yellow {
-  background: radial-gradient(circle at 35% 35%, #fff59d, #fbc02d);
-  box-shadow: 0 0 0px rgba(251, 192, 45, 0);
-}
-.btn-yellow:hover {
-  border-color: #fff9c4;
-  box-shadow: 0 0 20px rgba(251, 192, 45, 0.75);
-}
-
 /* Premium active styling for the selected ball button */
 .strike-btn.selected {
   transform: translateY(-2px) scale(1.05);
-  border-color: #ffe680 !important; /* Elegant gold indicator */
+  border-color: #ffe680 !important; /* Elegant gold indicator on the square container */
+  box-shadow: 0 0 16px rgba(255, 230, 128, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.btn-blue.selected {
-  box-shadow: 0 0 25px rgba(21, 101, 192, 0.95), inset 0 0 10px rgba(255, 255, 255, 0.6);
+.strike-btn.selected::after {
+  transform: scale(1.12);
 }
 
-.btn-red.selected {
-  box-shadow: 0 0 25px rgba(211, 47, 47, 0.95), inset 0 0 10px rgba(255, 255, 255, 0.6);
+/* Ball-Specific custom colored buttons with high contrast brightened gradients */
+.btn-blue::after {
+  background: radial-gradient(circle at 35% 35%, #00b0ff, #1565c0);
+}
+.btn-blue:hover::after {
+  box-shadow: 0 0 16px rgba(0, 176, 255, 0.9), 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 
-.btn-black.selected {
-  box-shadow: 0 0 25px rgba(255, 255, 255, 0.7), inset 0 0 10px rgba(255, 255, 255, 0.6);
+.btn-red::after {
+  background: radial-gradient(circle at 35% 35%, #ff3d00, #c62828);
+}
+.btn-red:hover::after {
+  box-shadow: 0 0 16px rgba(255, 61, 0, 0.9), 0 2px 5px rgba(0, 0, 0, 0.7);
 }
 
-.btn-yellow.selected {
-  box-shadow: 0 0 25px rgba(251, 192, 45, 0.95), inset 0 0 10px rgba(255, 255, 255, 0.6);
+.btn-black::after {
+  background: radial-gradient(circle at 30% 30%, #3a3a3a 0%, #151515 45%, #000000 100%);
+}
+.btn-black:hover::after {
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.65), 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.btn-yellow::after {
+  background: radial-gradient(circle at 35% 35%, #ffea00, #fbc02d);
+}
+.btn-yellow:hover::after {
+  box-shadow: 0 0 16px rgba(255, 234, 0, 0.9), 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+/* Secondary Colours (Green, Pink, Brown, White) - High Contrast Brighter Gradients */
+.btn-green::after {
+  background: radial-gradient(circle at 35% 35%, #00c853, #1b5e20);
+}
+.btn-green:hover::after {
+  box-shadow: 0 0 16px rgba(0, 200, 83, 0.8), 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.btn-pink::after {
+  background: radial-gradient(circle at 35% 35%, #ff62b0, #ff007f);
+}
+.btn-pink:hover::after {
+  box-shadow: 0 0 16px rgba(255, 0, 127, 0.9), 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.btn-brown::after {
+  background: radial-gradient(circle at 35% 35%, #9b633b, #4a2810);
+}
+.btn-brown:hover::after {
+  box-shadow: 0 0 16px rgba(155, 99, 59, 0.8), 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.btn-white::after {
+  background: radial-gradient(circle at 35% 35%, #ffffff, #eceff1);
+}
+.btn-white:hover::after {
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.9), 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+/* Selection and Glow overlays on ::after */
+.btn-blue.selected::after {
+  box-shadow: 0 0 20px rgba(0, 176, 255, 0.95), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-red.selected::after {
+  box-shadow: 0 0 20px rgba(255, 61, 0, 0.95), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-black.selected::after {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.7), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-yellow.selected::after {
+  box-shadow: 0 0 20px rgba(255, 234, 0, 0.95), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-green.selected::after {
+  box-shadow: 0 0 20px rgba(0, 200, 83, 0.95), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-pink.selected::after {
+  box-shadow: 0 0 20px rgba(255, 0, 127, 0.95), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-brown.selected::after {
+  box-shadow: 0 0 20px rgba(155, 99, 59, 0.95), inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.btn-white.selected::after {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.95), inset 0 0 8px rgba(207, 216, 220, 0.7);
 }
 
 /* Premium Signature Watermark Overlay */

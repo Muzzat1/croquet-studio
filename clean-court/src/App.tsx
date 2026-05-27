@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, useTexture, Line } from '@react-three/drei';
+import { OrbitControls, useTexture, Line, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import CourtSurface from './components/CourtSurface';
 import ParkSurroundings from './components/ParkSurroundings';
@@ -47,20 +47,21 @@ function PhysicsManager({
   meshRefs,
   onPositionChange,
   selectedBall,
-  selectedRingRef,
-  activeStriker,
-  isStriking,
-  setActiveStriker
+  selectedRingRef
 }: {
   physicsBalls: React.MutableRefObject<Record<string, PhysicsBallState>>;
   meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Object3D | null>>>;
   onPositionChange: (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => void;
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   selectedRingRef: React.RefObject<THREE.Mesh | null>;
-  activeStriker: 'blue' | 'red' | 'black' | 'yellow' | null;
-  isStriking: boolean;
-  setActiveStriker: (color: 'blue' | 'red' | 'black' | 'yellow' | null) => void;
 }) {
+
+  const outOfBoundsCrossing = useRef<Record<string, { x: number; z: number } | null>>({
+    blue: null,
+    red: null,
+    black: null,
+    yellow: null
+  });
 
   useFrame((_, delta) => {
     // Limit delta time steps to avoid tunnel-through behaviors during frame rate stutters
@@ -77,8 +78,67 @@ function PhysicsManager({
       colors.forEach(c => {
         const b = balls[c];
         if (b.vx !== 0 || b.vz !== 0 || b.isRolling) {
+          const prevX = b.x;
+          const prevZ = b.z;
+
           b.x += b.vx * subDt;
           b.z += b.vz * subDt;
+
+          // Track if the ball is currently outside the court boundaries (X = +/- 14, Z = +/- 17.5)
+          const isInside = Math.abs(b.x) <= 14 && Math.abs(b.z) <= 17.5;
+          if (isInside) {
+            // If the ball is inside the court, it has not left yet (or has re-entered), so clear crossing point
+            outOfBoundsCrossing.current[c] = null;
+          } else {
+            // The ball is outside the court!
+            if (!outOfBoundsCrossing.current[c]) {
+              const wasInside = Math.abs(prevX) <= 14 && Math.abs(prevZ) <= 17.5;
+              if (wasInside) {
+                // Determine exact crossing point using linear interpolation
+                let crossX = b.x;
+                let crossZ = b.z;
+                if (Math.abs(b.x) > 14 && Math.abs(b.z) <= 17.5) {
+                  const boundaryX = b.x > 0 ? 14 : -14;
+                  const dx = b.x - prevX;
+                  const t = dx !== 0 ? (boundaryX - prevX) / dx : 0;
+                  crossX = boundaryX;
+                  crossZ = prevZ + t * (b.z - prevZ);
+                } else if (Math.abs(b.z) > 17.5 && Math.abs(b.x) <= 14) {
+                  const boundaryZ = b.z > 0 ? 17.5 : -17.5;
+                  const dz = b.z - prevZ;
+                  const t = dz !== 0 ? (boundaryZ - prevZ) / dz : 0;
+                  crossX = prevX + t * (b.x - prevX);
+                  crossZ = boundaryZ;
+                } else if (Math.abs(b.x) > 14 && Math.abs(b.z) > 17.5) {
+                  // Crossed near the corner, project to closest boundary
+                  const boundaryX = b.x > 0 ? 14 : -14;
+                  const boundaryZ = b.z > 0 ? 17.5 : -17.5;
+                  const tX = (b.x - prevX) !== 0 ? (boundaryX - prevX) / (b.x - prevX) : 1;
+                  const tZ = (b.z - prevZ) !== 0 ? (boundaryZ - prevZ) / (b.z - prevZ) : 1;
+                  if (tX < tZ) {
+                    crossX = boundaryX;
+                    crossZ = prevZ + tX * (b.z - prevZ);
+                  } else {
+                    crossX = prevX + tZ * (b.x - prevX);
+                    crossZ = boundaryZ;
+                  }
+                }
+                outOfBoundsCrossing.current[c] = { x: crossX, z: crossZ };
+              } else {
+                // Ball started outside and moved further outside: project current position to closest boundary
+                let crossX = b.x;
+                let crossZ = b.z;
+                if (Math.abs(b.x) - 14 > Math.abs(b.z) - 17.5) {
+                  crossX = b.x > 0 ? 14 : -14;
+                  crossZ = Math.min(Math.max(b.z, -17.5), 17.5);
+                } else {
+                  crossX = Math.min(Math.max(b.x, -14), 14);
+                  crossZ = b.z > 0 ? 17.5 : -17.5;
+                }
+                outOfBoundsCrossing.current[c] = { x: crossX, z: crossZ };
+              }
+            }
+          }
 
           // Apply turf grass friction deceleration (exponential decay)
           b.vx *= Math.exp(-0.85 * subDt);
@@ -161,6 +221,36 @@ function PhysicsManager({
             b.vx = 0;
             b.vz = 0;
             b.isRolling = false;
+
+            // Place back on the outside of the boundary line where it left the court
+            const crossing = outOfBoundsCrossing.current[c];
+            if (crossing) {
+              const radius = 0.133375;
+              let placedX = crossing.x;
+              let placedZ = crossing.z;
+
+              // Determine which boundary (X=14, X=-14, Z=17.5, Z=-17.5) the crossing point is closest to
+              const distToRight = Math.abs(crossing.x - 14);
+              const distToLeft = Math.abs(crossing.x - (-14));
+              const distToTop = Math.abs(crossing.z - 17.5);
+              const distToBottom = Math.abs(crossing.z - (-17.5));
+              const minDist = Math.min(distToRight, distToLeft, distToTop, distToBottom);
+
+              if (minDist === distToRight) {
+                placedX = 14 + radius;
+              } else if (minDist === distToLeft) {
+                placedX = -14 - radius;
+              } else if (minDist === distToTop) {
+                placedZ = 17.5 + radius;
+              } else if (minDist === distToBottom) {
+                placedZ = -17.5 - radius;
+              }
+
+              b.x = placedX;
+              b.z = placedZ;
+              outOfBoundsCrossing.current[c] = null;
+            }
+
             onPositionChange(c, b.x, b.z);
           }
 
@@ -193,6 +283,9 @@ function PhysicsManager({
             selectedRingRef.current.position.x = b.x;
             selectedRingRef.current.position.z = b.z;
           }
+        } else {
+          // Reset out-of-bounds crossing tracker if the ball is completely stationary (or dragged)
+          outOfBoundsCrossing.current[c] = null;
         }
       });
 
@@ -265,16 +358,6 @@ function PhysicsManager({
             }
           }
         }
-      }
-    }
-
-    // Clear active striker after balls come to a complete halt
-    if (activeStriker !== null && !isStriking) {
-      const isAnyBallMoving = Object.values(balls).some(b => b.vx !== 0 || b.vz !== 0 || b.isRolling);
-      if (!isAnyBallMoving) {
-        setTimeout(() => {
-          setActiveStriker(null);
-        }, 150); // Small visual follow-through stay delay
       }
     }
   });
@@ -603,6 +686,7 @@ interface AimLineControllerProps {
   setHoverPoint: (point: { x: number; z: number } | null) => void;
   balls: Record<string, { x: number; z: number }>;
   hoverPoint: { x: number; z: number } | null;
+  ballSet: 'primary' | 'secondary';
 }
 
 function AimLineController({
@@ -611,7 +695,8 @@ function AimLineController({
   activeStriker,
   setHoverPoint,
   balls,
-  hoverPoint
+  hoverPoint,
+  ballSet
 }: AimLineControllerProps) {
   const { raycaster } = useThree();
   const groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
@@ -728,10 +813,17 @@ function AimLineController({
   let ghostPos: { x: number; z: number } | null = null;
 
   const getBallColor = (color: string) => {
-    if (color === 'blue') return '#1565c0';
-    if (color === 'red') return '#d32f2f';
-    if (color === 'black') return '#888888'; // Lighter stands out better on lawn than pure black
-    if (color === 'yellow') return '#fbc02d';
+    if (ballSet === 'primary') {
+      if (color === 'blue') return '#1565c0';
+      if (color === 'red') return '#d32f2f';
+      if (color === 'black') return '#888888'; // Lighter stands out better on lawn than pure black
+      if (color === 'yellow') return '#fbc02d';
+    } else {
+      if (color === 'blue') return '#22c55e'; // Green
+      if (color === 'red') return '#f472b6';   // Pink
+      if (color === 'black') return '#8b5a2b'; // Brown (lighter for 3D guide overlay)
+      if (color === 'yellow') return '#ffffff'; // White
+    }
     return '#ffffff';
   };
 
@@ -847,6 +939,59 @@ function AimLineController({
         />
       )}
     </>
+  );
+}
+
+function HoopTeardrop({ pos, label }: { pos: [number, number, number]; label: string }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      // Gentle floating up and down oscillation
+      groupRef.current.position.y = pos[1] + Math.sin(state.clock.getElapsedTime() * 2.5 + pos[0]) * 0.08;
+    }
+  });
+
+  return (
+    <Billboard position={[pos[0], pos[1], pos[2]]} follow={true}>
+      <group ref={groupRef}>
+        {/* Luminous, highly distinct warm-gold map-pin teardrop shape pointing down (25% Larger!) */}
+        {/* Sphere at top */}
+        <mesh position={[0, 0.275, 0]}>
+          <sphereGeometry args={[0.225, 32, 32]} />
+          <meshStandardMaterial 
+            color="#ffe680" 
+            roughness={0.1} 
+            metalness={0.1} 
+            emissive="#ffb300" 
+            emissiveIntensity={0.65} 
+          />
+        </mesh>
+        {/* Cone at bottom pointing down (rotated 180 degrees) */}
+        <mesh position={[0, 0.05, 0]} rotation={[Math.PI, 0, 0]}>
+          <coneGeometry args={[0.225, 0.45, 32]} />
+          <meshStandardMaterial 
+            color="#ffe680" 
+            roughness={0.1} 
+            metalness={0.1} 
+            emissive="#ffb300" 
+            emissiveIntensity={0.65} 
+          />
+        </mesh>
+        
+        {/* Crispy 3D Text centered on the round pin head (Dark Green and 25% Larger!) */}
+        <Text
+          fontSize={0.25}
+          color="#0a3a0e"
+          anchorX="center"
+          anchorY="middle"
+          position={[0, 0.275, 0.245]} // Positioned in front of the sphere (radius 0.225 + 0.02 offset) to prevent clipping
+          fontWeight="bold"
+        >
+          {label}
+        </Text>
+      </group>
+    </Billboard>
   );
 }
 
@@ -991,7 +1136,8 @@ export default function App() {
   const [isStriking, setIsStriking] = useState(false);
 
   // Selection & striking target state
-  const [selectedBall, setSelectedBall] = useState<'blue' | 'red' | 'black' | 'yellow' | null>('blue');
+  const [selectedBall, setSelectedBall] = useState<'blue' | 'red' | 'black' | 'yellow' | null>(null);
+  const [ballSet, setBallSet] = useState<'primary' | 'secondary'>('primary');
   const [strikeTarget, setStrikeTarget] = useState<{ x: number; z: number } | null>(null);
 
   // Aiming guides state
@@ -1004,6 +1150,7 @@ export default function App() {
   const isSpaceDown = useRef(false);
   const isDriveMode = useRef(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [isHPressed, setIsHPressed] = useState(false);
 
   // Fullscreen & orientation tracking state
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1078,6 +1225,12 @@ export default function App() {
         return;
       }
 
+      if (e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setIsHPressed(true);
+        return;
+      }
+
       if (e.code === 'Space') {
         // Prevent default spacebar scrolling
         e.preventDefault();
@@ -1086,17 +1239,27 @@ export default function App() {
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'h') {
+        setIsHPressed(false);
+      }
       if (e.code === 'Space') {
         isSpaceDown.current = false;
         setIsSpacePressed(false);
       }
     };
+    const handleBlur = () => {
+      setIsHPressed(false);
+      isSpaceDown.current = false;
+      setIsSpacePressed(false);
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
@@ -1233,8 +1396,8 @@ export default function App() {
       }
     });
 
-    // Set selection back to Blue as default
-    setSelectedBall('blue');
+    // Clear selection on reset
+    setSelectedBall(null);
 
     if (selectedRingRef.current) {
       selectedRingRef.current.position.x = resetPositions.blue.x;
@@ -1371,6 +1534,11 @@ export default function App() {
     b.vx = ux * impulseSpeed;
     b.vz = uz * impulseSpeed;
     b.isRolling = true;
+
+    // Striking player stays active for exactly 2 seconds from the impact moment, then disappears
+    setTimeout(() => {
+      setActiveStriker(null);
+    }, 2000);
   };
 
   // End of player swing cycle
@@ -1572,6 +1740,7 @@ export default function App() {
           setHoverPoint={setHoverPoint}
           balls={balls}
           hoverPoint={hoverPoint}
+          ballSet={ballSet}
         />
         <PanoramaBackground />
         <ambientLight intensity={0.5} />
@@ -1620,6 +1789,17 @@ export default function App() {
         <QuadwayHoop position={[0, 0, -7]} crownColor="#ffffff" />
         <QuadwayHoop position={[0, 0, 7]} crownColor="#ffffff" />
 
+        {isHPressed && (
+          <>
+            <HoopTeardrop pos={[-7, 0.55, 10.5]} label="1" />
+            <HoopTeardrop pos={[-7, 0.55, -10.5]} label="2" />
+            <HoopTeardrop pos={[7, 0.55, -10.5]} label="3" />
+            <HoopTeardrop pos={[7, 0.55, 10.5]} label="4" />
+            <HoopTeardrop pos={[0, 0.55, 7]} label="5" />
+            <HoopTeardrop pos={[0, 0.55, -7]} label="6" />
+          </>
+        )}
+
         {/* Active Procedural Cartoon Player */}
         {activeStriker && (
           <CartoonPlayer
@@ -1633,6 +1813,7 @@ export default function App() {
             isStriking={isStriking}
             onImpact={handleImpact}
             onFinished={handleFinished}
+            ballSet={ballSet}
           />
         )}
 
@@ -1643,9 +1824,6 @@ export default function App() {
           onPositionChange={handleBallChange}
           selectedBall={selectedBall}
           selectedRingRef={selectedRingRef}
-          activeStriker={activeStriker}
-          isStriking={isStriking}
-          setActiveStriker={setActiveStriker}
         />
 
 
@@ -1681,10 +1859,10 @@ export default function App() {
                 [hoverPoint.x, 0.025, hoverPoint.z]
               ]} 
               color={
-                selectedBall === 'blue' ? '#3399ff' :  // Bright neon blue
-                selectedBall === 'red' ? '#ff3333' :   // Bright neon red
-                selectedBall === 'black' ? '#ffffff' : // Pure bright white
-                '#ffff00'                              // Bright neon yellow
+                selectedBall === 'blue' ? (ballSet === 'primary' ? '#3399ff' : '#4ade80') :  // Bright neon blue vs Green
+                selectedBall === 'red' ? (ballSet === 'primary' ? '#ff3333' : '#fbcfe8') :   // Bright neon red vs Pink
+                selectedBall === 'black' ? (ballSet === 'primary' ? '#ffffff' : '#d7ccc8') : // Pure bright white vs Tan
+                (ballSet === 'primary' ? '#ffff00' : '#ffffff')                             // Bright neon yellow vs Pure white
               }
               lineWidth={4.0} // Thicker and brighter line guide
               dashed 
@@ -1697,7 +1875,7 @@ export default function App() {
         {/* Dynamic Croquet Balls */}
         <CroquetBall
           ref={blueMeshRef}
-          color="#1565c0"
+          color={ballSet === 'primary' ? "#2196f3" : "#4caf50"}
           x={balls.blue.x}
           z={balls.blue.z}
           onPositionChange={(x, z) => handleBallChange('blue', x, z)}
@@ -1717,7 +1895,7 @@ export default function App() {
         />
         <CroquetBall
           ref={redMeshRef}
-          color="#d32f2f"
+          color={ballSet === 'primary' ? "#ff1744" : "#ff4081"}
           x={balls.red.x}
           z={balls.red.z}
           onPositionChange={(x, z) => handleBallChange('red', x, z)}
@@ -1737,7 +1915,7 @@ export default function App() {
         />
         <CroquetBall
           ref={blackMeshRef}
-          color="#212121"
+          color={ballSet === 'primary' ? "#424242" : "#8d6e63"}
           x={balls.black.x}
           z={balls.black.z}
           onPositionChange={(x, z) => handleBallChange('black', x, z)}
@@ -1757,7 +1935,7 @@ export default function App() {
         />
         <CroquetBall
           ref={yellowMeshRef}
-          color="#fbc02d"
+          color={ballSet === 'primary' ? "#ffea00" : "#ffffff"}
           x={balls.yellow.x}
           z={balls.yellow.z}
           onPositionChange={(x, z) => handleBallChange('yellow', x, z)}
@@ -1781,120 +1959,154 @@ export default function App() {
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
       <div className="floating-control-panel">
-        <div className="panel-title">Active Ball</div>
-        <div className="btn-container">
-          <button 
-            className={`strike-btn btn-blue ${selectedBall === 'blue' ? 'selected' : ''}`} 
-            onClick={() => handleHUDSelect('blue')} 
-            title="Select Blue Ball"
-            disabled={activeStriker !== null}
-          />
-          <button 
-            className={`strike-btn btn-red ${selectedBall === 'red' ? 'selected' : ''}`} 
-            onClick={() => handleHUDSelect('red')} 
-            title="Select Red Ball"
-            disabled={activeStriker !== null}
-          />
-          <button 
-            className={`strike-btn btn-black ${selectedBall === 'black' ? 'selected' : ''}`} 
-            onClick={() => handleHUDSelect('black')} 
-            title="Select Black Ball"
-            disabled={activeStriker !== null}
-          />
-          <button 
-            className={`strike-btn btn-yellow ${selectedBall === 'yellow' ? 'selected' : ''}`} 
-            onClick={() => handleHUDSelect('yellow')} 
-            title="Select Yellow Ball"
-            disabled={activeStriker !== null}
-          />
+        {/* Left Column: Color set selector and ball stack */}
+        <div className="hud-left-column">
+          <div className="panel-title">Active Ball</div>
+          
+          <div className="hud-selector-row">
+            {/* PRI/SEC Selection Buttons Stack */}
+            <div className="pri-sec-btn-stack">
+              <button 
+                className={`pri-sec-btn ${ballSet === 'primary' ? 'active' : ''}`}
+                onClick={() => {
+                  if (activeStriker === null) setBallSet('primary');
+                }}
+                disabled={activeStriker !== null}
+                title="Use 1st Colors (Primary)"
+              >
+                Pri
+              </button>
+              <button 
+                className={`pri-sec-btn ${ballSet === 'secondary' ? 'active' : ''}`}
+                onClick={() => {
+                  if (activeStriker === null) setBallSet('secondary');
+                }}
+                disabled={activeStriker !== null}
+                title="Use 2nd Colors (Secondary)"
+              >
+                Sec
+              </button>
+            </div>
+
+            {/* Vertical Ball Stack */}
+            <div className="hud-ball-stack">
+              <button 
+                className={`strike-btn ${ballSet === 'primary' ? 'btn-blue' : 'btn-green'} ${selectedBall === 'blue' ? 'selected' : ''}`} 
+                onClick={() => handleHUDSelect('blue')} 
+                title={ballSet === 'primary' ? "Select Blue Ball" : "Select Green Ball"}
+                disabled={activeStriker !== null}
+              />
+              <button 
+                className={`strike-btn ${ballSet === 'primary' ? 'btn-red' : 'btn-pink'} ${selectedBall === 'red' ? 'selected' : ''}`} 
+                onClick={() => handleHUDSelect('red')} 
+                title={ballSet === 'primary' ? "Select Red Ball" : "Select Pink Ball"}
+                disabled={activeStriker !== null}
+              />
+              <button 
+                className={`strike-btn ${ballSet === 'primary' ? 'btn-black' : 'btn-brown'} ${selectedBall === 'black' ? 'selected' : ''}`} 
+                onClick={() => handleHUDSelect('black')} 
+                title={ballSet === 'primary' ? "Select Black Ball" : "Select Brown Ball"}
+                disabled={activeStriker !== null}
+              />
+              <button 
+                className={`strike-btn ${ballSet === 'primary' ? 'btn-yellow' : 'btn-white'} ${selectedBall === 'yellow' ? 'selected' : ''}`} 
+                onClick={() => handleHUDSelect('yellow')} 
+                title={ballSet === 'primary' ? "Select Yellow Ball" : "Select White Ball"}
+                disabled={activeStriker !== null}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Premium Divider and simulation controls */}
-        <div className="panel-divider" />
-        
-        <div className="panel-title">Controls</div>
-        <div className="btn-container" style={{ gap: '8px' }}>
+        {/* Fine vertical divider line */}
+        <div className="hud-vertical-divider" />
+
+        {/* Right Column: Vertically stacked action rows */}
+        <div className="hud-right-column">
           <button 
-            className="control-action-btn" 
+            className="hud-action-row" 
             onClick={handleUndo} 
             disabled={activeStriker !== null || history.length === 0}
             title="Undo Last Action"
-            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
-              <path d="M3 7v6h6"/>
-              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
-            </svg>
+            <div className="hud-action-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+              </svg>
+            </div>
             <span>Undo</span>
           </button>
           
           <button 
-            className="control-action-btn" 
+            className="hud-action-row" 
             onClick={handleReset} 
             disabled={activeStriker !== null}
             title={isGameReset ? "Start Game" : "Restart Game"}
-            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-            </svg>
+            <div className="hud-action-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+            </div>
             <span>{isGameReset ? 'Start' : 'Restart'}</span>
           </button>
 
           <button
-            className={`control-action-btn ${showAimingLines ? 'active-toggle' : ''}`}
+            className={`hud-action-row ${showAimingLines ? 'active-toggle' : ''}`}
             onClick={() => setShowAimingLines(!showAimingLines)}
             disabled={activeStriker !== null || isSelectedBallOffCourt}
             title="Toggle Aiming Guides"
-            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
-            {showAimingLines ? (
-              // 2 black rings + gold crosshair when active
-              <svg viewBox="0 0 24 24" fill="none" className="control-icon" style={{ strokeWidth: '2.5' }}>
-                <circle cx="12" cy="12" r="8" stroke="#000000" />
-                <circle cx="12" cy="12" r="4" stroke="#000000" />
-                <line x1="12" y1="2" x2="12" y2="22" stroke="#ffe680" strokeLinecap="round" />
-                <line x1="2" y1="12" x2="22" y2="12" stroke="#ffe680" strokeLinecap="round" />
-              </svg>
-            ) : (
-              // 2 black rings when inactive
-              <svg viewBox="0 0 24 24" fill="none" className="control-icon" style={{ strokeWidth: '2.5' }}>
-                <circle cx="12" cy="12" r="8" stroke="#000000" />
-                <circle cx="12" cy="12" r="4" stroke="#000000" />
-              </svg>
-            )}
+            <div className="hud-action-icon">
+              {showAimingLines ? (
+                <svg viewBox="0 0 24 24" fill="none" style={{ strokeWidth: '2.5', width: '16px', height: '16px' }}>
+                  <circle cx="12" cy="12" r="8" stroke="#000000" />
+                  <circle cx="12" cy="12" r="4" stroke="#000000" />
+                  <line x1="12" y1="2" x2="12" y2="22" stroke="#ffe680" strokeLinecap="round" />
+                  <line x1="2" y1="12" x2="22" y2="12" stroke="#ffe680" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" style={{ strokeWidth: '2.5', width: '16px', height: '16px' }}>
+                  <circle cx="12" cy="12" r="8" stroke="currentColor" />
+                  <circle cx="12" cy="12" r="4" stroke="currentColor" />
+                </svg>
+              )}
+            </div>
             <span>Aim</span>
           </button>
 
           <button
-            className={`control-action-btn ${showHelp ? 'active-toggle' : ''}`}
+            className={`hud-action-row ${showHelp ? 'active-toggle' : ''}`}
             onClick={() => setShowHelp(!showHelp)}
             title="Toggle Help Manual"
-            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
+            <div className="hud-action-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
             <span>Help</span>
           </button>
 
           <button
-            className={`control-action-btn ${isFullscreen ? 'active-toggle' : ''}`}
+            className={`hud-action-row ${isFullscreen ? 'active-toggle' : ''}`}
             onClick={toggleFullscreen}
             title="Toggle Fullscreen Mode"
-            style={{ flex: 1, minWidth: '76px', padding: '10px 8px', gap: '6px', fontSize: '15px' }}
           >
-            {isFullscreen ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
-                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="control-icon">
-                <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3M10 21v-6H4M14 3v6h6" />
-              </svg>
-            )}
+            <div className="hud-action-icon">
+              {isFullscreen ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                  <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3M10 21v-6H4M14 3v6h6" />
+                </svg>
+              )}
+            </div>
             <span>Fullscreen</span>
           </button>
         </div>
@@ -2142,6 +2354,12 @@ export default function App() {
                       <kbd className="help-key-badge">A</kbd>
                     </div>
                     <div className="help-controls-desc">Toggle Aim Mode (displays 3D Ghost Ball & elastic collision lines)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">H</kbd>
+                    </div>
+                    <div className="help-controls-desc">Hold down to display floating 3D hoop markers (1-6) </div>
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">

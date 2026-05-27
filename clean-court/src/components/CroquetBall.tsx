@@ -45,16 +45,18 @@ const CroquetBall = forwardRef<THREE.Object3D, CroquetBallProps>(
   // Pre-allocate Three.js math objects to avoid garbage collection overhead
   const dragPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -radius));
   const intersectionPoint = useRef(new THREE.Vector3());
+  const dragHasMoved = useRef(false);
+  const pointerDownCoords = useRef({ x: 0, y: 0 });
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const handlePointerDown = (e: any) => {
     e.stopPropagation();
     setIsDragging(true);
 
-    // Bubble pointer down event to parent (for selection tracking)
-    if (props.onPointerDown) {
-      props.onPointerDown(e);
-    }
+    const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+    const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+    pointerDownCoords.current = { x: clientX, y: clientY };
+    dragHasMoved.current = false;
 
     // Disable camera movement in OrbitControls
     if (controlsRef.current) {
@@ -71,6 +73,17 @@ const CroquetBall = forwardRef<THREE.Object3D, CroquetBallProps>(
     if (!isDragging) return;
     e.stopPropagation();
 
+    const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
+    const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
+    const dx = clientX - pointerDownCoords.current.x;
+    const dy = clientY - pointerDownCoords.current.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // If pointer moves more than 6 pixels, it is a drag, not a click selection
+    if (dist > 6) {
+      dragHasMoved.current = true;
+    }
+
     // Raycast onto our horizontal plane at Y = radius
     if (raycasterRef.current && raycasterRef.current.ray) {
       raycasterRef.current.ray.intersectPlane(dragPlane.current, intersectionPoint.current);
@@ -82,6 +95,11 @@ const CroquetBall = forwardRef<THREE.Object3D, CroquetBallProps>(
     if (!isDragging) return;
     e.stopPropagation();
     setIsDragging(false);
+
+    // Bubble selection click event up ONLY if the user did NOT drag the ball
+    if (!dragHasMoved.current && props.onPointerDown) {
+      props.onPointerDown(e);
+    }
 
     // Re-enable camera movement in OrbitControls
     if (controlsRef.current) {

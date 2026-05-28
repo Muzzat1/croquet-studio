@@ -1146,6 +1146,13 @@ export default function App() {
   const [hasClickedStart, setHasClickedStart] = useState(false);
   const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
 
+  // Telestrator / Annotation state variables
+  const [drawMode, setDrawMode] = useState(false);
+  const [drawColor, setDrawColor] = useState('#ffffff');
+  const [drawings, setDrawings] = useState<Array<{ id: string; points: [number, number, number][]; color: string }>>([]);
+  const [currentDrawingPoints, setCurrentDrawingPoints] = useState<[number, number, number][]>([]);
+  const [isDrawingActive, setIsDrawingActive] = useState(false);
+
   // Track spacebar held state for "Drive Mode" (blast ball off court)
   const isSpaceDown = useRef(false);
   const isDriveMode = useRef(false);
@@ -1222,6 +1229,25 @@ export default function App() {
       if (e.key.toLowerCase() === 'a') {
         e.preventDefault();
         setShowAimingLines(prev => !prev);
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setDrawMode(prev => {
+          if (prev) {
+            setIsDrawingActive(false);
+            setCurrentDrawingPoints([]);
+          }
+          return !prev;
+        });
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        setDrawings([]);
+        setCurrentDrawingPoints([]);
         return;
       }
 
@@ -1441,13 +1467,62 @@ export default function App() {
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const handleCourtPointerDown = (e: any) => {
     if (activeStriker !== null) return;
+    if (drawMode) {
+      e.stopPropagation();
+      setIsDrawingActive(true);
+      const pt = e.point;
+      if (pt) {
+        setCurrentDrawingPoints([[pt.x, 0.025, pt.z]]);
+      }
+      return;
+    }
     const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
     const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
     pointerDownPos.current = { x: clientX, y: clientY };
   };
 
+  const handleCourtPointerMove = (e: any) => {
+    if (activeStriker !== null) return;
+    if (drawMode && isDrawingActive) {
+      e.stopPropagation();
+      const pt = e.point;
+      if (pt) {
+        setCurrentDrawingPoints(prev => {
+          if (prev.length === 0) return [[pt.x, 0.025, pt.z]];
+          const lastPoint = prev[prev.length - 1];
+          const dx = pt.x - lastPoint[0];
+          const dz = pt.z - lastPoint[2];
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist > 0.08) {
+            return [...prev, [pt.x, 0.025, pt.z]];
+          }
+          return prev;
+        });
+      }
+    }
+  };
+
   const handleCourtPointerUp = (e: any) => {
-    if (activeStriker !== null || !pointerDownPos.current) return;
+    if (activeStriker !== null) return;
+    if (drawMode) {
+      e.stopPropagation();
+      if (isDrawingActive) {
+        setIsDrawingActive(false);
+        if (currentDrawingPoints.length >= 2) {
+          setDrawings(prev => [
+            ...prev,
+            {
+              id: Math.random().toString(),
+              points: currentDrawingPoints,
+              color: drawColor
+            }
+          ]);
+        }
+        setCurrentDrawingPoints([]);
+      }
+      return;
+    }
+    if (!pointerDownPos.current) return;
 
     setHasClickedStart(true); // Dismiss initial start arrow on click/strike
 
@@ -1832,11 +1907,29 @@ export default function App() {
           position={[0, 0.015, 0]} 
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={handleCourtPointerDown}
+          onPointerMove={handleCourtPointerMove}
           onPointerUp={handleCourtPointerUp}
         >
           <planeGeometry args={[120, 120]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
+
+        {/* Telestrator Tactical Drawings */}
+        {drawings.map(d => (
+          <Line 
+            key={d.id}
+            points={d.points}
+            color={d.color}
+            lineWidth={4.0}
+          />
+        ))}
+        {currentDrawingPoints.length >= 2 && (
+          <Line 
+            points={currentDrawingPoints}
+            color={drawColor}
+            lineWidth={4.0}
+          />
+        )}
 
         {/* Aiming guideline */}
         {(() => {
@@ -1954,7 +2047,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[-3.19, 0.17, 0.28]} />
+        <OrbitControls makeDefault enabled={!drawMode || !isDrawingActive} maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[-3.19, 0.17, 0.28]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
@@ -2108,6 +2201,83 @@ export default function App() {
               )}
             </div>
             <span>Fullscreen</span>
+          </button>
+        </div>
+
+        {/* Fine vertical divider line */}
+        <div className="hud-vertical-divider" />
+
+        {/* Third Column: Telestrator Annotation Controls */}
+        <div className="hud-left-column" style={{ minWidth: '85px', gap: '8px' }}>
+          <div className="panel-title" style={{ textAlign: 'center', width: '100%' }}>Sketch</div>
+          
+          <button
+            className={`hud-action-row ${drawMode ? 'active-toggle' : ''}`}
+            onClick={() => {
+              setDrawMode(!drawMode);
+              if (drawMode) {
+                setIsDrawingActive(false);
+                setCurrentDrawingPoints([]);
+              }
+            }}
+            title="Toggle Drawing Mode"
+            style={{ width: '100%' }}
+          >
+            <div className="hud-action-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </div>
+            <span>{drawMode ? 'Active' : 'Draw'}</span>
+          </button>
+
+          {drawMode && (
+            <div className="hud-draw-colors" style={{ display: 'flex', justifyContent: 'center', gap: '6px', width: '100%', margin: '4px 0' }}>
+              <button 
+                className={`color-dot white ${drawColor === '#ffffff' ? 'selected' : ''}`} 
+                onClick={() => setDrawColor('#ffffff')}
+                title="White"
+                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffffff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffffff' ? '0 0 8px #ffffff' : 'none' }}
+              />
+              <button 
+                className={`color-dot yellow ${drawColor === '#ffff00' ? 'selected' : ''}`} 
+                onClick={() => setDrawColor('#ffff00')}
+                title="Neon Yellow"
+                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffff00', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffff00' ? '0 0 8px #ffff00' : 'none' }}
+              />
+              <button 
+                className={`color-dot pink ${drawColor === '#ff007f' ? 'selected' : ''}`} 
+                onClick={() => setDrawColor('#ff007f')}
+                title="Neon Pink"
+                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ff007f', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ff007f' ? '0 0 8px #ff007f' : 'none' }}
+              />
+              <button 
+                className={`color-dot cyan ${drawColor === '#00e5ff' ? 'selected' : ''}`} 
+                onClick={() => setDrawColor('#00e5ff')}
+                title="Neon Cyan"
+                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#00e5ff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#00e5ff' ? '0 0 8px #00e5ff' : 'none' }}
+              />
+            </div>
+          )}
+
+          <button 
+            className="hud-action-row" 
+            onClick={() => {
+              setDrawings([]);
+              setCurrentDrawingPoints([]);
+            }}
+            disabled={drawings.length === 0}
+            title="Clear All Drawings"
+            style={{ width: '100%', marginTop: 'auto' }}
+          >
+            <div className="hud-action-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </div>
+            <span>Clear</span>
           </button>
         </div>
       </div>
@@ -2354,6 +2524,18 @@ export default function App() {
                       <kbd className="help-key-badge">A</kbd>
                     </div>
                     <div className="help-controls-desc">Toggle Aim Mode (displays 3D Ghost Ball & elastic collision lines)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">D</kbd>
+                    </div>
+                    <div className="help-controls-desc">Toggle Draw / Telestrator Mode to sketch tactical lines directly on the grass</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">X</kbd>
+                    </div>
+                    <div className="help-controls-desc">Clear all active telestrator drawings from the lawn</div>
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">

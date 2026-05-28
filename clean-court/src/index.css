@@ -1005,3 +1005,23 @@ code {
     transform: translate(-50%, 0) scale(1);
   }
 }
+
+/* 3D Telestrator Drawing / Sketch Controls */
+.hud-draw-colors .color-dot {
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1.2), box-shadow 0.15s ease;
+}
+
+.hud-draw-colors .color-dot:hover {
+  transform: scale(1.35) !important;
+}
+
+.hud-draw-colors .color-dot:active {
+  transform: scale(0.85) !important;
+}
+
+/* Disable action rows style */
+button.hud-action-row:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}

@@ -1190,7 +1190,10 @@ export default function App() {
 
   // Telestrator / Annotation state variables
   const [drawMode, setDrawMode] = useState(false);
-  const [drawColor, setDrawColor] = useState('#ffffff');
+  const [drawColorIndex, setDrawColorIndex] = useState(3); // Default to 3 (Yellow in primary, White in secondary)
+  const primaryDrawColors = useMemo(() => ['#2196f3', '#ff1744', '#424242', '#ffea00'], []);
+  const secondaryDrawColors = useMemo(() => ['#4caf50', '#ff4081', '#8d6e63', '#ffffff'], []);
+  const drawColor = ballSet === 'primary' ? primaryDrawColors[drawColorIndex] : secondaryDrawColors[drawColorIndex];
   const [drawings, setDrawings] = useState<Array<{ id: string; points: [number, number, number][]; color: string }>>([]);
   const [currentDrawingPoints, setCurrentDrawingPoints] = useState<[number, number, number][]>([]);
   const [isDrawingActive, setIsDrawingActive] = useState(false);
@@ -2336,31 +2339,33 @@ export default function App() {
               </div>
 
               {/* Color Selectors */}
-              <div className="hud-draw-colors" style={{ display: 'flex', justifyContent: 'center', gap: '6px', width: '100%', margin: '2px 0' }}>
-                <button 
-                  className={`color-dot white ${drawColor === '#ffffff' ? 'selected' : ''}`} 
-                  onClick={() => setDrawColor('#ffffff')}
-                  title="White"
-                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffffff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffffff' ? '0 0 8px #ffffff' : 'none' }}
-                />
-                <button 
-                  className={`color-dot yellow ${drawColor === '#ffff00' ? 'selected' : ''}`} 
-                  onClick={() => setDrawColor('#ffff00')}
-                  title="Neon Yellow"
-                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffff00', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffff00' ? '0 0 8px #ffff00' : 'none' }}
-                />
-                <button 
-                  className={`color-dot pink ${drawColor === '#ff007f' ? 'selected' : ''}`} 
-                  onClick={() => setDrawColor('#ff007f')}
-                  title="Neon Pink"
-                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ff007f', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ff007f' ? '0 0 8px #ff007f' : 'none' }}
-                />
-                <button 
-                  className={`color-dot cyan ${drawColor === '#00e5ff' ? 'selected' : ''}`} 
-                  onClick={() => setDrawColor('#00e5ff')}
-                  title="Neon Cyan"
-                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#00e5ff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#00e5ff' ? '0 0 8px #00e5ff' : 'none' }}
-                />
+              <div className="hud-draw-colors" style={{ display: 'flex', justifyContent: 'center', gap: '8px', width: '100%', margin: '4px 0' }}>
+                {(ballSet === 'primary' ? primaryDrawColors : secondaryDrawColors).map((color, idx) => {
+                  const colorNames = ballSet === 'primary' 
+                    ? ['Blue', 'Red', 'Black', 'Yellow'] 
+                    : ['Green', 'Pink', 'Brown', 'White'];
+                  const isSelected = drawColorIndex === idx;
+                  return (
+                    <button 
+                      key={color}
+                      className={`color-dot ${colorNames[idx].toLowerCase()} ${isSelected ? 'selected' : ''}`} 
+                      onClick={() => setDrawColorIndex(idx)}
+                      title={`${colorNames[idx]} Ball`}
+                      style={{ 
+                        width: '14px', 
+                        height: '14px', 
+                        borderRadius: '50%', 
+                        border: '1px solid rgba(255,255,255,0.4)', 
+                        backgroundColor: color, 
+                        cursor: 'pointer', 
+                        padding: 0, 
+                        boxShadow: isSelected ? `0 0 10px ${color}` : 'none',
+                        transform: isSelected ? 'scale(1.2)' : 'none',
+                        transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1.2)'
+                      }}
+                    />
+                  );
+                })}
               </div>
             </>
           )}

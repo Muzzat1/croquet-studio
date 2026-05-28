@@ -2575,12 +2575,12 @@ export default function App() {
 
                         {/* Telestrator Annotation */}
                         <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '8px', padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '4px' }}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#00e5ff' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffe680', fontWeight: 700, marginBottom: '4px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#ffe680' }}>
                               <path d="M12 20h9" />
                               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                             </svg>
-                            Telestrator & Tactical Annotations
+                            Explain Tools
                           </div>
                           <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
                             Click the <strong style={{ color: '#00e5ff' }}>Draw</strong> Button in the Control Panel or press the <kbd className="help-key-badge">D</kbd> key to toggle **Telestrator Mode**.

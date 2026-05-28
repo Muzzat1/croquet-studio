@@ -1152,6 +1152,8 @@ export default function App() {
   const [drawings, setDrawings] = useState<Array<{ id: string; points: [number, number, number][]; color: string }>>([]);
   const [currentDrawingPoints, setCurrentDrawingPoints] = useState<[number, number, number][]>([]);
   const [isDrawingActive, setIsDrawingActive] = useState(false);
+  const [drawTool, setDrawTool] = useState<'freehand' | 'line' | 'circle'>('freehand');
+  const drawStartPoint = useRef<[number, number, number] | null>(null);
 
   // Track spacebar held state for "Drive Mode" (blast ball off court)
   const isSpaceDown = useRef(false);
@@ -1472,6 +1474,7 @@ export default function App() {
       setIsDrawingActive(true);
       const pt = e.point;
       if (pt) {
+        drawStartPoint.current = [pt.x, 0.025, pt.z];
         setCurrentDrawingPoints([[pt.x, 0.025, pt.z]]);
       }
       return;
@@ -1486,18 +1489,42 @@ export default function App() {
     if (drawMode && isDrawingActive) {
       e.stopPropagation();
       const pt = e.point;
-      if (pt) {
-        setCurrentDrawingPoints(prev => {
-          if (prev.length === 0) return [[pt.x, 0.025, pt.z]];
-          const lastPoint = prev[prev.length - 1];
-          const dx = pt.x - lastPoint[0];
-          const dz = pt.z - lastPoint[2];
-          const dist = Math.sqrt(dx * dx + dz * dz);
-          if (dist > 0.08) {
-            return [...prev, [pt.x, 0.025, pt.z]];
+      if (pt && drawStartPoint.current) {
+        if (drawTool === 'freehand') {
+          setCurrentDrawingPoints(prev => {
+            if (prev.length === 0) return [[pt.x, 0.025, pt.z]];
+            const lastPoint = prev[prev.length - 1];
+            const dx = pt.x - lastPoint[0];
+            const dz = pt.z - lastPoint[2];
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist > 0.08) {
+              return [...prev, [pt.x, 0.025, pt.z]];
+            }
+            return prev;
+          });
+        } else if (drawTool === 'line') {
+          setCurrentDrawingPoints([
+            drawStartPoint.current,
+            [pt.x, 0.025, pt.z]
+          ]);
+        } else if (drawTool === 'circle') {
+          const startPt = drawStartPoint.current;
+          const dx = pt.x - startPt[0];
+          const dz = pt.z - startPt[2];
+          const radius = Math.sqrt(dx * dx + dz * dz);
+          
+          const circlePts: [number, number, number][] = [];
+          const segments = 64;
+          for (let i = 0; i <= segments; i++) {
+            const theta = (i / segments) * Math.PI * 2;
+            circlePts.push([
+              startPt[0] + radius * Math.cos(theta),
+              0.025,
+              startPt[2] + radius * Math.sin(theta)
+            ]);
           }
-          return prev;
-        });
+          setCurrentDrawingPoints(circlePts);
+        }
       }
     }
   };
@@ -1519,6 +1546,7 @@ export default function App() {
           ]);
         }
         setCurrentDrawingPoints([]);
+        drawStartPoint.current = null;
       }
       return;
     }
@@ -1920,14 +1948,14 @@ export default function App() {
             key={d.id}
             points={d.points}
             color={d.color}
-            lineWidth={4.0}
+            lineWidth={10.0}
           />
         ))}
         {currentDrawingPoints.length >= 2 && (
           <Line 
             points={currentDrawingPoints}
             color={drawColor}
-            lineWidth={4.0}
+            lineWidth={10.0}
           />
         )}
 
@@ -2208,7 +2236,7 @@ export default function App() {
         <div className="hud-vertical-divider" />
 
         {/* Third Column: Telestrator Annotation Controls */}
-        <div className="hud-left-column" style={{ minWidth: '85px', gap: '8px' }}>
+        <div className="hud-left-column" style={{ minWidth: '110px', gap: '8px' }}>
           <div className="panel-title" style={{ textAlign: 'center', width: '100%' }}>Sketch</div>
           
           <button
@@ -2233,32 +2261,63 @@ export default function App() {
           </button>
 
           {drawMode && (
-            <div className="hud-draw-colors" style={{ display: 'flex', justifyContent: 'center', gap: '6px', width: '100%', margin: '4px 0' }}>
-              <button 
-                className={`color-dot white ${drawColor === '#ffffff' ? 'selected' : ''}`} 
-                onClick={() => setDrawColor('#ffffff')}
-                title="White"
-                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffffff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffffff' ? '0 0 8px #ffffff' : 'none' }}
-              />
-              <button 
-                className={`color-dot yellow ${drawColor === '#ffff00' ? 'selected' : ''}`} 
-                onClick={() => setDrawColor('#ffff00')}
-                title="Neon Yellow"
-                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffff00', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffff00' ? '0 0 8px #ffff00' : 'none' }}
-              />
-              <button 
-                className={`color-dot pink ${drawColor === '#ff007f' ? 'selected' : ''}`} 
-                onClick={() => setDrawColor('#ff007f')}
-                title="Neon Pink"
-                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ff007f', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ff007f' ? '0 0 8px #ff007f' : 'none' }}
-              />
-              <button 
-                className={`color-dot cyan ${drawColor === '#00e5ff' ? 'selected' : ''}`} 
-                onClick={() => setDrawColor('#00e5ff')}
-                title="Neon Cyan"
-                style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#00e5ff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#00e5ff' ? '0 0 8px #00e5ff' : 'none' }}
-              />
-            </div>
+            <>
+              {/* Tool Selection Buttons */}
+              <div className="hud-selector-row" style={{ display: 'flex', gap: '3px', width: '100%', margin: '2px 0' }}>
+                <button
+                  className={`pri-sec-btn ${drawTool === 'freehand' ? 'active' : ''}`}
+                  onClick={() => setDrawTool('freehand')}
+                  title="Freehand Sketch"
+                  style={{ flex: 1, padding: '3px 0', fontSize: '8px', minWidth: '0' }}
+                >
+                  Draw
+                </button>
+                <button
+                  className={`pri-sec-btn ${drawTool === 'line' ? 'active' : ''}`}
+                  onClick={() => setDrawTool('line')}
+                  title="Straight Line"
+                  style={{ flex: 1, padding: '3px 0', fontSize: '8px', minWidth: '0' }}
+                >
+                  Line
+                </button>
+                <button
+                  className={`pri-sec-btn ${drawTool === 'circle' ? 'active' : ''}`}
+                  onClick={() => setDrawTool('circle')}
+                  title="Circle Annotation"
+                  style={{ flex: 1, padding: '3px 0', fontSize: '8px', minWidth: '0' }}
+                >
+                  Circle
+                </button>
+              </div>
+
+              {/* Color Selectors */}
+              <div className="hud-draw-colors" style={{ display: 'flex', justifyContent: 'center', gap: '6px', width: '100%', margin: '2px 0' }}>
+                <button 
+                  className={`color-dot white ${drawColor === '#ffffff' ? 'selected' : ''}`} 
+                  onClick={() => setDrawColor('#ffffff')}
+                  title="White"
+                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffffff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffffff' ? '0 0 8px #ffffff' : 'none' }}
+                />
+                <button 
+                  className={`color-dot yellow ${drawColor === '#ffff00' ? 'selected' : ''}`} 
+                  onClick={() => setDrawColor('#ffff00')}
+                  title="Neon Yellow"
+                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ffff00', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ffff00' ? '0 0 8px #ffff00' : 'none' }}
+                />
+                <button 
+                  className={`color-dot pink ${drawColor === '#ff007f' ? 'selected' : ''}`} 
+                  onClick={() => setDrawColor('#ff007f')}
+                  title="Neon Pink"
+                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#ff007f', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#ff007f' ? '0 0 8px #ff007f' : 'none' }}
+                />
+                <button 
+                  className={`color-dot cyan ${drawColor === '#00e5ff' ? 'selected' : ''}`} 
+                  onClick={() => setDrawColor('#00e5ff')}
+                  title="Neon Cyan"
+                  style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.4)', backgroundColor: '#00e5ff', cursor: 'pointer', padding: 0, boxShadow: drawColor === '#00e5ff' ? '0 0 8px #00e5ff' : 'none' }}
+                />
+              </div>
+            </>
           )}
 
           <button 

@@ -2285,7 +2285,7 @@ export default function App() {
 
         {/* Third Column: Telestrator Annotation Controls */}
         <div className="hud-left-column" style={{ minWidth: '110px', gap: '8px' }}>
-          <div className="panel-title" style={{ textAlign: 'center', width: '100%' }}>Sketch</div>
+          <div className="panel-title" style={{ textAlign: 'center', width: '100%' }}>Telestrator</div>
           
           <button
             className={`hud-action-row ${drawMode ? 'active-toggle' : ''}`}
@@ -2315,7 +2315,7 @@ export default function App() {
                 <button
                   className={`pri-sec-btn ${drawTool === 'freehand' ? 'active' : ''}`}
                   onClick={() => setDrawTool('freehand')}
-                  title="Freehand Sketch"
+                  title="Freehand Draw"
                   style={{ flex: 1, padding: '3px 0', fontSize: '8px', minWidth: '0' }}
                 >
                   Draw
@@ -2370,7 +2370,7 @@ export default function App() {
             </>
           )}
 
-          <div style={{ display: 'flex', gap: '4px', width: '100%', marginTop: 'auto' }}>
+          <div style={{ display: 'flex', gap: '6px', width: '100%', marginTop: 'auto' }}>
             <button 
               className="hud-action-row" 
               onClick={() => {
@@ -2378,15 +2378,15 @@ export default function App() {
               }}
               disabled={drawings.length === 0}
               title="Undo Last Drawing (Z)"
-              style={{ flex: 1, padding: '4px 0', fontSize: '9px', minWidth: '0' }}
+              style={{ flex: 1, padding: '6px 0', fontSize: '11px', minWidth: '0', justifyContent: 'center', gap: '4px' }}
             >
               <div className="hud-action-icon" style={{ margin: 0 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13px', height: '13px' }}>
                   <path d="M3 7v6h6"/>
                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
                 </svg>
               </div>
-              <span style={{ fontSize: '8px' }}>Undo</span>
+              <span style={{ fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Undo</span>
             </button>
 
             <button 
@@ -2397,15 +2397,15 @@ export default function App() {
               }}
               disabled={drawings.length === 0}
               title="Clear All Drawings (X)"
-              style={{ flex: 1, padding: '4px 0', fontSize: '9px', minWidth: '0' }}
+              style={{ flex: 1, padding: '6px 0', fontSize: '11px', minWidth: '0', justifyContent: 'center', gap: '4px' }}
             >
               <div className="hud-action-icon" style={{ margin: 0 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '13px', height: '13px' }}>
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                 </svg>
               </div>
-              <span style={{ fontSize: '8px' }}>Clear</span>
+              <span style={{ fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Clear</span>
             </button>
           </div>
         </div>
@@ -2565,6 +2565,26 @@ export default function App() {
                           </div>
                           <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
                             Hold down the <kbd className="help-key-badge">Spacebar</kbd> when clicking or tapping the court to activate **Drive Mode**. The ball will be struck at a high driving speed (54 yd/s) that will easily blast it off the court, unless it strikes another ball, a hoop leg, or the center peg!
+                          </div>
+                        </div>
+
+                        {/* Telestrator Annotation */}
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '4px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#00e5ff' }}>
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                            </svg>
+                            Telestrator & Tactical Annotations
+                          </div>
+                          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            Click the <strong style={{ color: '#00e5ff' }}>Draw</strong> Button in the Control Panel or press the <kbd className="help-key-badge">D</kbd> key to toggle **Telestrator Mode**.
+                            <br/><br/>
+                            • <strong>Coaching Tools:</strong> Choose between <strong>Draw</strong> (freehand curves), <strong>Line</strong> (straight vectors), or <strong>Circle</strong> tools to annotate plays.
+                            <br/>
+                            • <strong>Matching Colors:</strong> Color buttons in the control panel automatically match the **active ball colors**. Toggling between <strong>Pri / Sec</strong> dynamically updates the active sketch colors to match!
+                            <br/>
+                            • <strong>Hotkeys & Clean:</strong> Press <kbd className="help-key-badge">Z</kbd> to Undo the last stroke, or <kbd className="help-key-badge">X</kbd> to Clear the entire board. 3D camera pan/orbit is automatically locked while drawing so you can draw smoothly!
                           </div>
                         </div>
                       </div>

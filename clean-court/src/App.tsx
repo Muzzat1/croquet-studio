@@ -2599,6 +2599,8 @@ export default function App() {
                             • <strong>Matching Colors:</strong> Color buttons in the control panel automatically match the **active ball colors**. Toggling between <strong>Pri / Sec</strong> dynamically updates the active sketch colors to match!
                             <br/>
                             • <strong>Hotkeys & Clean:</strong> Press <kbd className="help-key-badge">Z</kbd> to Undo the last stroke, or <kbd className="help-key-badge">X</kbd> to Clear the entire board. 3D camera pan/orbit is automatically locked while drawing so you can draw smoothly!
+                            <br/>
+                            • <strong>Camera Navigation:</strong> 3D mouse controls (view rotation/pan) only work when Telestrator is disabled. To move the camera, simply press <kbd className="help-key-badge">D</kbd> again or toggle the <strong>Draw</strong> button off.
                           </div>
                         </div>
                       </div>
@@ -2618,6 +2620,28 @@ export default function App() {
                   </svg>
                   3D Navigation & Gestures
                 </h4>
+                <div style={{ 
+                  background: 'rgba(255, 179, 0, 0.08)', 
+                  border: '1px dashed rgba(255, 179, 0, 0.3)', 
+                  borderRadius: '8px', 
+                  padding: '8px 12px', 
+                  marginBottom: '12px', 
+                  fontSize: '0.82rem', 
+                  lineHeight: '1.4', 
+                  color: '#ffe680',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '16px', height: '16px', flexShrink: 0 }}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <span>
+                    <strong>Note:</strong> Standard mouse controls and camera rotation only work when <strong>Telestrator Mode</strong> is turned off (press <kbd className="help-key-badge">D</kbd> again or click Draw off).
+                  </span>
+                </div>
                 <div className="help-grid">
                   <div className="help-grid-item">
                     <div className="help-gesture-icon">

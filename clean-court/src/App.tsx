@@ -678,6 +678,48 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
 
   return null;
 }
+interface TacticalTubeProps {
+  points: [number, number, number][];
+  color: string;
+}
+
+function TacticalTube({ points, color }: TacticalTubeProps) {
+  const curve = useMemo(() => {
+    // Filter out duplicate consecutive points
+    const uniquePoints = points.filter((p, i) => {
+      if (i === 0) return true;
+      const prev = points[i - 1];
+      const dx = p[0] - prev[0];
+      const dz = p[2] - prev[2];
+      return Math.sqrt(dx * dx + dz * dz) > 0.005;
+    });
+
+    if (uniquePoints.length < 2) return null;
+    
+    if (uniquePoints.length === 2) {
+      const p0 = uniquePoints[0];
+      const p1 = uniquePoints[1];
+      const mid: [number, number, number] = [
+        (p0[0] + p1[0]) / 2,
+        (p0[1] + p1[1]) / 2,
+        (p0[2] + p1[2]) / 2
+      ];
+      uniquePoints.splice(1, 0, mid);
+    }
+
+    const vecPoints = uniquePoints.map(p => new THREE.Vector3(p[0], p[1], p[2]));
+    return new THREE.CatmullRomCurve3(vecPoints);
+  }, [points]);
+
+  if (!curve) return null;
+
+  return (
+    <mesh>
+      <tubeGeometry args={[curve, Math.max(30, points.length * 2), 0.045, 6, false]} />
+      <meshBasicMaterial color={color} toneMapped={false} />
+    </mesh>
+  );
+}
 
 interface AimLineControllerProps {
   showAimingLines: boolean;
@@ -1497,7 +1539,7 @@ export default function App() {
             const dx = pt.x - lastPoint[0];
             const dz = pt.z - lastPoint[2];
             const dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist > 0.08) {
+            if (dist > 0.01) {
               return [...prev, [pt.x, 0.025, pt.z]];
             }
             return prev;
@@ -1942,20 +1984,17 @@ export default function App() {
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
 
-        {/* Telestrator Tactical Drawings */}
         {drawings.map(d => (
-          <Line 
+          <TacticalTube 
             key={d.id}
             points={d.points}
             color={d.color}
-            lineWidth={10.0}
           />
         ))}
         {currentDrawingPoints.length >= 2 && (
-          <Line 
+          <TacticalTube 
             points={currentDrawingPoints}
             color={drawColor}
-            lineWidth={10.0}
           />
         )}
 

@@ -2572,7 +2572,16 @@ export default function App() {
                             Hold down the <kbd className="help-key-badge">Spacebar</kbd> when clicking or tapping the court to activate **Drive Mode**. The ball will be struck at a high driving speed (54 yd/s) that will easily blast it off the court, unless it strikes another ball, a hoop leg, or the center peg!
                           </div>
                         </div>
-
+                      </div>
+                    </div>
+                  </li>
+                  <li className="help-step-item">
+                    <span className="help-step-num">4</span>
+                    <div className="help-gesture-desc" style={{ flexGrow: 1 }}>
+                      <span className="help-gesture-title" style={{ color: '#ffe680' }}>
+                        Visualiser Tools
+                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
                         {/* Telestrator Annotation */}
                         <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '8px', padding: '10px 12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffe680', fontWeight: 700, marginBottom: '4px' }}>

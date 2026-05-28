@@ -1191,7 +1191,7 @@ export default function App() {
   // Telestrator / Annotation state variables
   const [drawMode, setDrawMode] = useState(false);
   const [drawColorIndex, setDrawColorIndex] = useState(3); // Default to 3 (Yellow in primary, White in secondary)
-  const primaryDrawColors = useMemo(() => ['#2196f3', '#ff1744', '#424242', '#ffea00'], []);
+  const primaryDrawColors = useMemo(() => ['#2196f3', '#ff1744', '#000000', '#ffea00'], []);
   const secondaryDrawColors = useMemo(() => ['#4caf50', '#ff4081', '#8d6e63', '#ffffff'], []);
   const drawColor = ballSet === 'primary' ? primaryDrawColors[drawColorIndex] : secondaryDrawColors[drawColorIndex];
   const [drawings, setDrawings] = useState<Array<{ id: string; points: [number, number, number][]; color: string }>>([]);
@@ -2362,7 +2362,9 @@ export default function App() {
                         backgroundColor: color, 
                         cursor: 'pointer', 
                         padding: 0, 
-                        boxShadow: isSelected ? `0 0 10px ${color}` : 'none',
+                        boxShadow: isSelected 
+                           ? (color === '#000000' ? '0 0 10px #ffffff' : `0 0 10px ${color}`) 
+                           : 'none',
                         transform: isSelected ? 'scale(1.2)' : 'none',
                         transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1.2)'
                       }}

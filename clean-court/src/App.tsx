@@ -1295,6 +1295,12 @@ export default function App() {
         return;
       }
 
+      if (e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        setDrawings(prev => prev.slice(0, -1));
+        return;
+      }
+
       if (e.key.toLowerCase() === 'h') {
         e.preventDefault();
         setIsHPressed(true);
@@ -2359,24 +2365,44 @@ export default function App() {
             </>
           )}
 
-          <button 
-            className="hud-action-row" 
-            onClick={() => {
-              setDrawings([]);
-              setCurrentDrawingPoints([]);
-            }}
-            disabled={drawings.length === 0}
-            title="Clear All Drawings"
-            style={{ width: '100%', marginTop: 'auto' }}
-          >
-            <div className="hud-action-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-            </div>
-            <span>Clear</span>
-          </button>
+          <div style={{ display: 'flex', gap: '4px', width: '100%', marginTop: 'auto' }}>
+            <button 
+              className="hud-action-row" 
+              onClick={() => {
+                setDrawings(prev => prev.slice(0, -1));
+              }}
+              disabled={drawings.length === 0}
+              title="Undo Last Drawing (Z)"
+              style={{ flex: 1, padding: '4px 0', fontSize: '9px', minWidth: '0' }}
+            >
+              <div className="hud-action-icon" style={{ margin: 0 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+                  <path d="M3 7v6h6"/>
+                  <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+                </svg>
+              </div>
+              <span style={{ fontSize: '8px' }}>Undo</span>
+            </button>
+
+            <button 
+              className="hud-action-row" 
+              onClick={() => {
+                setDrawings([]);
+                setCurrentDrawingPoints([]);
+              }}
+              disabled={drawings.length === 0}
+              title="Clear All Drawings (X)"
+              style={{ flex: 1, padding: '4px 0', fontSize: '9px', minWidth: '0' }}
+            >
+              <div className="hud-action-icon" style={{ margin: 0 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '12px', height: '12px' }}>
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </div>
+              <span style={{ fontSize: '8px' }}>Clear</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2634,6 +2660,12 @@ export default function App() {
                       <kbd className="help-key-badge">X</kbd>
                     </div>
                     <div className="help-controls-desc">Clear all active telestrator drawings from the lawn</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">Z</kbd>
+                    </div>
+                    <div className="help-controls-desc">Undo the last drawn tactical sketch, line, or circle</div>
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">

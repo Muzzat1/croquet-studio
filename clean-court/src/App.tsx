@@ -714,9 +714,16 @@ function TacticalTube({ points, color }: TacticalTubeProps) {
   if (!curve) return null;
 
   return (
-    <mesh>
+    <mesh castShadow>
       <tubeGeometry args={[curve, Math.max(30, points.length * 2), 0.08, 6, false]} />
-      <meshBasicMaterial color={color} toneMapped={false} />
+      <meshStandardMaterial 
+        color={color} 
+        emissive={color} 
+        emissiveIntensity={0.25} 
+        roughness={0.4} 
+        metalness={0.1} 
+        toneMapped={false} 
+      />
     </mesh>
   );
 }

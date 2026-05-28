@@ -1516,8 +1516,8 @@ export default function App() {
       setIsDrawingActive(true);
       const pt = e.point;
       if (pt) {
-        drawStartPoint.current = [pt.x, 0.025, pt.z];
-        setCurrentDrawingPoints([[pt.x, 0.025, pt.z]]);
+        drawStartPoint.current = [pt.x, 0.045, pt.z];
+        setCurrentDrawingPoints([[pt.x, 0.045, pt.z]]);
       }
       return;
     }
@@ -1534,20 +1534,20 @@ export default function App() {
       if (pt && drawStartPoint.current) {
         if (drawTool === 'freehand') {
           setCurrentDrawingPoints(prev => {
-            if (prev.length === 0) return [[pt.x, 0.025, pt.z]];
+            if (prev.length === 0) return [[pt.x, 0.045, pt.z]];
             const lastPoint = prev[prev.length - 1];
             const dx = pt.x - lastPoint[0];
             const dz = pt.z - lastPoint[2];
             const dist = Math.sqrt(dx * dx + dz * dz);
             if (dist > 0.01) {
-              return [...prev, [pt.x, 0.025, pt.z]];
+              return [...prev, [pt.x, 0.045, pt.z]];
             }
             return prev;
           });
         } else if (drawTool === 'line') {
           setCurrentDrawingPoints([
             drawStartPoint.current,
-            [pt.x, 0.025, pt.z]
+            [pt.x, 0.045, pt.z]
           ]);
         } else if (drawTool === 'circle') {
           const startPt = drawStartPoint.current;
@@ -1561,7 +1561,7 @@ export default function App() {
             const theta = (i / segments) * Math.PI * 2;
             circlePts.push([
               startPt[0] + radius * Math.cos(theta),
-              0.025,
+              0.045,
               startPt[2] + radius * Math.sin(theta)
             ]);
           }
@@ -2015,8 +2015,8 @@ export default function App() {
           return (
             <Line 
               points={[
-                [balls[selectedBall].x, 0.025, balls[selectedBall].z],
-                [hoverPoint.x, 0.025, hoverPoint.z]
+                [balls[selectedBall].x, 0.045, balls[selectedBall].z],
+                [hoverPoint.x, 0.045, hoverPoint.z]
               ]} 
               color={
                 selectedBall === 'blue' ? (ballSet === 'primary' ? '#3399ff' : '#4ade80') :  // Bright neon blue vs Green

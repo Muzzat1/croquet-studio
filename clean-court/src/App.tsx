@@ -126,8 +126,8 @@ function PhysicsManager({
                 outOfBoundsCrossing.current[c] = { x: crossX, z: crossZ };
               } else {
                 // Ball started outside and moved further outside: project current position to closest boundary
-                let crossX = b.x;
-                let crossZ = b.z;
+                let crossX: number;
+                let crossZ: number;
                 if (Math.abs(b.x) - 14 > Math.abs(b.z) - 17.5) {
                   crossX = b.x > 0 ? 14 : -14;
                   crossZ = Math.min(Math.max(b.z, -17.5), 17.5);
@@ -678,6 +678,292 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
 
   return null;
 }
+
+interface DemoSegment {
+  start: [number, number, number];
+  end: [number, number, number];
+  hoop: string;
+  desc: string;
+}
+
+const DEMO_SEGMENTS: DemoSegment[] = [
+  // Start: Corner 4 (13.5, 0.133375, 17.0)
+  // Hoop 1: SW (approach, then run)
+  { start: [13.5, 0.133375, 17.0], end: [-7.0, 0.133375, 13.5], hoop: "Hoop 1 (SW)", desc: "Approaching Hoop 1 (South-West)" },
+  { start: [-7.0, 0.133375, 13.5], end: [-7.0, 0.133375, 7.5], hoop: "Hoop 1 (SW)", desc: "Running Hoop 1 (South-West)" },
+
+  // Hoop 2: NW (approach, then run)
+  { start: [-7.0, 0.133375, 7.5], end: [-7.0, 0.133375, -7.5], hoop: "Hoop 2 (NW)", desc: "Positioning for Hoop 2 (North-West)" },
+  { start: [-7.0, 0.133375, -7.5], end: [-7.0, 0.133375, -13.5], hoop: "Hoop 2 (NW)", desc: "Running Hoop 2 (North-West)" },
+
+  // Hoop 3: NE (approach, then run)
+  { start: [-7.0, 0.133375, -13.5], end: [7.0, 0.133375, -13.5], hoop: "Hoop 3 (NE)", desc: "Positioning for Hoop 3 (North-East)" },
+  { start: [7.0, 0.133375, -13.5], end: [7.0, 0.133375, -7.5], hoop: "Hoop 3 (NE)", desc: "Running Hoop 3 (North-East)" },
+
+  // Hoop 4: SE (approach, then run)
+  { start: [7.0, 0.133375, -7.5], end: [7.0, 0.133375, 7.5], hoop: "Hoop 4 (SE)", desc: "Positioning for Hoop 4 (South-East)" },
+  { start: [7.0, 0.133375, 7.5], end: [7.0, 0.133375, 13.5], hoop: "Hoop 4 (SE)", desc: "Running Hoop 4 (South-East)" },
+
+  // Hoop 5: S Center (approach, then run)
+  { start: [7.0, 0.133375, 13.5], end: [0.0, 0.133375, 10.0], hoop: "Hoop 5 (S Center)", desc: "Positioning for Hoop 5 (South Center)" },
+  { start: [0.0, 0.133375, 10.0], end: [0.0, 0.133375, 4.0], hoop: "Hoop 5 (S Center)", desc: "Running Hoop 5 (South Center)" },
+
+  // Hoop 6: N Center (approach, then run)
+  { start: [0.0, 0.133375, 4.0], end: [1.5, 0.133375, 0.0], hoop: "Hoop 6 (N Center)", desc: "Positioning around Center Peg for Hoop 6" },
+  { start: [1.5, 0.133375, 0.0], end: [0.0, 0.133375, -4.0], hoop: "Hoop 6 (N Center)", desc: "Approaching Hoop 6 (North Center)" },
+  { start: [0.0, 0.133375, -4.0], end: [0.0, 0.133375, -10.0], hoop: "Hoop 6 (N Center)", desc: "Running Hoop 6 (North Center)" },
+
+  // Hoop 7: NW (start of anticlockwise second round: run from the North side, South-bound)
+  // Position North of Hoop 7 (NW Hoop) directly from Hoop 6 North
+  { start: [0.0, 0.133375, -10.0], end: [-7.0, 0.133375, -13.5], hoop: "Hoop 7 (NW)", desc: "Positioning North of NW Hoop for Hoop 7" },
+  { start: [-7.0, 0.133375, -13.5], end: [-7.0, 0.133375, -7.5], hoop: "Hoop 7 (NW)", desc: "Running Hoop 7 (North-West - Opposite Side)" },
+
+  // Hoop 8: SW (anticlockwise: SW Hoop, run South-bound)
+  { start: [-7.0, 0.133375, -7.5], end: [-7.0, 0.133375, 7.5], hoop: "Hoop 8 (SW)", desc: "Positioning North of SW Hoop for Hoop 8" },
+  { start: [-7.0, 0.133375, 7.5], end: [-7.0, 0.133375, 13.5], hoop: "Hoop 8 (SW)", desc: "Running Hoop 8 (South-West - Opposite Side)" },
+
+  // Hoop 9: SE (anticlockwise: SE Hoop, run North-bound)
+  { start: [-7.0, 0.133375, 13.5], end: [7.0, 0.133375, 13.5], hoop: "Hoop 9 (SE)", desc: "Positioning South of SE Hoop for Hoop 9" },
+  { start: [7.0, 0.133375, 13.5], end: [7.0, 0.133375, 7.5], hoop: "Hoop 9 (SE)", desc: "Running Hoop 9 (South-East - Opposite Side)" },
+
+  // Hoop 10: NE (anticlockwise: NE Hoop, run North-bound)
+  { start: [7.0, 0.133375, 7.5], end: [7.0, 0.133375, -7.5], hoop: "Hoop 10 (NE)", desc: "Positioning South of NE Hoop for Hoop 10" },
+  { start: [7.0, 0.133375, -7.5], end: [7.0, 0.133375, -13.5], hoop: "Hoop 10 (NE)", desc: "Running Hoop 10 (North-East - Opposite Side)" },
+
+  // Hoop 11: N Center (anticlockwise: N Center Hoop, run South-bound)
+  { start: [7.0, 0.133375, -13.5], end: [0.0, 0.133375, -10.0], hoop: "Hoop 11 (N Center)", desc: "Positioning North of N Center Hoop for Hoop 11" },
+  { start: [0.0, 0.133375, -10.0], end: [0.0, 0.133375, -4.0], hoop: "Hoop 11 (N Center)", desc: "Running Hoop 11 (North Center - Opposite Side)" },
+
+  // Hoop 12: S Center (anticlockwise: S Center Hoop, run South-bound)
+  // Position around West side of Center Peg to prevent pegs collisions
+  { start: [0.0, 0.133375, -4.0], end: [-1.8, 0.133375, 0.0], hoop: "Hoop 12 (S Center)", desc: "Positioning around Center Peg for Hoop 12" },
+  { start: [-1.8, 0.133375, 0.0], end: [0.0, 0.133375, 4.0], hoop: "Hoop 12 (S Center)", desc: "Approaching Hoop 12 (South Center - Opposite Side)" },
+  { start: [0.0, 0.133375, 4.0], end: [0.0, 0.133375, 10.0], hoop: "Hoop 12 (S Center)", desc: "Running Hoop 12 (South Center - Opposite Side)" },
+
+  // Hoop 13: NE (deciding hoop: run from the correct side: North to South)
+  { start: [0.0, 0.133375, 10.0], end: [7.0, 0.133375, -13.5], hoop: "Hoop 13 (NE)", desc: "Positioning for Hoop 13 (North-East - Deciding Hoop)" },
+  { start: [7.0, 0.133375, -13.5], end: [7.0, 0.133375, -7.5], hoop: "Hoop 13 (NE)", desc: "Running Hoop 13 (North-East - Deciding Hoop)!" },
+
+];
+
+
+interface SequenceDemoControllerProps {
+  isDemoActive: boolean;
+  demoProgress: number;
+  setDemoProgress: React.Dispatch<React.SetStateAction<number>>;
+}
+
+function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress }: SequenceDemoControllerProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const threeState = useThree() as any;
+  const camera = threeState.camera;
+  const controls = threeState.controls;
+  
+  // Track start delay (3s) and end pause (5s) to allow lawn rotation and completion to settle perfectly
+  const prevDemoActiveRef = useRef(false);
+  const startDelayRef = useRef(3.0); // 3 seconds start delay
+  const endPauseRef = useRef(0.0);   // 5 seconds end pause
+  const hasUserMovedCameraRef = useRef(false);
+
+  useEffect(() => {
+    if (!isDemoActive) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const presetKeys = ['0', '1', '2', '3', '4', '5', '6', 'n', 'N', 'w', 'W', 'e', 'E', 's', 'S', 'o', 'O'];
+      if (presetKeys.includes(e.key)) {
+        hasUserMovedCameraRef.current = true;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    const handleStart = () => {
+      hasUserMovedCameraRef.current = true;
+    };
+
+    if (controls) {
+      controls.addEventListener('start', handleStart);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (controls) {
+        controls.removeEventListener('start', handleStart);
+      }
+    };
+  }, [isDemoActive, controls]);
+
+  useFrame((_, delta) => {
+    if (isDemoActive) {
+      if (!prevDemoActiveRef.current) {
+        startDelayRef.current = 3.0; // Reset start delay to 3 seconds
+        endPauseRef.current = 0.0;
+        prevDemoActiveRef.current = true;
+        hasUserMovedCameraRef.current = false; // Reset to enable automatic tracking!
+      }
+
+      // If loop has completed and is about to restart, reset tracking
+      if (endPauseRef.current > 0 && endPauseRef.current - delta <= 0) {
+        hasUserMovedCameraRef.current = false;
+      }
+
+      // Retrieve current ball coordinates based on segment progress
+      const N_segs = DEMO_SEGMENTS.length;
+      const totalProgress_segs = demoProgress * N_segs;
+      const segmentIndex_segs = Math.floor(totalProgress_segs) % N_segs;
+      const tLocal_segs = totalProgress_segs % 1.0;
+
+      const ballPos = new THREE.Vector3();
+      if (startDelayRef.current > 0) {
+        ballPos.set(13.5, 0.133375, 17.0);
+      } else {
+        const segment = DEMO_SEGMENTS[segmentIndex_segs];
+        const motionRatio = 1.4 / 2.2;
+        const startVec = new THREE.Vector3(...segment.start);
+        const endVec = new THREE.Vector3(...segment.end);
+
+        if (tLocal_segs < motionRatio) {
+          const tMotion = tLocal_segs / motionRatio;
+          const easedT = 1 - Math.pow(1 - tMotion, 3);
+          ballPos.lerpVectors(startVec, endVec, easedT);
+        } else {
+          ballPos.copy(endVec);
+        }
+      }
+
+      if (!hasUserMovedCameraRef.current) {
+        // AUTOMATIC CAMERA TRACKING AND ZOOM EFFECTS MODE!
+        const targetCamPos = new THREE.Vector3();
+        const targetCamTarget = new THREE.Vector3();
+        let targetFov: number;
+        const targetUp = new THREE.Vector3(0, 1, 0);
+
+        if (startDelayRef.current > 0) {
+          // 1. Start delay: Camera at Preset 0
+          targetCamPos.set(41.79, 7.23, 24.46);
+          targetCamTarget.set(-3.45, 1.52, 10.27);
+          targetFov = 15.0;
+          targetUp.set(0, 1, 0);
+        } else if (segmentIndex_segs >= 26 || endPauseRef.current > 0) {
+          // 3. Final shot (Hoop 13 approach & run) & end pause: Camera 3 (Preset 3)
+          targetCamPos.set(7.0, 18.25, -54.79);
+          targetCamTarget.set(7.0, 1.52, -10.27);
+          targetFov = 15.0;
+          targetUp.set(0, 1, 0);
+        } else {
+          // 2. Play following: Overhead camera following the ball
+          targetCamPos.set(ballPos.x, 50.0, ballPos.z + 0.1);
+          targetCamTarget.set(ballPos.x, ballPos.y, ballPos.z);
+          targetFov = 21.6; // Zoomed out 20% (from 18.0 to 21.6) for a perfectly balanced play follow!
+          targetUp.set(1, 0, 0); // Keep West boundary at the bottom of the screen!
+        }
+
+        // Smoothly lerp camera and controls for beautiful transitions
+        camera.position.lerp(targetCamPos, 0.05);
+        camera.up.lerp(targetUp, 0.05);
+        camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 0.05);
+        camera.updateProjectionMatrix();
+        if (controls) {
+          controls.target.lerp(targetCamTarget, 0.05);
+          controls.update();
+        }
+      } else {
+        // MANUAL VIEW MODE: If the user took over camera, let them control it freely!
+        const horizontalDist = Math.sqrt(camera.position.x * camera.position.x + camera.position.z * camera.position.z);
+        const isCloseToOverhead = horizontalDist < 2.0;
+        if (!isCloseToOverhead && camera.up.y < 0.99) {
+          camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.06);
+          if (controls) {
+            controls.update();
+          }
+        }
+      }
+
+      // If end pause is active, count down and hold ball still at Hoop 13 end point
+      if (endPauseRef.current > 0) {
+        endPauseRef.current -= delta;
+        if (endPauseRef.current <= 0) {
+          // Loop completed, reset to beginning and start 3-second start delay
+          setDemoProgress(0.0);
+          startDelayRef.current = 3.0;
+        }
+        return;
+      }
+
+      // If start delay is active, pause progress and hold ball at Corner 4 starting position
+      if (startDelayRef.current > 0) {
+        startDelayRef.current -= delta;
+        return;
+      }
+
+      // Smoothly run the ball through the N segments
+      const N = DEMO_SEGMENTS.length;
+      // Each segment has a total time (motion + pause)
+      const motionDuration = 1.4; // seconds of rolling
+      const pauseDuration = 0.8; // seconds of pause
+      const segmentDuration = motionDuration + pauseDuration;
+      const totalDuration = segmentDuration * N;
+
+      setDemoProgress(prev => {
+        let next = prev + delta / totalDuration;
+        if (next >= 1.0) {
+          next = 0.999; // Hold progress at the very end
+          endPauseRef.current = 5.0; // Trigger 5-second end pause!
+        }
+        return next;
+      });
+    } else {
+      prevDemoActiveRef.current = false;
+      // Smoothly restore the camera Up vector to default [0, 1, 0] once the demo is stopped
+      if (camera.up.y < 0.99) {
+        camera.up.lerp(new THREE.Vector3(0, 1, 0), 0.08);
+        if (controls) {
+          controls.update();
+        }
+      }
+    }
+  });
+
+  if (!isDemoActive) return null;
+
+  // Retrieve current ball coordinates based on segment progress
+  const N = DEMO_SEGMENTS.length;
+  const totalProgress = demoProgress * N;
+  const segmentIndex = Math.floor(totalProgress) % N;
+  const tLocal = totalProgress % 1.0; // 0.0 to 1.0 within this segment
+
+  // If start delay is active, hold the ball stationary at Corner 4 starting coordinates
+  const ballPos = new THREE.Vector3();
+  if (demoProgress === 0) {
+    ballPos.set(13.5, 0.133375, 17.0);
+  } else {
+    const segment = DEMO_SEGMENTS[segmentIndex];
+    const motionRatio = 1.4 / 2.2;
+    const startVec = new THREE.Vector3(...segment.start);
+    const endVec = new THREE.Vector3(...segment.end);
+
+    if (tLocal < motionRatio) {
+      const tMotion = tLocal / motionRatio;
+      // Beautiful cubic ease-out to simulate physics shot impact and friction deceleration:
+      const easedT = 1 - Math.pow(1 - tMotion, 3);
+      ballPos.lerpVectors(startVec, endVec, easedT);
+    } else {
+      ballPos.copy(endVec);
+    }
+  }
+
+  return (
+    <mesh position={[ballPos.x, ballPos.y, ballPos.z]} castShadow>
+      <sphereGeometry args={[0.133375, 32, 32]} />
+      <meshStandardMaterial 
+        color="#ffea00" // Use a beautiful bright yellow demo ball that matches starting corner colors!
+        roughness={0.15}
+        metalness={0.1}
+      />
+    </mesh>
+  );
+}
+
 interface TacticalTubeProps {
   points: [number, number, number][];
   color: string;
@@ -856,7 +1142,7 @@ function AimLineController({
     }
   }
 
-  let linePoints: [number, number, number][] = [];
+  let linePoints: [number, number, number][];
   let scatterStrikerPoints: [number, number, number][] = [];
   let scatterTargetPoints: [number, number, number][] = [];
   let ghostPos: { x: number; z: number } | null = null;
@@ -880,9 +1166,8 @@ function AimLineController({
   let hitTargetColor = '#ffffff';
 
   if (firstCollision) {
-    const c = firstCollision as any;
-    const impactX = activeBall.x + c.t * ux;
-    const impactZ = activeBall.z + c.t * uz;
+    const impactX = activeBall.x + firstCollision.t * ux;
+    const impactZ = activeBall.z + firstCollision.t * uz;
     ghostPos = { x: impactX, z: impactZ };
 
     linePoints = [
@@ -891,8 +1176,8 @@ function AimLineController({
     ];
 
     // Compute split-shot scattering angles
-    const normX = c.x - impactX;
-    const normZ = c.z - impactZ;
+    const normX = firstCollision.x - impactX;
+    const normZ = firstCollision.z - impactZ;
     const normDist = Math.sqrt(normX * normX + normZ * normZ);
     const nx = normDist > 0 ? normX / normDist : 0;
     const nz = normDist > 0 ? normZ / normDist : 0;
@@ -917,14 +1202,14 @@ function AimLineController({
       ];
     }
 
-    if (c.type === 'ball') {
-      hitTargetColor = getBallColor(c.id);
+    if (firstCollision.type === 'ball') {
+      hitTargetColor = getBallColor(firstCollision.id || 'white');
       if (targetMag > 0.01) {
         const tDirX = targetVx / targetMag;
         const tDirZ = targetVz / targetMag;
         scatterTargetPoints = [
-          [c.x, 0.133375, c.z],
-          [c.x + tDirX * scatterLength, 0.133375, c.z + tDirZ * scatterLength]
+          [firstCollision.x, 0.133375, firstCollision.z],
+          [firstCollision.x + tDirX * scatterLength, 0.133375, firstCollision.z + tDirZ * scatterLength]
         ];
       }
     }
@@ -1124,7 +1409,7 @@ export default function App() {
 
     // Print premium developer console welcome banner
     console.log(
-      `%c 👑 GC CROQUET 3D VISUALISER %c Version 0.62 Beta %c\n` +
+      `%c 👑 GC CROQUET 3D VISUALISER %c Version 0.70 Beta %c\n` +
       `%cMurray Tinker's Professional Coaching Suite%c\n` +
       `--------------------------------------------------\n` +
       `• Host Domain     : ${window.location.hostname}\n` +
@@ -1154,10 +1439,10 @@ export default function App() {
 
   // React State for initial ball positioning & synchronization (drag and drop)
   const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
-    blue: { x: 13.8, z: 17.6667 },
-    red: { x: 13.4, z: 17.6667 },
-    black: { x: 13.0, z: 17.6667 },
-    yellow: { x: 12.6, z: 17.6667 }
+    blue: { x: 14.15, z: 17.0 },
+    red: { x: 14.15, z: 16.4 },
+    black: { x: 14.15, z: 15.8 },
+    yellow: { x: 14.15, z: 15.2 }
   });
 
   // Toast state for premium notifications
@@ -1207,6 +1492,13 @@ export default function App() {
   const [drawTool, setDrawTool] = useState<'freehand' | 'line' | 'circle'>('freehand');
   const drawStartPoint = useRef<[number, number, number] | null>(null);
 
+  // GC Sequence Demo State
+  const [isDemoActive, setIsDemoActive] = useState(false);
+  const [demoProgress, setDemoProgress] = useState(0);
+
+  // Control Panel collapse state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   // Track spacebar held state for "Drive Mode" (blast ball off court)
   const isSpaceDown = useRef(false);
   const isDriveMode = useRef(false);
@@ -1218,6 +1510,7 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   const toggleFullscreen = () => {
     const doc = document.documentElement as any;
     const requestFS = doc.requestFullscreen || doc.webkitRequestFullscreen || doc.msRequestFullscreen;
@@ -1253,6 +1546,7 @@ export default function App() {
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
   }, []);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   useEffect(() => {
     const checkMobileAndOrientation = () => {
@@ -1314,6 +1608,12 @@ export default function App() {
       if (e.key.toLowerCase() === 'h') {
         e.preventDefault();
         setIsHPressed(true);
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        setIsCollapsed(prev => !prev);
         return;
       }
 
@@ -1384,10 +1684,10 @@ export default function App() {
 
   // Physics engine coordinate, velocity, and state refs
   const physicsBalls = useRef<Record<string, PhysicsBallState>>({
-    blue: { x: 13.8, z: 17.6667, vx: 0, vz: 0, isRolling: false },
-    red: { x: 13.4, z: 17.6667, vx: 0, vz: 0, isRolling: false },
-    black: { x: 13.0, z: 17.6667, vx: 0, vz: 0, isRolling: false },
-    yellow: { x: 12.6, z: 17.6667, vx: 0, vz: 0, isRolling: false }
+    blue: { x: 14.15, z: 17.0, vx: 0, vz: 0, isRolling: false },
+    red: { x: 14.15, z: 16.4, vx: 0, vz: 0, isRolling: false },
+    black: { x: 14.15, z: 15.8, vx: 0, vz: 0, isRolling: false },
+    yellow: { x: 14.15, z: 15.2, vx: 0, vz: 0, isRolling: false }
   });
 
   // Save current layout of all balls to history before any action
@@ -1456,13 +1756,12 @@ export default function App() {
     // Snapshot the current state before resetting so that reset itself can be undone!
     saveToHistory();
 
-    // 6 inches back: south boundary is Z = 17.5 yards, 6 inches back is Z = 17.6667
-    // Spaced out near starting flag (X = 14) to prevent overlap
+    // Spaced out near starting flag to match official coaching layouts (All 4 balls lined up vertically on sideline outside East of boundary line)
     const resetPositions = {
-      blue: { x: 13.8, z: 17.6667 },
-      red: { x: 13.4, z: 17.6667 },
-      black: { x: 13.0, z: 17.6667 },
-      yellow: { x: 12.6, z: 17.6667 }
+      blue: { x: 14.15, z: 17.0 },
+      red: { x: 14.15, z: 16.4 },
+      black: { x: 14.15, z: 15.8 },
+      yellow: { x: 14.15, z: 15.2 }
     };
 
     setBalls(resetPositions);
@@ -1713,10 +2012,10 @@ export default function App() {
     : true;
 
   const isGameReset = 
-    balls.blue.x === 13.8 && balls.blue.z === 17.6667 &&
-    balls.red.x === 13.4 && balls.red.z === 17.6667 &&
-    balls.black.x === 13.0 && balls.black.z === 17.6667 &&
-    balls.yellow.x === 12.6 && balls.yellow.z === 17.6667;
+    balls.blue.x === 14.15 && balls.blue.z === 17.0 &&
+    balls.red.x === 14.15 && balls.red.z === 16.4 &&
+    balls.black.x === 14.15 && balls.black.z === 15.8 &&
+    balls.yellow.x === 14.15 && balls.yellow.z === 15.2;
 
   if (!isOnline) {
     return (
@@ -1896,6 +2195,11 @@ export default function App() {
           resetCounter={cameraResetCounter} 
           selectedBall={selectedBall}
           balls={balls}
+        />
+        <SequenceDemoController 
+          isDemoActive={isDemoActive}
+          demoProgress={demoProgress}
+          setDemoProgress={setDemoProgress}
         />
         <AimLineController
           showAimingLines={showAimingLines}
@@ -2119,6 +2423,7 @@ export default function App() {
           z={balls.yellow.z}
           onPositionChange={(x, z) => handleBallChange('yellow', x, z)}
           isSelected={selectedBall === 'yellow'}
+          visible={!isDemoActive}
           onPointerDown={() => {
             if (activeStriker === null) {
               setHasClickedStart(true); // Dismiss initial start arrow
@@ -2137,7 +2442,7 @@ export default function App() {
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
-      <div className="floating-control-panel">
+      <div className={`floating-control-panel ${isCollapsed ? 'collapsed' : ''}`}>
         {/* Left Column: Color set selector and ball stack */}
         <div className="hud-left-column">
           <div className="panel-title">Active Ball</div>
@@ -2421,6 +2726,23 @@ export default function App() {
             </button>
           </div>
         </div>
+        
+        {/* Toggle Collapse Button on the Right Edge */}
+        <button 
+          className="panel-toggle-btn"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? "Expand Control Panel" : "Collapse Control Panel"}
+        >
+          {isCollapsed ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ width: '14px', height: '14px' }}>
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Cartoon "Press Start!" Animated Arrow Overlay */}
@@ -2478,7 +2800,7 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.62 Beta)</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (0.70 BETA)</div>
         <div className="signature-copyright">© 2026</div>
       </div>
 
@@ -2503,6 +2825,56 @@ export default function App() {
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
           <span className="drive-mode-text">Drive Mode Active</span>
+        </div>
+      )}
+
+      {/* GC Sequence 3D Demo HUD Overlay */}
+      {isDemoActive && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(9, 13, 22, 0.85)',
+          backdropFilter: 'blur(20px)',
+          border: '1.5px solid rgba(255, 230, 128, 0.3)',
+          borderRadius: '10px',
+          padding: '7px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          zIndex: 9999,
+          boxShadow: '0 12px 24px rgba(0,0,0,0.6)',
+          color: '#ffffff',
+          fontFamily: 'sans-serif',
+          opacity: 0.5
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#ffe680', fontWeight: 800 }}>GC Sequence 3D Demo</span>
+            <span style={{ fontSize: '13px', fontWeight: 700 }}>
+              {(DEMO_SEGMENTS[Math.floor(demoProgress * DEMO_SEGMENTS.length) % DEMO_SEGMENTS.length]?.desc || "Starting sequence...").replace(/\s*\([^)]*\)/g, "")}
+            </span>
+          </div>
+          <button 
+            onClick={() => {
+              setIsDemoActive(false);
+              setCameraResetCounter(prev => prev + 1);
+            }}
+            style={{
+              background: '#ff1744',
+              border: 'none',
+              borderRadius: '5px',
+              color: '#ffffff',
+              padding: '5px 8px',
+              fontSize: '10px',
+              fontWeight: '800',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              boxShadow: '0 2px 6px rgba(255, 23, 68, 0.3)'
+            }}
+          >
+            Stop Demo
+          </button>
         </div>
       )}
 
@@ -2609,6 +2981,56 @@ export default function App() {
                             <br/>
                             • <strong>Camera Navigation:</strong> 3D mouse controls (view rotation/pan) only work when Telestrator is disabled. To move the camera, simply press <kbd className="help-key-badge">D</kbd> again or toggle the <strong>Draw</strong> button off.
                           </div>
+                        </div>
+
+                        {/* 3D Sequence Demonstration Card */}
+                        <div style={{ 
+                          background: 'rgba(255, 230, 128, 0.04)', 
+                          border: '1px solid rgba(255, 230, 128, 0.15)', 
+                          borderRadius: '8px', 
+                          padding: '10px 12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '2px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#ffe680' }}>
+                              <polygon points="5 3 19 12 5 21 5 3" fill="none" />
+                            </svg>
+                            3D Sequence Demo
+                          </div>
+                          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            Watch a live, fully animated 3D demonstration of a single ball starting inside the yellow painted arc (Corner 4) and slowly running through all 13 hoops in sequence.
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setShowHelp(false);
+                              setIsDemoActive(true);
+                              setDemoProgress(0);
+                              setHasClickedStart(true);
+                            }}
+                            className="hud-action-row" 
+                            style={{ 
+                              justifyContent: 'center', 
+                              gap: '6px', 
+                              padding: '8px 12px', 
+                              background: '#ffe680', 
+                              color: '#000000', 
+                              fontSize: '11px', 
+                              fontWeight: 800, 
+                              border: 'none', 
+                              borderRadius: '8px', 
+                              cursor: 'pointer', 
+                              width: '100%',
+                              marginTop: '4px',
+                              boxShadow: '0 4px 10px rgba(255,230,128,0.2)'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '12px', height: '12px' }}>
+                              <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            START SEQUENTIAL DEMO
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2748,6 +3170,12 @@ export default function App() {
                       <kbd className="help-key-badge">Space</kbd>
                     </div>
                     <div className="help-controls-desc">Hold down for Drive Mode (Power Strike at 54 yd/s)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">Tab</kbd>
+                    </div>
+                    <div className="help-controls-desc">Show / Hide the glassmorphic Control Panel overlay</div>
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">

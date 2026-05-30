@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
 import { DoubleSide, Shape, CanvasTexture } from 'three';
 import * as THREE from 'three';
+import { Text } from '@react-three/drei';
 
 
 // 1. Modular Fence Segment Component
@@ -1429,6 +1430,23 @@ export function Clubhouse() {
         <boxGeometry args={[3.69, 0.06, buildingWidth + 0.6]} />
         <meshStandardMaterial color="#2c3539" roughness={0.7} />
       </mesh>
+
+      {/* Large White Sign-written Lettering "Croquet" on Court-facing Roof Slope */}
+      <group position={[22.475, 3.3, zCenter]} rotation={[0, 0, 0.274]}>
+        <Text
+          position={[0, 0.035, 0]}
+          rotation={[-Math.PI / 2, 0, -Math.PI / 2]}
+          fontSize={1.4}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="middle"
+          fontWeight={900}
+          letterSpacing={0.06}
+        >
+          CROQUET CLUB
+        </Text>
+      </group>
+
       <mesh position={[26.025, 3.3, zCenter]} rotation={[0, 0, -0.274]} castShadow receiveShadow>
         <boxGeometry args={[3.69, 0.06, buildingWidth + 0.6]} />
         <meshStandardMaterial color="#2c3539" roughness={0.7} />

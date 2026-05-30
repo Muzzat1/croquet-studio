@@ -2746,7 +2746,7 @@ export default function App() {
       </div>
 
       {/* Cartoon "Press Start!" Animated Arrow Overlay */}
-      {!hasClickedStart && (
+      {!hasClickedStart && !isCollapsed && (
         <div className="cartoon-start-overlay">
           <div className="cartoon-start-badge">
             <span>Click Help to learn, or press Start to play!</span>

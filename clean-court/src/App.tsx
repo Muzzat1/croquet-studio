@@ -464,6 +464,19 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
     }
   }, [resetCounter, camera, controls]);
 
+  useEffect(() => {
+    if (!controls) return;
+    const handleStart = () => {
+      targetPosition.current = null;
+      targetTarget.current = null;
+      targetFov.current = null;
+    };
+    controls.addEventListener('start', handleStart);
+    return () => {
+      controls.removeEventListener('start', handleStart);
+    };
+  }, [controls]);
+
   useFrame((_, delta) => {
     // Limit delta time steps to prevent huge jumps during frame hiccups
     const dt = Math.min(delta, 0.1);

@@ -1439,10 +1439,10 @@ export default function App() {
 
   // React State for initial ball positioning & synchronization (drag and drop)
   const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
-    blue: { x: 14.15, z: 17.0 },
-    red: { x: 14.15, z: 16.4 },
-    black: { x: 14.15, z: 15.8 },
-    yellow: { x: 14.15, z: 15.2 }
+    blue: { x: 13.5, z: 17.65 },
+    red: { x: 12.9, z: 17.65 },
+    black: { x: 12.3, z: 17.65 },
+    yellow: { x: 11.7, z: 17.65 }
   });
 
   // Toast state for premium notifications
@@ -1684,10 +1684,10 @@ export default function App() {
 
   // Physics engine coordinate, velocity, and state refs
   const physicsBalls = useRef<Record<string, PhysicsBallState>>({
-    blue: { x: 14.15, z: 17.0, vx: 0, vz: 0, isRolling: false },
-    red: { x: 14.15, z: 16.4, vx: 0, vz: 0, isRolling: false },
-    black: { x: 14.15, z: 15.8, vx: 0, vz: 0, isRolling: false },
-    yellow: { x: 14.15, z: 15.2, vx: 0, vz: 0, isRolling: false }
+    blue: { x: 13.5, z: 17.65, vx: 0, vz: 0, isRolling: false },
+    red: { x: 12.9, z: 17.65, vx: 0, vz: 0, isRolling: false },
+    black: { x: 12.3, z: 17.65, vx: 0, vz: 0, isRolling: false },
+    yellow: { x: 11.7, z: 17.65, vx: 0, vz: 0, isRolling: false }
   });
 
   // Save current layout of all balls to history before any action
@@ -1758,10 +1758,10 @@ export default function App() {
 
     // Spaced out near starting flag to match official coaching layouts (All 4 balls lined up vertically on sideline outside East of boundary line)
     const resetPositions = {
-      blue: { x: 14.15, z: 17.0 },
-      red: { x: 14.15, z: 16.4 },
-      black: { x: 14.15, z: 15.8 },
-      yellow: { x: 14.15, z: 15.2 }
+      blue: { x: 13.5, z: 17.65 },
+      red: { x: 12.9, z: 17.65 },
+      black: { x: 12.3, z: 17.65 },
+      yellow: { x: 11.7, z: 17.65 }
     };
 
     setBalls(resetPositions);
@@ -2012,10 +2012,10 @@ export default function App() {
     : true;
 
   const isGameReset = 
-    balls.blue.x === 14.15 && balls.blue.z === 17.0 &&
-    balls.red.x === 14.15 && balls.red.z === 16.4 &&
-    balls.black.x === 14.15 && balls.black.z === 15.8 &&
-    balls.yellow.x === 14.15 && balls.yellow.z === 15.2;
+    balls.blue.x === 13.5 && balls.blue.z === 17.65 &&
+    balls.red.x === 12.9 && balls.red.z === 17.65 &&
+    balls.black.x === 12.3 && balls.black.z === 17.65 &&
+    balls.yellow.x === 11.7 && balls.yellow.z === 17.65;
 
   if (!isOnline) {
     return (

@@ -2451,7 +2451,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault enabled={!drawMode || !isDrawingActive} maxPolarAngle={Math.PI / 2 - 0.05} minDistance={5} maxDistance={250} target={[-3.19, 0.17, 0.28]} />
+        <OrbitControls makeDefault enabled={!drawMode || !isDrawingActive} maxPolarAngle={Math.PI / 2 - (5 * Math.PI / 180)} minDistance={5} maxDistance={250} target={[-3.19, 0.17, 0.28]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}

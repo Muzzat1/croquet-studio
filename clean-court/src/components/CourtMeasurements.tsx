@@ -1387,7 +1387,7 @@ export default function CourtMeasurements() {
             isGliding.current = false;
           }}
           enablePan={true} 
-          maxPolarAngle={Math.PI / 2 - 0.05} 
+          maxPolarAngle={Math.PI / 2 - (5 * Math.PI / 180)} 
           minDistance={5} 
           maxDistance={120} 
         />

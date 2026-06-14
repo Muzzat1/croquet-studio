@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -456,12 +456,143 @@ interface CameraControllerProps {
   targetLookAt: THREE.Vector3;
   isGliding: React.MutableRefObject<boolean>;
   controlsRef: React.RefObject<any>;
+  triggerGlide?: (pos: [number, number, number], lookAt: [number, number, number]) => void;
+  handleManualCamera?: (presetKey: string) => void;
+  clearAutoStart?: () => void;
 }
 
-function CameraController({ targetPos, targetLookAt, isGliding, controlsRef }: CameraControllerProps) {
+function CameraController({ 
+  targetPos, 
+  targetLookAt, 
+  isGliding, 
+  controlsRef,
+  triggerGlide,
+  handleManualCamera,
+  clearAutoStart
+}: CameraControllerProps) {
+  const { camera } = useThree();
+  const persCamera = camera as THREE.PerspectiveCamera;
+  const targetFov = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in inputs
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      // Log camera angle
+      if (key === 'c') {
+        const camPos = persCamera.position;
+        const targetPosVec = controlsRef.current ? controlsRef.current.target : new THREE.Vector3();
+        console.log(
+          `%c 📷 CAMERA ANGLE CAPTURED %c\n` +
+          `%c  Position %c: [${camPos.x.toFixed(4)}, ${camPos.y.toFixed(4)}, ${camPos.z.toFixed(4)}]\n` +
+          `%c  Target   %c: [${targetPosVec.x.toFixed(4)}, ${targetPosVec.y.toFixed(4)}, ${targetPosVec.z.toFixed(4)}]\n` +
+          `%c  FOV      %c: ${persCamera.fov.toFixed(1)}°`,
+          'background: #1e3c2f; color: #ffe680; font-weight: bold; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #d4af37;',
+          '',
+          'color: #ffe680; font-weight: bold;', 'color: #38bdf8;',
+          'color: #ffe680; font-weight: bold;', 'color: #38bdf8;',
+          'color: #ffe680; font-weight: bold;', 'color: #38bdf8;'
+        );
+        return;
+      }
+
+      // Smooth zoom in or out 20% per keypress (+/-)
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        const currentFov = targetFov.current ?? persCamera.fov;
+        targetFov.current = Math.max(5.0, currentFov * 0.8);
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        const currentFov = targetFov.current ?? persCamera.fov;
+        targetFov.current = Math.min(75.0, currentFov * 1.25);
+        return;
+      }
+
+      // Snapping presets
+      if (key === 'o') {
+        handleManualCamera?.('topdown');
+        return;
+      }
+      if (key === 'i' || e.key === '0') {
+        handleManualCamera?.('isometric');
+        return;
+      }
+      if (key === 'n') {
+        handleManualCamera?.('north');
+        return;
+      }
+      if (key === 's') {
+        handleManualCamera?.('south');
+        return;
+      }
+      if (key === 'e') {
+        handleManualCamera?.('east');
+        return;
+      }
+      if (key === 'w') {
+        handleManualCamera?.('west');
+        return;
+      }
+
+      // Step-specific / Hoop viewpoints (1-6)
+      if (e.key === '1') {
+        // Hoop 1 SW (Step 3)
+        clearAutoStart?.();
+        triggerGlide?.(STEP_CAMERAS[3].pos, STEP_CAMERAS[3].lookAt);
+        return;
+      }
+      if (e.key === '2') {
+        // Hoop 2 NW (Step 4)
+        clearAutoStart?.();
+        triggerGlide?.(STEP_CAMERAS[4].pos, STEP_CAMERAS[4].lookAt);
+        return;
+      }
+      if (e.key === '3') {
+        // Hoop 3 NE (Step 5)
+        clearAutoStart?.();
+        triggerGlide?.(STEP_CAMERAS[5].pos, STEP_CAMERAS[5].lookAt);
+        return;
+      }
+      if (e.key === '4') {
+        // Hoop 4 SE (Step 6)
+        clearAutoStart?.();
+        triggerGlide?.(STEP_CAMERAS[6].pos, STEP_CAMERAS[6].lookAt);
+        return;
+      }
+      if (e.key === '5') {
+        // Hoop 5 S Center (Step 8)
+        clearAutoStart?.();
+        triggerGlide?.(STEP_CAMERAS[8].pos, STEP_CAMERAS[8].lookAt);
+        return;
+      }
+      if (e.key === '6') {
+        // Hoop 6 N Center (Step 9)
+        clearAutoStart?.();
+        triggerGlide?.(STEP_CAMERAS[9].pos, STEP_CAMERAS[9].lookAt);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [persCamera, controlsRef, handleManualCamera, triggerGlide, clearAutoStart]);
+
   useFrame((state) => {
+    const cam = state.camera as THREE.PerspectiveCamera;
     if (isGliding.current && controlsRef.current) {
-      const cam = state.camera;
       cam.position.lerp(targetPos, 0.025); // Slowed down panning 2x (from 0.05 to 0.025)
       controlsRef.current.target.lerp(targetLookAt, 0.025);
       controlsRef.current.update();
@@ -472,7 +603,17 @@ function CameraController({ targetPos, targetLookAt, isGliding, controlsRef }: C
         isGliding.current = false;
       }
     }
+
+    if (targetFov.current !== null) {
+      cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov.current, 0.05);
+      cam.updateProjectionMatrix();
+      if (Math.abs(cam.fov - targetFov.current) < 0.1) {
+        cam.fov = targetFov.current;
+        targetFov.current = null;
+      }
+    }
   });
+
   return null;
 }
 
@@ -1121,6 +1262,9 @@ export default function CourtMeasurements() {
           targetLookAt={targetLookAt} 
           isGliding={isGliding} 
           controlsRef={controlsRef} 
+          triggerGlide={triggerGlide}
+          handleManualCamera={handleManualCamera}
+          clearAutoStart={clearAutoStart}
         />
 
         {/* ----------------------------------------------------------- */}

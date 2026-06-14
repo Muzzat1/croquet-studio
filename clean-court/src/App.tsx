@@ -3045,6 +3045,57 @@ export default function App() {
                             START SEQUENTIAL DEMO
                           </button>
                         </div>
+
+                        {/* 3D Court Setup & Measurements Card */}
+                        <div style={{ 
+                          background: 'rgba(129, 199, 132, 0.04)', 
+                          border: '1px solid rgba(129, 199, 132, 0.15)', 
+                          borderRadius: '8px', 
+                          padding: '10px 12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          marginTop: '12px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '2px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#81c784' }}>
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <line x1="9" y1="3" x2="9" y2="21" />
+                              <line x1="15" y1="3" x2="15" y2="21" />
+                              <line x1="3" y1="9" x2="21" y2="9" />
+                              <line x1="3" y1="15" x2="21" y2="15" />
+                            </svg>
+                            3D Court Setup Guide
+                          </div>
+                          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            View an interactive step-by-step layout guide of a tournament croquet court, showing exact dimensions for boundaries, hoops, peg, and lines.
+                          </div>
+                          <a 
+                            href="/measurements.html"
+                            className="hud-action-row" 
+                            style={{ 
+                              justifyContent: 'center', 
+                              gap: '6px', 
+                              padding: '8px 12px', 
+                              background: '#81c784', 
+                              color: '#000000', 
+                              fontSize: '11px', 
+                              fontWeight: 800, 
+                              border: 'none', 
+                              borderRadius: '8px', 
+                              cursor: 'pointer', 
+                              width: '100%',
+                              marginTop: '4px',
+                              textDecoration: 'none',
+                              boxShadow: '0 4px 10px rgba(129,199,132,0.2)'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ width: '12px', height: '12px' }}>
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                            OPEN COURT SETUP GUIDE
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </li>

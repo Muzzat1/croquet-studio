@@ -1391,6 +1391,21 @@ export default function CourtMeasurements() {
       {/* RIGHT RIBBON CONFIG PANEL */}
       {/* ------------------------------------------------------------- */}
       <div className="right-ribbon">
+        <a 
+          href="/" 
+          className="camera-btn" 
+          style={{ 
+            textAlign: 'center', 
+            textDecoration: 'none', 
+            background: 'linear-gradient(135deg, #ffe680 0%, #d4af37 100%)', 
+            color: '#000000', 
+            fontWeight: 'bold',
+            marginBottom: '10px',
+            display: 'block'
+          }}
+        >
+          ← Back to Sandbox
+        </a>
         <div className="config-title">Unit Indicators</div>
         <div className="unit-vertical-group">
           <button className={`unit-toggle-btn ${unit === 'yards' ? 'active' : ''}`} onClick={() => setUnit('yards')}>Yards</button>

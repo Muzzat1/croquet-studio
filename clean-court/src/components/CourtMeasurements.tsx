@@ -182,12 +182,12 @@ function CompassLabels({ visibleCount }: { visibleCount: number }) {
   );
 }
 
-// Corner Flag
+// Corner Flag (3x scale)
 function CornerFlag({ color, position }: { color: string; position: [number, number, number] }) {
-  const poleHeight = 0.3333; // 12 inches
-  const poleRadius = 0.015;
-  const flagWidth = 0.3;
-  const flagHeight = 0.2;
+  const poleHeight = 1.0; // 36 inches (3x scale)
+  const poleRadius = 0.045;
+  const flagWidth = 0.9;
+  const flagHeight = 0.6;
 
   const flagShape = useMemo(() => {
     const shape = new THREE.Shape();

@@ -8,13 +8,13 @@ type CornerFlagProps = ThreeElements['group'] & {
 };
 
 function CornerFlag({ color, ...props }: CornerFlagProps) {
-  // 12 inches high is exactly 1/3 of a yard = 0.3333 yards
-  const poleHeight = 0.3333;
-  const poleRadius = 0.015;
+  // 36 inches high (3x scale)
+  const poleHeight = 1.0;
+  const poleRadius = 0.045;
   
-  // 2x larger than the previous 0.15x0.1 flag size
-  const flagWidth = 0.3;
-  const flagHeight = 0.2;
+  // 3x scale flag size
+  const flagWidth = 0.9;
+  const flagHeight = 0.6;
 
   // Custom 3-sided triangle shape pointing right
   const flagShape = useMemo(() => {

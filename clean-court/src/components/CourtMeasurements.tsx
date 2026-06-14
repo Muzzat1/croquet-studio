@@ -186,17 +186,18 @@ function CompassLabels({ visibleCount }: { visibleCount: number }) {
 function CornerFlag({ color, position }: { color: string; position: [number, number, number] }) {
   const poleHeight = 1.0; // 36 inches (3x scale)
   const poleRadius = 0.045;
-  const flagWidth = 0.9;
+  const flagWidth = 0.6;
   const flagHeight = 0.6;
 
   const flagShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(0, 0);
     shape.lineTo(0, flagHeight);
-    shape.lineTo(flagWidth, flagHeight / 2);
+    shape.lineTo(flagWidth, flagHeight);
+    shape.lineTo(flagWidth, 0);
     shape.closePath();
     return shape;
-  }, []);
+  }, [flagWidth, flagHeight]);
 
   return (
     <group position={position}>

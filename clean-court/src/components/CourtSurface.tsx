@@ -12,16 +12,17 @@ function CornerFlag({ color, ...props }: CornerFlagProps) {
   const poleHeight = 1.0;
   const poleRadius = 0.045;
   
-  // 3x scale flag size
-  const flagWidth = 0.9;
+  // 3x scale flag size (square)
+  const flagWidth = 0.6;
   const flagHeight = 0.6;
 
-  // Custom 3-sided triangle shape pointing right
+  // Custom 4-sided square shape
   const flagShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(0, 0); // Bottom-left (attached to pole)
     shape.lineTo(0, flagHeight); // Top-left (attached to pole)
-    shape.lineTo(flagWidth, flagHeight / 2); // Tip pointing right
+    shape.lineTo(flagWidth, flagHeight); // Top-right
+    shape.lineTo(flagWidth, 0); // Bottom-right
     shape.closePath();
     return shape;
   }, [flagWidth, flagHeight]);

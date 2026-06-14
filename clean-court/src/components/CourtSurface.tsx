@@ -8,21 +8,20 @@ type CornerFlagProps = ThreeElements['group'] & {
 };
 
 function CornerFlag({ color, ...props }: CornerFlagProps) {
-  // 36 inches high (3x scale)
-  const poleHeight = 1.0;
-  const poleRadius = 0.045;
+  // 12 inches high is exactly 1/3 of a yard = 0.3333 yards
+  const poleHeight = 0.3333;
+  const poleRadius = 0.015;
   
-  // 3x scale flag size (square)
-  const flagWidth = 0.6;
-  const flagHeight = 0.6;
+  // 2x larger than the previous 0.15x0.1 flag size
+  const flagWidth = 0.3;
+  const flagHeight = 0.2;
 
-  // Custom 4-sided square shape
+  // Custom 3-sided triangle shape pointing right
   const flagShape = useMemo(() => {
     const shape = new THREE.Shape();
     shape.moveTo(0, 0); // Bottom-left (attached to pole)
     shape.lineTo(0, flagHeight); // Top-left (attached to pole)
-    shape.lineTo(flagWidth, flagHeight); // Top-right
-    shape.lineTo(flagWidth, 0); // Bottom-right
+    shape.lineTo(flagWidth, flagHeight / 2); // Tip pointing right
     shape.closePath();
     return shape;
   }, [flagWidth, flagHeight]);
@@ -54,21 +53,16 @@ interface HalfwayPegProps {
 }
 
 function HalfwayPeg({ position }: HalfwayPegProps) {
-  const pegHeight = 0.75; // 3x scale (was 0.25)
-  const pegRadius = 0.06; // 3x scale (was 0.02)
-  const capHeight = 0.045; // 3x scale (was 0.015)
-  const capRadius = 0.063; // 3x scale (was 0.021)
-
   return (
     <group position={position}>
-      {/* Vertical Peg body (3x scale) */}
-      <mesh position={[0, pegHeight / 2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[pegRadius, pegRadius, pegHeight, 8]} />
+      {/* Vertical Peg body (9 inches / 0.25 yards tall, 1.4 inches / 0.04 yards wide) */}
+      <mesh position={[0, 0.125, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.02, 0.02, 0.25, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.1} />
       </mesh>
-      {/* Premium dark cap on top of the white peg (3x scale) */}
-      <mesh position={[0, pegHeight - capHeight / 2, 0]} castShadow>
-        <cylinderGeometry args={[capRadius, capRadius, capHeight, 8]} />
+      {/* Premium dark cap on top of the white peg */}
+      <mesh position={[0, 0.245, 0]} castShadow>
+        <cylinderGeometry args={[0.021, 0.021, 0.015, 8]} />
         <meshStandardMaterial color="#222222" roughness={0.4} />
       </mesh>
     </group>

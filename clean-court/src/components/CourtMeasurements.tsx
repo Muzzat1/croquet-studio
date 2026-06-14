@@ -70,7 +70,7 @@ function Arrow3D({
   lineWidth = 0.015, // Thinner lines like draftsman drawings
   offsetY = 0.04,
   labelOffset = [0, 0.2, 0],
-  fontSize = '10px'
+  fontSize = '13px'
 }: Arrow3DProps) {
   const p1 = useMemo(() => new THREE.Vector3(start[0], start[1] + offsetY, start[2]), [start, offsetY]);
   const p2 = useMemo(() => new THREE.Vector3(end[0], end[1] + offsetY, end[2]), [end, offsetY]);
@@ -109,17 +109,17 @@ function Arrow3D({
       {/* HTML text label floating above arrow center - Styled like a landscape draftsman's blueprint label */}
       <Html position={[labelOffset[0], len / 2 + labelOffset[1], labelOffset[2]]} center distanceFactor={14}>
         <div style={{
-          background: 'rgba(244, 244, 246, 0.46)', // Tracing paper light grey (50% more transparent)
-          color: '#143d22', // Dark green text
-          border: `1px solid ${color}`, // Thin border matching the dimension line color
-          borderRadius: '0px', // Sharp square corners
-          padding: '1px 4px', // Minimised padding to shrink background box
-          fontSize: fontSize, // Crisp, small text (or customized)
-          fontWeight: 700,
-          fontFamily: "Consolas, Monaco, 'Andale Mono', 'Courier New', monospace", // Technical draftsman font
-          letterSpacing: '0.04em', // Tight letter spacing
+          background: 'rgba(255, 255, 255, 0.85)', // Highly visible white paper background
+          color: '#000000', // Maximum contrast pure black text
+          border: `1.5px solid ${color}`, // Matching boundary color
+          borderRadius: '2px', // Slight rounded corner for modern look
+          padding: '2px 6px', // Better padding
+          fontSize: fontSize, // Larger text
+          fontWeight: 800, // Extra bold
+          fontFamily: "'Outfit', sans-serif", // Clean, high-impact sans-serif font
+          letterSpacing: '0.02em',
           whiteSpace: 'nowrap',
-          boxShadow: 'none', // Flat draftsman style
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)', // Lift effect for depth/visibility
           textShadow: 'none',
           lineHeight: '1.1' // Tight line height to minimise vertical spacing
         }}>

@@ -351,7 +351,7 @@ function getArcPoints(
     const angle = startAngle + (i / segments) * (endAngle - startAngle);
     points.push([
       centerX + Math.cos(angle) * radius,
-      0.012, // slightly raised
+      0.020, // raised to Level 3 height to completely resolve z-fighting at sweeping camera angles
       centerZ + Math.sin(angle) * radius
     ]);
   }
@@ -381,9 +381,15 @@ function CourtBase({ step }: { step: number }) {
 
       {/* Mowing stripes */}
       {stripes.map((s, idx) => (
-        <mesh key={`stripe-${idx}`} position={[s.x, 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <mesh key={`stripe-${idx}`} position={[s.x, 0.010, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[stripeWidth, 35]} />
-          <meshStandardMaterial color={s.color} roughness={0.88} />
+          <meshStandardMaterial 
+            color={s.color} 
+            roughness={0.88} 
+            polygonOffset
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+          />
         </mesh>
       ))}
 
@@ -392,19 +398,21 @@ function CourtBase({ step }: { step: number }) {
         <>
           {/* West boundary line */}
           <Line 
-            points={[[-14, 0.015, -17.5], [-14, 0.015, 17.5]]} 
+            points={[[-14, 0.020, -17.5], [-14, 0.020, 17.5]]} 
             color="white" 
             lineWidth={3.5} 
             polygonOffset 
-            polygonOffsetFactor={-4}
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
           />
           {/* East boundary line */}
           <Line 
-            points={[[14, 0.015, -17.5], [14, 0.015, 17.5]]} 
+            points={[[14, 0.020, -17.5], [14, 0.020, 17.5]]} 
             color="white" 
             lineWidth={3.5} 
             polygonOffset 
-            polygonOffsetFactor={-4}
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
           />
         </>
       )}
@@ -413,19 +421,21 @@ function CourtBase({ step }: { step: number }) {
         <>
           {/* North boundary line */}
           <Line 
-            points={[[-14, 0.015, -17.5], [14, 0.015, -17.5]]} 
+            points={[[-14, 0.020, -17.5], [14, 0.020, -17.5]]} 
             color="white" 
             lineWidth={3.5} 
             polygonOffset 
-            polygonOffsetFactor={-4}
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
           />
           {/* South boundary line */}
           <Line 
-            points={[[-14, 0.015, 17.5], [14, 0.015, 17.5]]} 
+            points={[[-14, 0.020, 17.5], [14, 0.020, 17.5]]} 
             color="white" 
             lineWidth={3.5} 
             polygonOffset 
-            polygonOffsetFactor={-4}
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
           />
         </>
       )}
@@ -1318,7 +1328,7 @@ export default function CourtMeasurements() {
         {/* Step 10: Paint starting area corner 4 (SE) */}
         {step >= 10 && (
           <group>
-            <Line points={startingArcPoints} color="white" lineWidth={3.5} polygonOffset polygonOffsetFactor={-4} />
+            <Line points={startingArcPoints} color="white" lineWidth={3.5} polygonOffset polygonOffsetFactor={-10} polygonOffsetUnits={-10} />
             <Arrow3D 
               start={[14, 0, 17.5]} 
               end={[13.29, 0, 16.79]} 
@@ -1332,7 +1342,7 @@ export default function CourtMeasurements() {
         {step >= 11 && (
           <group>
             {/* West penalty semi-circle */}
-            <Line points={westPenaltyPoints} color="white" lineWidth={3.5} polygonOffset polygonOffsetFactor={-4} />
+            <Line points={westPenaltyPoints} color="white" lineWidth={3.5} polygonOffset polygonOffsetFactor={-10} polygonOffsetUnits={-10} />
             <Arrow3D 
               start={[-14, 0, 0]} 
               end={[-13, 0, 0]} 
@@ -1340,7 +1350,7 @@ export default function CourtMeasurements() {
               color="white"
             />
             {/* East penalty semi-circle */}
-            <Line points={eastPenaltyPoints} color="white" lineWidth={3.5} polygonOffset polygonOffsetFactor={-4} />
+            <Line points={eastPenaltyPoints} color="white" lineWidth={3.5} polygonOffset polygonOffsetFactor={-10} polygonOffsetUnits={-10} />
             <Arrow3D 
               start={[14, 0, 0]} 
               end={[13, 0, 0]} 

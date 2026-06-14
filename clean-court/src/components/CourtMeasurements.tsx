@@ -213,6 +213,76 @@ function CornerFlag({ color, position }: { color: string; position: [number, num
   );
 }
 
+// Animated Center Peg Component (3-stage mallet hit simulation)
+function AnimatedPeg({ step }: { step: number }) {
+  const pegGroupRef = useRef<THREE.Group>(null);
+  const animTime = useRef(0);
+
+  useEffect(() => {
+    animTime.current = 0;
+  }, [step]);
+
+  useFrame((_, delta) => {
+    if (!pegGroupRef.current) return;
+
+    if (step === 7) {
+      animTime.current = Math.min(animTime.current + delta, 1.8);
+      const t = animTime.current / 1.8; // Normalized time (0 to 1) over 1.8s
+
+      let animatedY = 0;
+      if (t < 0.3) {
+        // Strike 1
+        const nt = t / 0.3;
+        if (nt < 0.33) {
+          const strikeT = nt / 0.33;
+          animatedY = 5.0 - 2.0 * strikeT * strikeT;
+        } else {
+          const settleT = (nt - 0.33) / 0.67;
+          animatedY = 3.0 + 0.15 * Math.sin(settleT * Math.PI);
+        }
+      } else if (t < 0.6) {
+        // Strike 2
+        const nt = (t - 0.3) / 0.3;
+        if (nt < 0.33) {
+          const strikeT = nt / 0.33;
+          animatedY = 3.1 - 1.7 * strikeT * strikeT;
+        } else {
+          const settleT = (nt - 0.33) / 0.67;
+          animatedY = 1.4 + 0.12 * Math.sin(settleT * Math.PI);
+        }
+      } else {
+        // Strike 3 (Drive Home)
+        const nt = (t - 0.6) / 0.4;
+        if (nt < 0.25) {
+          const strikeT = nt / 0.25;
+          animatedY = 1.45 - 1.45 * strikeT * strikeT;
+        } else {
+          const settleT = (nt - 0.25) / 0.75;
+          animatedY = 0.0 + 0.08 * Math.sin(settleT * Math.PI * 2) * Math.exp(-settleT * 4);
+        }
+      }
+      pegGroupRef.current.position.y = animatedY;
+    } else {
+      pegGroupRef.current.position.y = 0;
+    }
+  });
+
+  return (
+    <group ref={pegGroupRef}>
+      <mesh position={[0, 0.65625, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.075, 0.075, 1.3125, 16]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.3} />
+      </mesh>
+      {['#1565c0', '#d32f2f', '#222222', '#ffeb3b'].map((col, idx) => (
+        <mesh key={`peg-band-${idx}`} position={[0, 1.3125 - 0.08 - idx * 0.16, 0]}>
+          <cylinderGeometry args={[0.076, 0.076, 0.16, 16]} />
+          <meshStandardMaterial color={col} roughness={0.3} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // Halfway Peg (Offside Marker)
 function HalfwayPeg({ position }: { position: [number, number, number] }) {
   return (
@@ -1145,16 +1215,7 @@ export default function CourtMeasurements() {
         {/* Step 7: Center Peg */}
         {step >= 7 && (
           <group>
-            <mesh position={[0, 0.65625, 0]} castShadow receiveShadow>
-              <cylinderGeometry args={[0.075, 0.075, 1.3125, 16]} />
-              <meshStandardMaterial color="#ffffff" roughness={0.3} />
-            </mesh>
-            {['#1565c0', '#d32f2f', '#222222', '#ffeb3b'].map((col, idx) => (
-              <mesh key={`peg-band-${idx}`} position={[0, 1.3125 - 0.08 - idx * 0.16, 0]}>
-                <cylinderGeometry args={[0.076, 0.076, 0.16, 16]} />
-                <meshStandardMaterial color={col} roughness={0.3} />
-              </mesh>
-            ))}
+            <AnimatedPeg step={step} />
 
             {/* Intersecting center guidelines */}
             {step === 7 && (

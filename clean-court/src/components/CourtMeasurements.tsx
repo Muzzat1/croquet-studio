@@ -283,16 +283,21 @@ function AnimatedPeg({ step }: { step: number }) {
   );
 }
 
-// Halfway Peg (Offside Marker)
+// Halfway Peg (Offside Marker - 3x scale)
 function HalfwayPeg({ position }: { position: [number, number, number] }) {
+  const pegHeight = 0.75; // 3x scale (was 0.25)
+  const pegRadius = 0.054; // 3x scale (was 0.018)
+  const capHeight = 0.045; // 3x scale (was 0.015)
+  const capRadius = 0.057; // 3x scale (was 0.019)
+
   return (
     <group position={position}>
-      <mesh position={[0, 0.125, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.018, 0.018, 0.25, 8]} />
+      <mesh position={[0, pegHeight / 2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[pegRadius, pegRadius, pegHeight, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
       </mesh>
-      <mesh position={[0, 0.245, 0]}>
-        <cylinderGeometry args={[0.019, 0.019, 0.015, 8]} />
+      <mesh position={[0, pegHeight - capHeight / 2, 0]} castShadow>
+        <cylinderGeometry args={[capRadius, capRadius, capHeight, 8]} />
         <meshStandardMaterial color="#222222" roughness={0.4} />
       </mesh>
     </group>

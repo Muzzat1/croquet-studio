@@ -54,16 +54,21 @@ interface HalfwayPegProps {
 }
 
 function HalfwayPeg({ position }: HalfwayPegProps) {
+  const pegHeight = 0.75; // 3x scale (was 0.25)
+  const pegRadius = 0.06; // 3x scale (was 0.02)
+  const capHeight = 0.045; // 3x scale (was 0.015)
+  const capRadius = 0.063; // 3x scale (was 0.021)
+
   return (
     <group position={position}>
-      {/* Vertical Peg body (9 inches / 0.25 yards tall, 1.4 inches / 0.04 yards wide) */}
-      <mesh position={[0, 0.125, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.02, 0.02, 0.25, 8]} />
+      {/* Vertical Peg body (3x scale) */}
+      <mesh position={[0, pegHeight / 2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[pegRadius, pegRadius, pegHeight, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.1} />
       </mesh>
-      {/* Premium dark cap on top of the white peg */}
-      <mesh position={[0, 0.245, 0]} castShadow>
-        <cylinderGeometry args={[0.021, 0.021, 0.015, 8]} />
+      {/* Premium dark cap on top of the white peg (3x scale) */}
+      <mesh position={[0, pegHeight - capHeight / 2, 0]} castShadow>
+        <cylinderGeometry args={[capRadius, capRadius, capHeight, 8]} />
         <meshStandardMaterial color="#222222" roughness={0.4} />
       </mesh>
     </group>

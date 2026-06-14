@@ -1478,10 +1478,13 @@ export default function CourtMeasurements() {
             color: '#000000', 
             fontWeight: 'bold',
             marginBottom: '10px',
-            display: 'block'
+            display: 'block',
+            whiteSpace: 'nowrap',
+            fontSize: '10px',
+            padding: '8px 4px'
           }}
         >
-          ← Return to 3D Visualiser
+          Return to 3D Visualiser
         </a>
         <div className="config-title">Unit Indicators</div>
         <div className="unit-vertical-group">

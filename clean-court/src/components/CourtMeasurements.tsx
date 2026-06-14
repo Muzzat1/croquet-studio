@@ -216,13 +216,20 @@ function CornerFlag({ color, position }: { color: string; position: [number, num
 // Animated Center Peg Component (3-stage mallet hit simulation)
 function AnimatedPeg({ step }: { step: number }) {
   const pegGroupRef = useRef<THREE.Group>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
   const animTime = useRef(0);
 
   useEffect(() => {
     animTime.current = 0;
   }, [step]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
+    if (ringRef.current) {
+      const pulse = 0.5 + 0.5 * Math.sin(state.clock.getElapsedTime() * 6);
+      const mat = ringRef.current.material as THREE.MeshBasicMaterial;
+      if (mat) mat.opacity = 0.3 + 0.5 * pulse;
+    }
+
     if (!pegGroupRef.current) return;
 
     if (step === 7) {
@@ -268,17 +275,28 @@ function AnimatedPeg({ step }: { step: number }) {
   });
 
   return (
-    <group ref={pegGroupRef}>
-      <mesh position={[0, 0.65625, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.075, 0.075, 1.3125, 16]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.3} />
-      </mesh>
-      {['#1565c0', '#d32f2f', '#222222', '#ffeb3b'].map((col, idx) => (
-        <mesh key={`peg-band-${idx}`} position={[0, 1.3125 - 0.08 - idx * 0.16, 0]}>
-          <cylinderGeometry args={[0.076, 0.076, 0.16, 16]} />
-          <meshStandardMaterial color={col} roughness={0.3} />
+    <group>
+      {/* Pulsing Target Ring at the center peg spot */}
+      {step === 7 && (
+        <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+          <ringGeometry args={[0.5, 0.6, 32]} />
+          <meshBasicMaterial color="#ffe680" transparent opacity={0.8} side={THREE.DoubleSide} />
         </mesh>
-      ))}
+      )}
+
+      {/* Animated Center Peg (Scaled 3x for visibility in the layout guide) */}
+      <group ref={pegGroupRef} scale={[3, 3, 3]}>
+        <mesh position={[0, 0.65625, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.075, 0.075, 1.3125, 16]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.3} />
+        </mesh>
+        {['#1565c0', '#d32f2f', '#222222', '#ffeb3b'].map((col, idx) => (
+          <mesh key={`peg-band-${idx}`} position={[0, 1.3125 - 0.08 - idx * 0.16, 0]}>
+            <cylinderGeometry args={[0.076, 0.076, 0.16, 16]} />
+            <meshStandardMaterial color={col} roughness={0.3} />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 }

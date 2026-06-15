@@ -505,14 +505,14 @@ function QuadwayHoop({
   return (
     <group ref={groupRef} position={position}>
       {/* Left Upright Leg (Circular) */}
-      <mesh position={[-crownWidth / 2, height / 2, 0]} castShadow>
+      <mesh position={[-crownWidth / 2, height / 2 + 0.0055, 0]} castShadow>
         <cylinderGeometry args={[staveRadius, staveRadius, height, 16]} />
         <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
       </mesh>
       
       {/* Left Carrot (4-sided tapered spike, rotated 45 deg to align flat sides) */}
       <mesh 
-        position={[-crownWidth / 2, -carrotLength / 2, 0]} 
+        position={[-crownWidth / 2, -carrotLength / 2 + 0.0055, 0]} 
         rotation={[0, Math.PI / 4, 0]} 
         castShadow
       >
@@ -521,14 +521,14 @@ function QuadwayHoop({
       </mesh>
       
       {/* Right Upright Leg (Circular) */}
-      <mesh position={[crownWidth / 2, height / 2, 0]} castShadow>
+      <mesh position={[crownWidth / 2, height / 2 + 0.0055, 0]} castShadow>
         <cylinderGeometry args={[staveRadius, staveRadius, height, 16]} />
         <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
       </mesh>
 
       {/* Right Carrot (4-sided tapered spike, rotated 45 deg to align flat sides) */}
       <mesh 
-        position={[crownWidth / 2, -carrotLength / 2, 0]} 
+        position={[crownWidth / 2, -carrotLength / 2 + 0.0055, 0]} 
         rotation={[0, Math.PI / 4, 0]} 
         castShadow
       >
@@ -537,7 +537,7 @@ function QuadwayHoop({
       </mesh>
 
       {/* Hoop Crown */}
-      <mesh position={[0, height, 0]} castShadow>
+      <mesh position={[0, height + 0.0055, 0]} castShadow>
         <boxGeometry args={[crownWidth + crownSize, crownSize, crownSize]} />
         <meshStandardMaterial 
           color={crownColor} 

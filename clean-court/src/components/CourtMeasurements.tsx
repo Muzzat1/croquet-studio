@@ -950,20 +950,9 @@ export default function CourtMeasurements() {
     }
   };
 
-  // Initial load hook: start in Top-down landscape view, pause 1.5s, then automatically start sequence
+  // Initial load hook: start in Top-down landscape view
   useEffect(() => {
     triggerGlide(STEP_CAMERAS[0].pos, STEP_CAMERAS[0].lookAt);
-
-    autoStartTimerRef.current = window.setTimeout(() => {
-      setIsPlaying(true);
-      setStep(1);
-      const camTarget = STEP_CAMERAS[1];
-      triggerGlide(camTarget.pos, camTarget.lookAt);
-    }, 1500); // 1.5-second pause on load before autoplay starts
-
-    return () => {
-      if (autoStartTimerRef.current) clearTimeout(autoStartTimerRef.current);
-    };
   }, []);
 
   const advanceSequence = () => {

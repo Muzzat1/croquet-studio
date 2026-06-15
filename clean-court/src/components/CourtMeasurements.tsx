@@ -254,7 +254,6 @@ function CornerFlag({
     const shape = new THREE.Shape();
     shape.moveTo(0, 0);
     shape.lineTo(0, flagHeight);
-    shape.lineTo(flagWidth, flagHeight);
     shape.lineTo(flagWidth, 0);
     shape.closePath();
     return shape;
@@ -263,8 +262,8 @@ function CornerFlag({
   return (
     <group ref={groupRef} position={position}>
       <mesh position={[0, poleHeight / 2, 0]} castShadow>
-        <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 8]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.3} />
+        <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 16]} />
+        <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
       </mesh>
       <mesh position={[poleRadius, poleHeight - flagHeight, 0]} castShadow>
         <extrudeGeometry args={[flagShape, { depth: 0.005, bevelEnabled: false }]} />

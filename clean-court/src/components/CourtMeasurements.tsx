@@ -182,8 +182,69 @@ function CompassLabels({ visibleCount }: { visibleCount: number }) {
   );
 }
 
-// Corner Flag (3x scale)
-function CornerFlag({ color, position }: { color: string; position: [number, number, number] }) {
+// Corner Flag (3x scale & animated placement)
+interface CornerFlagProps {
+  color: string;
+  position: [number, number, number];
+  placementStep?: number;
+  currentStep?: number;
+}
+
+function CornerFlag({ 
+  color, 
+  position,
+  placementStep,
+  currentStep
+}: CornerFlagProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const animTime = useRef(0);
+
+  useEffect(() => {
+    animTime.current = 0;
+  }, [currentStep]);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+
+    if (placementStep !== undefined && currentStep === placementStep) {
+      animTime.current = Math.min(animTime.current + delta, 5.0); // 1.0s delay + 4.0s animation (slowed down by 2x)
+      
+      let animatedY = 2.0; // Standby position high in the air during the 1.0s delay
+      
+      if (animTime.current > 1.0) {
+        const activeTime = animTime.current - 1.0;
+        const t = activeTime / 4.0; // 0 to 1 over 4.0s
+
+        if (t < 0.4) {
+          // Smooth slide down from 2.0 yards high to 0.35 yards
+          const slideT = t / 0.4;
+          const ease = 1 - Math.pow(1 - slideT, 3);
+          animatedY = 2.0 * (1 - ease) + 0.35 * ease;
+        } else {
+          // Tapping/driving the flags into the ground (0.35 down to 0.0)
+          const driveT = (t - 0.4) / 0.6; // 0 to 1
+          // Three slow, deliberate taps to drive it home:
+          if (driveT < 0.33) {
+            const nt = driveT / 0.33;
+            animatedY = 0.35 * (1 - nt) + 0.22 * nt;
+            if (nt < 0.2) animatedY += 0.02 * Math.sin(nt / 0.2 * Math.PI);
+          } else if (driveT < 0.66) {
+            const nt = (driveT - 0.33) / 0.33;
+            animatedY = 0.22 * (1 - nt) + 0.10 * nt;
+            if (nt < 0.2) animatedY += 0.015 * Math.sin(nt / 0.2 * Math.PI);
+          } else {
+            const nt = (driveT - 0.66) / 0.34;
+            animatedY = 0.10 * (1 - nt) + 0.0 * nt;
+            if (nt < 0.2) animatedY += 0.01 * Math.sin(nt / 0.2 * Math.PI);
+          }
+        }
+      }
+      groupRef.current.position.y = animatedY;
+    } else {
+      groupRef.current.position.y = 0;
+    }
+  });
+
   const poleHeight = 1.0; // 36 inches (3x scale)
   const poleRadius = 0.045;
   const flagWidth = 0.6;
@@ -200,7 +261,7 @@ function CornerFlag({ color, position }: { color: string; position: [number, num
   }, [flagWidth, flagHeight]);
 
   return (
-    <group position={position}>
+    <group ref={groupRef} position={position}>
       <mesh position={[0, poleHeight / 2, 0]} castShadow>
         <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
@@ -978,7 +1039,7 @@ export default function CourtMeasurements() {
       text: "Two semi-circular penalty areas of 1-yard (0.91 metre) radius are painted, centered on the halfway points of the West and East boundary lines."
     },
     {
-      title: "Step 12: Pitching Corner Flags",
+      title: "Step 12: Placing the Corner Flags",
       text: "Four corner flags are placed at the boundaries to guide play visibility. Corner 1 (South-West) is Blue, Corner 2 (North-West) is Red, Corner 3 (North-East) is Black, and Corner 4 (South-East) is Yellow."
     },
     {
@@ -1659,10 +1720,10 @@ export default function CourtMeasurements() {
         {/* Step 12: Corner flags placed */}
         {step >= 12 && (
           <group>
-            <CornerFlag position={[-14, 0, 17.5]} color="#0055ff" />
-            <CornerFlag position={[-14, 0, -17.5]} color="#ff0000" />
-            <CornerFlag position={[14, 0, -17.5]} color="#222222" />
-            <CornerFlag position={[14, 0, 17.5]} color="#ffcc00" />
+            <CornerFlag position={[-14, 0, 17.5]} color="#0055ff" placementStep={12} currentStep={step} />
+            <CornerFlag position={[-14, 0, -17.5]} color="#ff0000" placementStep={12} currentStep={step} />
+            <CornerFlag position={[14, 0, -17.5]} color="#222222" placementStep={12} currentStep={step} />
+            <CornerFlag position={[14, 0, 17.5]} color="#ffcc00" placementStep={12} currentStep={step} />
           </group>
         )}
 

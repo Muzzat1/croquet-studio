@@ -1747,7 +1747,12 @@ export default function CourtMeasurements() {
             <Arrow3D 
               start={[-14, 0, 0]} 
               end={[-13, 0, 0]} 
-              label={formatDist(1, unit)} 
+              label={(
+                <div style={{ textAlign: 'center' }}>
+                  <div>Penalty Area: {unit === 'yards' ? '1 yd' : unit === 'metres' ? '0.9 m' : '1 yd / 0.9 m'}</div>
+                  <div style={{ fontSize: '0.85em', fontWeight: 'normal', marginTop: '2px', opacity: 0.85 }}>Optional</div>
+                </div>
+              )} 
               color="white"
             />
             {/* East penalty semi-circle */}
@@ -1755,7 +1760,12 @@ export default function CourtMeasurements() {
             <Arrow3D 
               start={[14, 0, 0]} 
               end={[13, 0, 0]} 
-              label={formatDist(1, unit)} 
+              label={(
+                <div style={{ textAlign: 'center' }}>
+                  <div>Penalty Area: {unit === 'yards' ? '1 yd' : unit === 'metres' ? '0.9 m' : '1 yd / 0.9 m'}</div>
+                  <div style={{ fontSize: '0.85em', fontWeight: 'normal', marginTop: '2px', opacity: 0.85 }}>Optional</div>
+                </div>
+              )} 
               color="white"
             />
           </group>

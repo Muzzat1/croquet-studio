@@ -1749,7 +1749,7 @@ export default function CourtMeasurements() {
               end={[-13, 0, 0]} 
               label={(
                 <div style={{ textAlign: 'center' }}>
-                  <div>Penalty Area: {unit === 'yards' ? '1 yd' : unit === 'metres' ? '0.9 m' : '1 yd / 0.9 m'}</div>
+                  <div>Penalty Area: {unit === 'yards' ? '1 yd' : unit === 'metres' ? '0.91 m' : '1 yd / 0.91 m'}</div>
                   <div style={{ fontSize: '0.85em', fontWeight: 'normal', marginTop: '2px', opacity: 0.85 }}>(Optional)</div>
                 </div>
               )} 
@@ -1762,7 +1762,7 @@ export default function CourtMeasurements() {
               end={[13, 0, 0]} 
               label={(
                 <div style={{ textAlign: 'center' }}>
-                  <div>Penalty Area: {unit === 'yards' ? '1 yd' : unit === 'metres' ? '0.9 m' : '1 yd / 0.9 m'}</div>
+                  <div>Penalty Area: {unit === 'yards' ? '1 yd' : unit === 'metres' ? '0.91 m' : '1 yd / 0.91 m'}</div>
                   <div style={{ fontSize: '0.85em', fontWeight: 'normal', marginTop: '2px', opacity: 0.85 }}>(Optional)</div>
                 </div>
               )} 

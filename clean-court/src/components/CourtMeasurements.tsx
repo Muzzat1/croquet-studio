@@ -859,6 +859,7 @@ export default function CourtMeasurements() {
 
   const [visibleLabelsCount, setVisibleLabelsCount] = useState(0);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const [showNavigationBubble, setShowNavigationBubble] = useState(false);
 
   // References for audio playback, camera controls, and smooth transitions
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -869,6 +870,18 @@ export default function CourtMeasurements() {
   const [targetLookAt] = useState<THREE.Vector3>(() => new THREE.Vector3(...STEP_CAMERAS[0].lookAt));
   const nextTargetRef = useRef<CameraTarget | null>(null);
   const glideSpeed = useRef<number>(0.025);
+
+  // Effect to manage navigation guide speech bubble at Step 13
+  useEffect(() => {
+    if (step === 13) {
+      const timer = window.setTimeout(() => {
+        setShowNavigationBubble(true);
+      }, 5000); // 5s delay (1s delay + 4s animation)
+      return () => clearTimeout(timer);
+    } else {
+      setShowNavigationBubble(false);
+    }
+  }, [step]);
 
   // Effect to manage 1-by-1 boundary label animation at Step 0, keeping them all visible for step > 0
   useEffect(() => {
@@ -1242,6 +1255,51 @@ export default function CourtMeasurements() {
           left: 0;
           width: calc(100% - 180px);
           height: calc(100% - 98px);
+        }
+
+        @keyframes fadeInBubble {
+          from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        .speech-bubble {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          background: rgba(10, 16, 12, 0.95);
+          border: 1.5px solid #ffe680;
+          border-radius: 8px;
+          padding: 14px 18px;
+          max-width: 320px;
+          color: #ffffff;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          z-index: 1000;
+          font-family: 'Outfit', sans-serif;
+          animation: fadeInBubble 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .speech-bubble::before {
+          content: '';
+          position: absolute;
+          top: -8px;
+          left: 24px;
+          border-width: 0 8px 8px 8px;
+          border-style: solid;
+          border-color: transparent transparent #ffe680 transparent;
+          display: block;
+          width: 0;
+        }
+
+        .speech-bubble::after {
+          content: '';
+          position: absolute;
+          top: -6px;
+          left: 25px;
+          border-width: 0 7px 7px 7px;
+          border-style: solid;
+          border-color: transparent transparent rgba(10, 16, 12, 0.95) transparent;
+          display: block;
+          width: 0;
         }
         
         .bottom-ribbon {
@@ -1859,6 +1917,43 @@ export default function CourtMeasurements() {
           maxDistance={120} 
         />
       </Canvas>
+
+      {showNavigationBubble && (
+        <div className="speech-bubble">
+          <div style={{ color: '#ffe680', fontWeight: 'bold', fontSize: '13px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>💡</span> 3D Navigation Guide
+          </div>
+          <div style={{ fontSize: '12.5px', lineHeight: '1.45', color: '#e2e8f0' }}>
+            The 3D court model can be navigated with the left and right mouse buttons, scroll wheel, or keyboard shortcuts.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+            <button 
+              onClick={() => setShowNavigationBubble(false)} 
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.1)', 
+                border: '1.5px solid rgba(255, 255, 255, 0.2)', 
+                color: '#ffe680', 
+                cursor: 'pointer', 
+                fontSize: '11px', 
+                fontWeight: 'bold', 
+                padding: '4px 12px',
+                borderRadius: '4px',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* ------------------------------------------------------------- */}

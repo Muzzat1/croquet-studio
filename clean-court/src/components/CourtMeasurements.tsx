@@ -876,7 +876,7 @@ export default function CourtMeasurements() {
     if (step === 13) {
       const timer = window.setTimeout(() => {
         setShowNavigationBubble(true);
-      }, 5000); // 5s delay (1s delay + 4s animation)
+      }, 1500); // 1.5s delay to pop up promptly during animation
       return () => clearTimeout(timer);
     } else {
       setShowNavigationBubble(false);
@@ -1917,43 +1917,6 @@ export default function CourtMeasurements() {
           maxDistance={120} 
         />
       </Canvas>
-
-      {showNavigationBubble && (
-        <div className="speech-bubble">
-          <div style={{ color: '#ffe680', fontWeight: 'bold', fontSize: '13px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>💡</span> 3D Navigation Guide
-          </div>
-          <div style={{ fontSize: '12.5px', lineHeight: '1.45', color: '#e2e8f0' }}>
-            The 3D court model can be navigated with the left and right mouse buttons, scroll wheel, or keyboard shortcuts.
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-            <button 
-              onClick={() => setShowNavigationBubble(false)} 
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.1)', 
-                border: '1.5px solid rgba(255, 255, 255, 0.2)', 
-                color: '#ffe680', 
-                cursor: 'pointer', 
-                fontSize: '11px', 
-                fontWeight: 'bold', 
-                padding: '4px 12px',
-                borderRadius: '4px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -2064,6 +2027,43 @@ export default function CourtMeasurements() {
           3D COURT LAYOUT &bull; &copy; 2026
         </div>
       </div>
+
+      {showNavigationBubble && (
+        <div className="speech-bubble">
+          <div style={{ color: '#ffe680', fontWeight: 'bold', fontSize: '13px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>💡</span> 3D Navigation Guide
+          </div>
+          <div style={{ fontSize: '12.5px', lineHeight: '1.45', color: '#e2e8f0' }}>
+            The 3D court model can be navigated with the left and right mouse buttons, scroll wheel, or keyboard shortcuts.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+            <button 
+              onClick={() => setShowNavigationBubble(false)} 
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.1)', 
+                border: '1.5px solid rgba(255, 255, 255, 0.2)', 
+                color: '#ffe680', 
+                cursor: 'pointer', 
+                fontSize: '11px', 
+                fontWeight: 'bold', 
+                padding: '4px 12px',
+                borderRadius: '4px',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

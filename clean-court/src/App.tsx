@@ -1354,6 +1354,7 @@ export default function App() {
     const isAllowedDomain = 
       window.location.hostname === 'localhost' || 
       window.location.hostname === '127.0.0.1' || 
+      window.location.hostname === '3d.croquetstudio.com' ||
       window.location.hostname.endsWith('.pages.dev');
 
     if (isLocalFile || !isAllowedDomain) {

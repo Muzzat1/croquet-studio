@@ -22,14 +22,14 @@ interface CameraTarget {
 }
 
 const STEP_CAMERAS: Record<number, CameraTarget> = {
-  0: { pos: [-0.01, 42, 0], lookAt: [0, 0, 0] },       // Overhead 2D View at Step 0 (Landscape, West at bottom)
+  0: { pos: [0.01, 42, 0], lookAt: [0, 0, 0] },       // Overhead 2D View at Step 0 (Landscape, East at bottom)
   1: { pos: [-24, 15, 0], lookAt: [-14, 0, 0] },     // Step 1 West/East Lines (Length)
   2: { pos: [0, 15, 26], lookAt: [0, 0, 17.5] },     // Step 2 North/South Lines (Width)
   3: { pos: [-16, 7, 19.5], lookAt: [-7, 0, 10.5] },  // Step 3 Hoop 1 SW: close-up
   4: { pos: [-16, 7, -19.5], lookAt: [-7, 0, -10.5] },// Step 4 Hoop 2 NW: close-up
   5: { pos: [16, 7, -19.5], lookAt: [7, 0, -10.5] },  // Step 5 Hoop 3 NE: close-up
   6: { pos: [16, 7, 19.5], lookAt: [7, 0, 10.5] },   // Step 6 Hoop 4 SE: close-up
-  7: { pos: [-0.01, 42, 0], lookAt: [0, 0, 0] },       // Step 7 Center Peg: Top-Down 2D View (Landscape, West at bottom)
+  7: { pos: [0.01, 42, 0], lookAt: [0, 0, 0] },       // Step 7 Center Peg: Top-Down 2D View (Landscape, East at bottom)
   8: { pos: [-6, 6, 12], lookAt: [0, 0, 7] },        // Step 8 Hoop 5 S Center: close-up
   9: { pos: [-6, 6, -12], lookAt: [0, 0, -7] },      // Step 9 Hoop 6 N Center: close-up
   10: { pos: [19, 6, 22.5], lookAt: [14, 0, 17.5] },  // Step 10 Start Corner SE: close-up
@@ -39,7 +39,7 @@ const STEP_CAMERAS: Record<number, CameraTarget> = {
 };
 
 const MANUAL_PRESETS: Record<string, CameraTarget> = {
-  topdown: { pos: [-0.01, 42, 0], lookAt: [0, 0, 0] },
+  topdown: { pos: [0.01, 42, 0], lookAt: [0, 0, 0] },
   isometric: { pos: [26, 20, 26], lookAt: [0, 0, 0] },
   north: { pos: [0, 6, -30], lookAt: [0, 0, -8] },
   south: { pos: [0, 6, 30], lookAt: [0, 0, 8] },
@@ -1564,7 +1564,7 @@ export default function CourtMeasurements() {
 
       {/* 3D VIEWPORT CONTAINER */}
       <div className="canvas-container">
-        <Canvas shadows camera={{ position: [-0.01, 42, 0], fov: 45 }}>
+        <Canvas shadows camera={{ position: [0.01, 42, 0], fov: 45 }}>
         <color attach="background" args={['#24512c']} />
         <fog attach="fog" args={['#24512c', 60, 180]} />
         

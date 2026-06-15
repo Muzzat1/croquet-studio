@@ -1644,7 +1644,7 @@ export default function CourtMeasurements() {
                 <Arrow3D 
                   start={[0, 0, -17.5]} 
                   end={[0, 0, 0]} 
-                  label={formatDist(17.5, unit)} 
+                  label={unit === 'yards' ? '52 ft 6"' : unit === 'metres' ? '16 m' : '52 ft 6" / 16 m'} 
                   color="#e0e0e0"
                   lineWidth={0.018}
                   fontSize="30px"
@@ -1652,7 +1652,7 @@ export default function CourtMeasurements() {
                 <Arrow3D 
                   start={[0, 0, 17.5]} 
                   end={[0, 0, 0]} 
-                  label={formatDist(17.5, unit)} 
+                  label={unit === 'yards' ? '52 ft 6"' : unit === 'metres' ? '16 m' : '52 ft 6" / 16 m'} 
                   color="#e0e0e0"
                   lineWidth={0.018}
                   fontSize="30px"

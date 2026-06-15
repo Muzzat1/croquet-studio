@@ -347,31 +347,36 @@ function QuadwayHoop({
     if (!groupRef.current) return;
 
     if (placementStep !== undefined && currentStep === placementStep) {
-      animTime.current = Math.min(animTime.current + delta, 2.0);
-      const t = animTime.current / 2.0; // 0 to 1 over 2.0s
+      animTime.current = Math.min(animTime.current + delta, 5.0); // 1.0s delay + 4.0s animation (slowed down by 2x)
+      
+      let animatedY = 1.8; // Standby position high in the air during the 1.0s delay
+      
+      if (animTime.current > 1.0) {
+        const activeTime = animTime.current - 1.0; // Elapsed active animation time
+        const t = activeTime / 4.0; // 0 to 1 over 4.0s
 
-      let animatedY = 0;
-      if (t < 0.4) {
-        // Smooth slide down from 1.8 yards high (so spikes are clearly visible) to 0.35 yards
-        const slideT = t / 0.4;
-        const ease = 1 - Math.pow(1 - slideT, 3);
-        animatedY = 1.8 * (1 - ease) + 0.35 * ease;
-      } else {
-        // Tapping/driving the spikes into the ground (0.35 down to 0.0)
-        const driveT = (t - 0.4) / 0.6; // 0 to 1
-        // Three quick taps to drive it home:
-        if (driveT < 0.33) {
-          const nt = driveT / 0.33;
-          animatedY = 0.35 * (1 - nt) + 0.22 * nt;
-          if (nt < 0.2) animatedY += 0.02 * Math.sin(nt / 0.2 * Math.PI);
-        } else if (driveT < 0.66) {
-          const nt = (driveT - 0.33) / 0.33;
-          animatedY = 0.22 * (1 - nt) + 0.10 * nt;
-          if (nt < 0.2) animatedY += 0.015 * Math.sin(nt / 0.2 * Math.PI);
+        if (t < 0.4) {
+          // Smooth slide down from 1.8 yards high (so spikes are clearly visible) to 0.35 yards
+          const slideT = t / 0.4;
+          const ease = 1 - Math.pow(1 - slideT, 3);
+          animatedY = 1.8 * (1 - ease) + 0.35 * ease;
         } else {
-          const nt = (driveT - 0.66) / 0.34;
-          animatedY = 0.10 * (1 - nt) + 0.0 * nt;
-          if (nt < 0.2) animatedY += 0.01 * Math.sin(nt / 0.2 * Math.PI);
+          // Tapping/driving the spikes into the ground (0.35 down to 0.0)
+          const driveT = (t - 0.4) / 0.6; // 0 to 1
+          // Three slow, deliberate taps to drive it home:
+          if (driveT < 0.33) {
+            const nt = driveT / 0.33;
+            animatedY = 0.35 * (1 - nt) + 0.22 * nt;
+            if (nt < 0.2) animatedY += 0.02 * Math.sin(nt / 0.2 * Math.PI);
+          } else if (driveT < 0.66) {
+            const nt = (driveT - 0.33) / 0.33;
+            animatedY = 0.22 * (1 - nt) + 0.10 * nt;
+            if (nt < 0.2) animatedY += 0.015 * Math.sin(nt / 0.2 * Math.PI);
+          } else {
+            const nt = (driveT - 0.66) / 0.34;
+            animatedY = 0.10 * (1 - nt) + 0.0 * nt;
+            if (nt < 0.2) animatedY += 0.01 * Math.sin(nt / 0.2 * Math.PI);
+          }
         }
       }
       groupRef.current.position.y = animatedY;

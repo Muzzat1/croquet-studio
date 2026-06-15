@@ -34,7 +34,7 @@ const STEP_CAMERAS: Record<number, CameraTarget> = {
   9: { pos: [-6, 6, -12], lookAt: [0, 0, -7] },      // Step 9 Hoop 6 N Center: close-up
   10: { pos: [17, 4, 20.5], lookAt: [14, 0, 17.5] },  // Step 10 Start Corner SE: close-up
   11: { pos: [19, 5, 0], lookAt: [14, 0, 0] },        // Step 11 Penalty Areas (East close-up)
-  12: { pos: [28, 15, 0], lookAt: [-4, 0, 0] },       // Step 12 Flags: wide view (East boundary parallel to bottom, shifted up)
+  12: { pos: [39, 18.2, 0], lookAt: [0.2, 0, 0] },       // Step 12 Flags: wide view (East boundary parallel to bottom, shifted up)
   13: { pos: [0, 30, 26], lookAt: [0, 0, 0] },       // Step 13 Complete: high top-down angle
 };
 
@@ -363,21 +363,69 @@ function AnimatedPeg({ step }: { step: number }) {
 }
 
 // Halfway Peg (Offside Marker - 3x scale)
-function HalfwayPeg({ position }: { position: [number, number, number] }) {
-  const pegHeight = 0.75; // 3x scale (was 0.25)
-  const pegRadius = 0.054; // 3x scale (was 0.018)
-  const capHeight = 0.045; // 3x scale (was 0.015)
-  const capRadius = 0.057; // 3x scale (was 0.019)
+interface HalfwayPegProps {
+  position: [number, number, number];
+  placementStep?: number;
+  currentStep?: number;
+}
+
+function HalfwayPeg({ position, placementStep, currentStep }: HalfwayPegProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const animTime = useRef(0);
+
+  useEffect(() => {
+    animTime.current = 0;
+  }, [currentStep]);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+
+    if (placementStep !== undefined && currentStep === placementStep) {
+      animTime.current = Math.min(animTime.current + delta, 5.0); // 1.0s delay + 4.0s animation
+      
+      let animatedY = 1.8; // Standby position high in the air during the 1.0s delay
+      
+      if (animTime.current > 1.0) {
+        const activeTime = animTime.current - 1.0;
+        const t = activeTime / 4.0; // 0 to 1 over 4.0s
+
+        if (t < 0.4) {
+          // Smooth slide down
+          const slideT = t / 0.4;
+          const ease = 1 - Math.pow(1 - slideT, 3);
+          animatedY = 1.8 * (1 - ease) + 0.35 * ease;
+        } else {
+          // Tapping/driving the peg into the ground
+          const driveT = (t - 0.4) / 0.6; // 0 to 1
+          if (driveT < 0.33) {
+            const nt = driveT / 0.33;
+            animatedY = 0.35 * (1 - nt) + 0.22 * nt;
+            if (nt < 0.2) animatedY += 0.02 * Math.sin(nt / 0.2 * Math.PI);
+          } else if (driveT < 0.66) {
+            const nt = (driveT - 0.33) / 0.33;
+            animatedY = 0.22 * (1 - nt) + 0.10 * nt;
+            if (nt < 0.2) animatedY += 0.015 * Math.sin(nt / 0.2 * Math.PI);
+          } else {
+            const nt = (driveT - 0.66) / 0.34;
+            animatedY = 0.10 * (1 - nt) + 0.0 * nt;
+            if (nt < 0.2) animatedY += 0.01 * Math.sin(nt / 0.2 * Math.PI);
+          }
+        }
+      }
+      groupRef.current.position.y = animatedY;
+    } else {
+      groupRef.current.position.y = 0;
+    }
+  });
+
+  const pegHeight = 0.75; // 3x scale
+  const pegRadius = 0.054; // 3x scale
 
   return (
-    <group position={position}>
+    <group ref={groupRef} position={position}>
       <mesh position={[0, pegHeight / 2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[pegRadius, pegRadius, pegHeight, 8]} />
+        <cylinderGeometry args={[pegRadius, pegRadius, pegHeight, 16]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} />
-      </mesh>
-      <mesh position={[0, pegHeight - capHeight / 2, 0]} castShadow>
-        <cylinderGeometry args={[capRadius, capRadius, capHeight, 8]} />
-        <meshStandardMaterial color="#222222" roughness={0.4} />
       </mesh>
     </group>
   );
@@ -1024,11 +1072,11 @@ export default function CourtMeasurements() {
     },
     {
       title: "Step 8: Placing Hoop 5 (South Center)",
-      text: "Hoop 5 (South Center) is placed on the longitudinal center line of the court, positioned exactly 7 yards (6.4 metres) South of the peg spot, leaving exactly 10 yards 1 foot 6 inches (10yd 1ft 6\") to the South boundary."
+      text: "Hoop 5 (South Center) is placed on the longitudinal center line of the court, positioned exactly 7 yards (6.4 metres) South of the peg spot, leaving exactly 31 feet 6 inches (31' 6\") to the South boundary."
     },
     {
       title: "Step 9: Placing Hoop 6 (North Center)",
-      text: "Hoop 6 (North Center) is placed on the center line, positioned exactly 7 yards (6.4 metres) North of the center peg, leaving exactly 10 yards 1 foot 6 inches (10yd 1ft 6\") to the North boundary. General hoop-to-hoop spacing intervals (14 and 21 yards) are now complete."
+      text: "Hoop 6 (North Center) is placed on the center line, positioned exactly 7 yards (6.4 metres) North of the center peg, leaving exactly 31 feet 6 inches (31' 6\") to the North boundary. General hoop-to-hoop spacing intervals (14 and 21 yards) are now complete."
     },
     {
       title: "Step 10: Painting the Start Corner",
@@ -1044,7 +1092,7 @@ export default function CourtMeasurements() {
     },
     {
       title: "Step 13: Dressing Halfway Offside Pegs",
-      text: "Eight white boundary pegs with black tops (halfway offside pegs) are driven into the boundary lines to mark halfway points and offside limits."
+      text: "Eight white boundary pegs (halfway offside pegs) are driven into the boundary lines to mark halfway points and offside limits."
     }
   ];
 
@@ -1627,7 +1675,7 @@ export default function CourtMeasurements() {
             <Arrow3D 
               start={[0, 0, 7]} 
               end={[0, 0, 17.5]} 
-              label={unit === 'yards' ? '10yd 1ft 6"' : unit === 'metres' ? '9.6 m' : '10yd 1ft 6" / 9.6 m'} 
+              label={unit === 'yards' ? '31 ft 6"' : unit === 'metres' ? '9.6 m' : '31 ft 6" / 9.6 m'} 
               color="#00e676"
             />
           </group>
@@ -1646,7 +1694,7 @@ export default function CourtMeasurements() {
             <Arrow3D 
               start={[0, 0, -7]} 
               end={[0, 0, -17.5]} 
-              label={unit === 'yards' ? '10yd 1ft 6"' : unit === 'metres' ? '9.6 m' : '10yd 1ft 6" / 9.6 m'} 
+              label={unit === 'yards' ? '31 ft 6"' : unit === 'metres' ? '9.6 m' : '31 ft 6" / 9.6 m'} 
               color="#00e676"
             />
 
@@ -1730,16 +1778,36 @@ export default function CourtMeasurements() {
         {/* Step 13: Offside halfway pegs placed */}
         {step >= 13 && (
           <group>
-            <HalfwayPeg position={[-3.5, 0, -17.5]} />
-            <HalfwayPeg position={[0, 0, -17.5]} />
-            <HalfwayPeg position={[3.5, 0, -17.5]} />
+            <HalfwayPeg position={[-3.5, 0, -17.5]} placementStep={13} currentStep={step} />
+            <HalfwayPeg position={[0, 0, -17.5]} placementStep={13} currentStep={step} />
+            <HalfwayPeg position={[3.5, 0, -17.5]} placementStep={13} currentStep={step} />
             
-            <HalfwayPeg position={[-3.5, 0, 17.5]} />
-            <HalfwayPeg position={[0, 0, 17.5]} />
-            <HalfwayPeg position={[3.5, 0, 17.5]} />
+            <HalfwayPeg position={[-3.5, 0, 17.5]} placementStep={13} currentStep={step} />
+            <HalfwayPeg position={[0, 0, 17.5]} placementStep={13} currentStep={step} />
+            <HalfwayPeg position={[3.5, 0, 17.5]} placementStep={13} currentStep={step} />
             
-            <HalfwayPeg position={[-14, 0, 0]} />
-            <HalfwayPeg position={[14, 0, 0]} />
+            <HalfwayPeg position={[-14, 0, 0]} placementStep={13} currentStep={step} />
+            <HalfwayPeg position={[14, 0, 0]} placementStep={13} currentStep={step} />
+
+            {/* Offside peg measurement arrows */}
+            <Arrow3D 
+              start={[-14.8, 0, 17.5]} 
+              end={[-14.8, 0, 0]} 
+              label={formatDist(17.5, unit)} 
+              color="#00e676"
+            />
+            <Arrow3D 
+              start={[-14, 0, -18.5]} 
+              end={[0, 0, -18.5]} 
+              label={formatDist(14, unit)} 
+              color="#00e676"
+            />
+            <Arrow3D 
+              start={[0, 0, -17.9]} 
+              end={[3.5, 0, -17.9]} 
+              label={formatDist(3.5, unit)} 
+              color="#00e676"
+            />
           </group>
         )}
 

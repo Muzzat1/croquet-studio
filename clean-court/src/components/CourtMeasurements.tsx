@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Line, Html } from '@react-three/drei';
 import * as THREE from 'three';
+import stepExplanations from '../data/narrations.json';
 
 // Unit Converter: 1 Yard = 0.9144 Metres
 function formatDist(yards: number, unit: 'yards' | 'metres' | 'dual') {
@@ -1061,65 +1062,6 @@ export default function CourtMeasurements() {
     return { id: 3, name: "Dress the Court", color: "#81c784" };
   }, [step]);
 
-  // Step descriptions (14-step sequence)
-  const stepExplanations = [
-    {
-      title: "Court Canvas",
-      text: "We begin with a leveled empty lawn. Standard tournament croquet requires a flat, low-cut grass surface measuring 28 x 35 yards."
-    },
-    {
-      title: "Step 1: Marking Length Boundaries",
-      text: "The West and East boundary lines are marked. The length of 35 yards (32.0 m) is established, corresponding to the West boundary label near the bottom of the screen."
-    },
-    {
-      title: "Step 2: Marking Width Boundaries",
-      text: "The North and South boundary lines are marked, completing the rectangular boundary line perimeter. The width of 28 yards (25.6 m) is established, corresponding to the South boundary label near the right."
-    },
-    {
-      title: "Step 3: Placing Hoop 1 (South-West)",
-      text: "Hoop 1 is placed at the South-West area. Spacing is exactly 7 yards (6.4 metres) from both the adjacent West and South inside boundary edges."
-    },
-    {
-      title: "Step 4: Placing Hoop 2 (North-West)",
-      text: "Hoop 2 is set at the North-West area, precisely 7 yards (6.4 metres) in from the North and West inside boundaries."
-    },
-    {
-      title: "Step 5: Placing Hoop 3 (North-East)",
-      text: "Hoop 3 is positioned at the North-East area, measured exactly 7 yards (6.4 metres) from the North and East inside boundaries."
-    },
-    {
-      title: "Step 6: Placing Hoop 4 (South-East)",
-      text: "Hoop 4 is placed at the South-East area, set 7 yards (6.4 metres) from both the East and South inside boundary edges."
-    },
-    {
-      title: "Step 7: Placing the Central Peg",
-      text: "The Central Peg is driven into the exact center of the lawn: exactly 14 yards (12.8 m) from West/East boundaries, and 17.5 yards (16.0 m) from North/South boundaries. This step is displayed in a top-down 2D camera view to verify its center alignment."
-    },
-    {
-      title: "Step 8: Placing Hoop 5 (South Center)",
-      text: "Hoop 5 (South Center) is placed on the longitudinal center line of the court, positioned exactly 7 yards (6.4 metres) South of the peg spot, leaving exactly 31 feet 6 inches (31' 6\") to the South boundary."
-    },
-    {
-      title: "Step 9: Placing Hoop 6 (North Center)",
-      text: "Hoop 6 (North Center) is placed on the center line, positioned exactly 7 yards (6.4 metres) North of the center peg, leaving exactly 31 feet 6 inches (31' 6\") to the North boundary. General hoop-to-hoop spacing intervals (14 and 21 yards) are now complete."
-    },
-    {
-      title: "Step 10: Painting the Start Corner",
-      text: "A 1-yard (0.91 metre) radius quarter-circle is painted in white at the South-East corner (Corner 4) to mark the Starting Area."
-    },
-    {
-      title: "Step 11: Painting the Penalty Semi-Circles",
-      text: "Two semi-circular penalty areas of 1-yard (0.91 metre) radius are painted, centered on the halfway points of the West and East boundary lines."
-    },
-    {
-      title: "Step 12: Placing the Corner Flags",
-      text: "Four corner flags are placed at the boundaries to guide play visibility. Corner 1 (South-West) is Blue, Corner 2 (North-West) is Red, Corner 3 (North-East) is Black, and Corner 4 (South-East) is Yellow."
-    },
-    {
-      title: "Step 13: Dressing Halfway Offside Pegs",
-      text: "Eight white boundary pegs (halfway offside pegs) are driven into the boundary lines to mark halfway points and offside limits."
-    }
-  ];
 
   // Effect to manage audio narration (MP3 file playback with TTS fallback and dynamic autoplay timing)
   useEffect(() => {

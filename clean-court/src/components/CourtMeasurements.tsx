@@ -1805,7 +1805,7 @@ export default function CourtMeasurements() {
             <Arrow3D 
               start={[0, 0, -17.9]} 
               end={[3.5, 0, -17.9]} 
-              label={formatDist(3.5, unit)} 
+              label={unit === 'yards' ? '10 ft 6"' : unit === 'metres' ? '3.2 m' : '10 ft 6" / 3.2 m'} 
               color="#00e676"
             />
           </group>

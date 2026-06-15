@@ -254,7 +254,7 @@ function CornerFlag({
     const shape = new THREE.Shape();
     shape.moveTo(0, 0);
     shape.lineTo(0, flagHeight);
-    shape.lineTo(flagWidth, 0);
+    shape.lineTo(flagWidth, flagHeight / 2); // Centered vertically for a classic fanion/pennant shape
     shape.closePath();
     return shape;
   }, [flagWidth, flagHeight]);
@@ -265,6 +265,12 @@ function CornerFlag({
       <mesh position={[0, poleHeight / 2, 0]} castShadow>
         <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 16]} />
         <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
+      </mesh>
+      
+      {/* Metal spike at the base of the pole (inserted into the ground) */}
+      <mesh position={[0, -0.1, 0]} castShadow>
+        <cylinderGeometry args={[0.012, 0.012, 0.2, 8]} />
+        <meshStandardMaterial color="#90a4ae" metalness={0.9} roughness={0.1} />
       </mesh>
       
       {/* Flag Sleeve (pocket around the pole) */}

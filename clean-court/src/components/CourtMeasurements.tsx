@@ -34,7 +34,7 @@ const STEP_CAMERAS: Record<number, CameraTarget> = {
   9: { pos: [-6, 6, -12], lookAt: [0, 0, -7] },      // Step 9 Hoop 6 N Center: close-up
   10: { pos: [17, 4, 20.5], lookAt: [14, 0, 17.5] },  // Step 10 Start Corner SE: close-up
   11: { pos: [19, 5, 0], lookAt: [14, 0, 0] },        // Step 11 Penalty Areas (East close-up)
-  12: { pos: [26, 20, 26], lookAt: [0, 0, 0] },      // Step 12 Flags: wide view
+  12: { pos: [28, 15, 0], lookAt: [-4, 0, 0] },       // Step 12 Flags: wide view (East boundary parallel to bottom, shifted up)
   13: { pos: [0, 30, 26], lookAt: [0, 0, 0] },       // Step 13 Complete: high top-down angle
 };
 
@@ -1169,7 +1169,7 @@ export default function CourtMeasurements() {
           top: 0;
           left: 0;
           width: calc(100% - 180px);
-          height: calc(100% - 140px);
+          height: calc(100% - 98px);
         }
         
         .bottom-ribbon {
@@ -1178,7 +1178,7 @@ export default function CourtMeasurements() {
           left: 0;
           right: 0;
           z-index: 100;
-          height: 140px;
+          height: 98px;
           background: rgba(10, 16, 12, 0.9);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
@@ -1186,13 +1186,13 @@ export default function CourtMeasurements() {
           box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
           font-family: 'Outfit', sans-serif;
           color: #ffffff;
-          padding: 15px 30px;
+          padding: 8px 24px;
           box-sizing: border-box;
           display: flex;
           flex-direction: row;
           align-items: center;
           justify-content: space-between;
-          gap: 20px;
+          gap: 16px;
         }
 
         .bottom-ribbon-left {
@@ -1312,7 +1312,7 @@ export default function CourtMeasurements() {
           position: absolute;
           top: 0;
           right: 0;
-          bottom: 140px;
+          bottom: 98px;
           z-index: 100;
           width: 180px;
           background: rgba(10, 16, 12, 0.85);

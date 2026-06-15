@@ -322,25 +322,104 @@ function HalfwayPeg({ position }: { position: [number, number, number] }) {
   );
 }
 
-// Quadway Hoop
-function QuadwayHoop({ position, crownColor = '#ffffff' }: { position: [number, number, number]; crownColor?: string }) {
+// Quadway Hoop (Animated & with 4-sided tapered ground spikes / carrots)
+interface QuadwayHoopProps {
+  position: [number, number, number];
+  crownColor?: string;
+  placementStep?: number;
+  currentStep?: number;
+}
+
+function QuadwayHoop({ 
+  position, 
+  crownColor = '#ffffff',
+  placementStep,
+  currentStep
+}: QuadwayHoopProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const animTime = useRef(0);
+
+  useEffect(() => {
+    animTime.current = 0;
+  }, [currentStep]);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+
+    if (placementStep !== undefined && currentStep === placementStep) {
+      animTime.current = Math.min(animTime.current + delta, 2.0);
+      const t = animTime.current / 2.0; // 0 to 1 over 2.0s
+
+      let animatedY = 0;
+      if (t < 0.4) {
+        // Smooth slide down from 1.8 yards high (so spikes are clearly visible) to 0.35 yards
+        const slideT = t / 0.4;
+        const ease = 1 - Math.pow(1 - slideT, 3);
+        animatedY = 1.8 * (1 - ease) + 0.35 * ease;
+      } else {
+        // Tapping/driving the spikes into the ground (0.35 down to 0.0)
+        const driveT = (t - 0.4) / 0.6; // 0 to 1
+        // Three quick taps to drive it home:
+        if (driveT < 0.33) {
+          const nt = driveT / 0.33;
+          animatedY = 0.35 * (1 - nt) + 0.22 * nt;
+          if (nt < 0.2) animatedY += 0.02 * Math.sin(nt / 0.2 * Math.PI);
+        } else if (driveT < 0.66) {
+          const nt = (driveT - 0.33) / 0.33;
+          animatedY = 0.22 * (1 - nt) + 0.10 * nt;
+          if (nt < 0.2) animatedY += 0.015 * Math.sin(nt / 0.2 * Math.PI);
+        } else {
+          const nt = (driveT - 0.66) / 0.34;
+          animatedY = 0.10 * (1 - nt) + 0.0 * nt;
+          if (nt < 0.2) animatedY += 0.01 * Math.sin(nt / 0.2 * Math.PI);
+        }
+      }
+      groupRef.current.position.y = animatedY;
+    } else {
+      groupRef.current.position.y = 0;
+    }
+  });
+
   const crownWidth = 0.375;
   const height = 0.875;
   const staveRadius = 0.035;
   const crownSize = 0.07;
+  const carrotLength = 0.35; // The tapered 4-sided spike
+  const carrotRadiusTop = staveRadius * 1.6; // wider than circular upright
+  const carrotRadiusBottom = staveRadius * 0.4; // tapered bottom tip
 
   return (
-    <group position={position}>
-      {/* Left Leg */}
+    <group ref={groupRef} position={position}>
+      {/* Left Upright Leg (Circular) */}
       <mesh position={[-crownWidth / 2, height / 2, 0]} castShadow>
         <cylinderGeometry args={[staveRadius, staveRadius, height, 16]} />
         <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
       </mesh>
       
-      {/* Right Leg */}
+      {/* Left Carrot (4-sided tapered spike, rotated 45 deg to align flat sides) */}
+      <mesh 
+        position={[-crownWidth / 2, -carrotLength / 2, 0]} 
+        rotation={[0, Math.PI / 4, 0]} 
+        castShadow
+      >
+        <cylinderGeometry args={[carrotRadiusTop, carrotRadiusBottom, carrotLength, 4]} />
+        <meshStandardMaterial color="#b0bec5" metalness={0.7} roughness={0.3} />
+      </mesh>
+      
+      {/* Right Upright Leg (Circular) */}
       <mesh position={[crownWidth / 2, height / 2, 0]} castShadow>
         <cylinderGeometry args={[staveRadius, staveRadius, height, 16]} />
         <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
+      </mesh>
+
+      {/* Right Carrot (4-sided tapered spike, rotated 45 deg to align flat sides) */}
+      <mesh 
+        position={[crownWidth / 2, -carrotLength / 2, 0]} 
+        rotation={[0, Math.PI / 4, 0]} 
+        castShadow
+      >
+        <cylinderGeometry args={[carrotRadiusTop, carrotRadiusBottom, carrotLength, 4]} />
+        <meshStandardMaterial color="#b0bec5" metalness={0.7} roughness={0.3} />
       </mesh>
 
       {/* Hoop Crown */}
@@ -1316,7 +1395,7 @@ export default function CourtMeasurements() {
         {/* Step 3: SW Hoop 1 fades in */}
         {step >= 3 && (
           <group>
-            <QuadwayHoop position={[-7, 0, 10.5]} crownColor="#1565c0" />
+            <QuadwayHoop position={[-7, 0, 10.5]} crownColor="#1565c0" placementStep={3} currentStep={step} />
             <Arrow3D 
               start={[-14, 0, 10.5]} 
               end={[-7, 0, 10.5]} 
@@ -1335,7 +1414,7 @@ export default function CourtMeasurements() {
         {/* Step 4: NW Hoop 2 fades in */}
         {step >= 4 && (
           <group>
-            <QuadwayHoop position={[-7, 0, -10.5]} crownColor="#ffffff" />
+            <QuadwayHoop position={[-7, 0, -10.5]} crownColor="#ffffff" placementStep={4} currentStep={step} />
             <Arrow3D 
               start={[-14, 0, -10.5]} 
               end={[-7, 0, -10.5]} 
@@ -1354,7 +1433,7 @@ export default function CourtMeasurements() {
         {/* Step 5: NE Hoop 3 fades in */}
         {step >= 5 && (
           <group>
-            <QuadwayHoop position={[7, 0, -10.5]} crownColor="#d32f2f" />
+            <QuadwayHoop position={[7, 0, -10.5]} crownColor="#d32f2f" placementStep={5} currentStep={step} />
             <Arrow3D 
               start={[14, 0, -10.5]} 
               end={[7, 0, -10.5]} 
@@ -1373,7 +1452,7 @@ export default function CourtMeasurements() {
         {/* Step 6: SE Hoop 4 fades in */}
         {step >= 6 && (
           <group>
-            <QuadwayHoop position={[7, 0, 10.5]} crownColor="#ffffff" />
+            <QuadwayHoop position={[7, 0, 10.5]} crownColor="#ffffff" placementStep={6} currentStep={step} />
             <Arrow3D 
               start={[14, 0, 10.5]} 
               end={[7, 0, 10.5]} 
@@ -1437,7 +1516,7 @@ export default function CourtMeasurements() {
         {/* Step 8: Hoop 5 (South Center) fades in */}
         {step >= 8 && (
           <group>
-            <QuadwayHoop position={[0, 0, 7]} crownColor="#ffffff" />
+            <QuadwayHoop position={[0, 0, 7]} crownColor="#ffffff" placementStep={8} currentStep={step} />
             <Arrow3D 
               start={[0, 0, 0]} 
               end={[0, 0, 7]} 
@@ -1456,7 +1535,7 @@ export default function CourtMeasurements() {
         {/* Step 9: Hoop 6 (North Center) fades in */}
         {step >= 9 && (
           <group>
-            <QuadwayHoop position={[0, 0, -7]} crownColor="#ffffff" />
+            <QuadwayHoop position={[0, 0, -7]} crownColor="#ffffff" placementStep={9} currentStep={step} />
             <Arrow3D 
               start={[0, 0, 0]} 
               end={[0, 0, -7]} 

@@ -261,11 +261,20 @@ function CornerFlag({
 
   return (
     <group ref={groupRef} position={position}>
+      {/* Aluminium Flag Pole */}
       <mesh position={[0, poleHeight / 2, 0]} castShadow>
         <cylinderGeometry args={[poleRadius, poleRadius, poleHeight, 16]} />
         <meshStandardMaterial color="#b0bec5" metalness={0.8} roughness={0.2} />
       </mesh>
-      <mesh position={[poleRadius, poleHeight - flagHeight, 0]} castShadow>
+      
+      {/* Flag Sleeve (pocket around the pole) */}
+      <mesh position={[0, poleHeight - flagHeight / 2, 0]} castShadow>
+        <cylinderGeometry args={[poleRadius + 0.006, poleRadius + 0.006, flagHeight, 16]} />
+        <meshStandardMaterial color={color} roughness={0.6} />
+      </mesh>
+
+      {/* Triangular Flag fabric extending from center */}
+      <mesh position={[0, poleHeight - flagHeight, 0]} castShadow>
         <extrudeGeometry args={[flagShape, { depth: 0.005, bevelEnabled: false }]} />
         <meshStandardMaterial color={color} side={THREE.DoubleSide} roughness={0.6} />
       </mesh>

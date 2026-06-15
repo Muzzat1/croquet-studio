@@ -811,7 +811,7 @@ function CameraController({
 
       const posDist = cam.position.distanceTo(targetPos);
       const targetDist = controlsRef.current.target.distanceTo(targetLookAt);
-      if (posDist < 0.05 && targetDist < 0.05) {
+      if (posDist < 1.0 && targetDist < 1.0) {
         if (nextTargetRef && nextTargetRef.current) {
           targetPos.set(...nextTargetRef.current.pos);
           targetLookAt.set(...nextTargetRef.current.lookAt);

@@ -32,7 +32,7 @@ const STEP_CAMERAS: Record<number, CameraTarget> = {
   7: { pos: [-0.01, 42, 0], lookAt: [0, 0, 0] },       // Step 7 Center Peg: Top-Down 2D View (Landscape, West at bottom)
   8: { pos: [-6, 6, 12], lookAt: [0, 0, 7] },        // Step 8 Hoop 5 S Center: close-up
   9: { pos: [-6, 6, -12], lookAt: [0, 0, -7] },      // Step 9 Hoop 6 N Center: close-up
-  10: { pos: [17, 4, 20.5], lookAt: [14, 0, 17.5] },  // Step 10 Start Corner SE: close-up
+  10: { pos: [19, 6, 22.5], lookAt: [14, 0, 17.5] },  // Step 10 Start Corner SE: close-up
   11: { pos: [19, 5, 0], lookAt: [14, 0, 0] },        // Step 11 Penalty Areas (East close-up)
   12: { pos: [39, 18.2, 0], lookAt: [0.2, 0, 0] },       // Step 12 Flags: wide view (East boundary parallel to bottom, shifted up)
   13: { pos: [0, 30, 26], lookAt: [0, 0, 0] },       // Step 13 Complete: high top-down angle
@@ -670,6 +670,7 @@ interface CameraControllerProps {
   handleManualCamera?: (presetKey: string) => void;
   clearAutoStart?: () => void;
   nextTargetRef?: React.MutableRefObject<CameraTarget | null>;
+  glideSpeed: React.MutableRefObject<number>;
 }
 
 function CameraController({ 
@@ -680,7 +681,8 @@ function CameraController({
   triggerGlide,
   handleManualCamera,
   clearAutoStart,
-  nextTargetRef
+  nextTargetRef,
+  glideSpeed
 }: CameraControllerProps) {
   const { camera } = useThree();
   const persCamera = camera as THREE.PerspectiveCamera;
@@ -805,8 +807,8 @@ function CameraController({
   useFrame((state) => {
     const cam = state.camera as THREE.PerspectiveCamera;
     if (isGliding.current && controlsRef.current) {
-      cam.position.lerp(targetPos, 0.025); // Slowed down panning 2x (from 0.05 to 0.025)
-      controlsRef.current.target.lerp(targetLookAt, 0.025);
+      cam.position.lerp(targetPos, glideSpeed.current);
+      controlsRef.current.target.lerp(targetLookAt, glideSpeed.current);
       controlsRef.current.update();
 
       const posDist = cam.position.distanceTo(targetPos);
@@ -857,6 +859,7 @@ export default function CourtMeasurements() {
   const [targetPos] = useState<THREE.Vector3>(() => new THREE.Vector3(...STEP_CAMERAS[0].pos));
   const [targetLookAt] = useState<THREE.Vector3>(() => new THREE.Vector3(...STEP_CAMERAS[0].lookAt));
   const nextTargetRef = useRef<CameraTarget | null>(null);
+  const glideSpeed = useRef<number>(0.025);
 
   // Effect to manage 1-by-1 boundary label animation at Step 0, keeping them all visible for step > 0
   useEffect(() => {
@@ -894,10 +897,16 @@ export default function CourtMeasurements() {
   }, [step]);
 
   // Trigger camera glide to a step target
-  const triggerGlide = (pos: [number, number, number], lookAt: [number, number, number], secondTarget?: CameraTarget) => {
+  const triggerGlide = (
+    pos: [number, number, number], 
+    lookAt: [number, number, number], 
+    secondTarget?: CameraTarget, 
+    speed = 0.025
+  ) => {
     targetPos.set(...pos);
     targetLookAt.set(...lookAt);
     isGliding.current = true;
+    glideSpeed.current = speed;
     if (secondTarget) {
       nextTargetRef.current = secondTarget;
     } else {
@@ -939,7 +948,7 @@ export default function CourtMeasurements() {
       if (prev === 9 && nextStep === 10) {
         const overhead = STEP_CAMERAS[0];
         const finalTarget = STEP_CAMERAS[10];
-        triggerGlide(overhead.pos, overhead.lookAt, finalTarget);
+        triggerGlide(overhead.pos, overhead.lookAt, finalTarget, 0.05);
       } else {
         const camTarget = STEP_CAMERAS[nextStep];
         triggerGlide(camTarget.pos, camTarget.lookAt);
@@ -958,7 +967,7 @@ export default function CourtMeasurements() {
       return;
     }
 
-    const delay = step === 7 ? 10500 : 3500; // 10.5s for Peg, otherwise 3.5s
+    const delay = step === 7 ? 10500 : step === 10 ? 8000 : 3500; // 10.5s for Peg, 8.0s for Start Corner, otherwise 3.5s
 
     playTimer.current = window.setTimeout(() => {
       advanceSequence();
@@ -979,7 +988,7 @@ export default function CourtMeasurements() {
       if (step === 9 && nextStep === 10) {
         const overhead = STEP_CAMERAS[0];
         const finalTarget = STEP_CAMERAS[10];
-        triggerGlide(overhead.pos, overhead.lookAt, finalTarget);
+        triggerGlide(overhead.pos, overhead.lookAt, finalTarget, 0.05);
       } else {
         const camTarget = STEP_CAMERAS[nextStep];
         triggerGlide(camTarget.pos, camTarget.lookAt);
@@ -996,7 +1005,7 @@ export default function CourtMeasurements() {
       if (step === 10 && prevStep === 9) {
         const overhead = STEP_CAMERAS[0];
         const finalTarget = STEP_CAMERAS[9];
-        triggerGlide(overhead.pos, overhead.lookAt, finalTarget);
+        triggerGlide(overhead.pos, overhead.lookAt, finalTarget, 0.05);
       } else {
         const camTarget = STEP_CAMERAS[prevStep];
         triggerGlide(camTarget.pos, camTarget.lookAt);
@@ -1127,9 +1136,16 @@ export default function CourtMeasurements() {
     // Helper to transition to next step after a natural pause after speaking finishes
     const scheduleNextStep = () => {
       if (isPlaying) {
-        speechTimeoutRef.current = window.setTimeout(() => {
-          advanceSequence();
-        }, 1500); // 1.5-second buffer to look at the completed step
+        const checkAndAdvance = () => {
+          if (isGliding.current) {
+            speechTimeoutRef.current = window.setTimeout(checkAndAdvance, 500);
+          } else {
+            speechTimeoutRef.current = window.setTimeout(() => {
+              advanceSequence();
+            }, 1500);
+          }
+        };
+        checkAndAdvance();
       }
     };
 
@@ -1510,6 +1526,7 @@ export default function CourtMeasurements() {
           handleManualCamera={handleManualCamera}
           clearAutoStart={clearAutoStart}
           nextTargetRef={nextTargetRef}
+          glideSpeed={glideSpeed}
         />
 
         {/* ----------------------------------------------------------- */}

@@ -54,7 +54,7 @@ const MANUAL_PRESETS: Record<string, CameraTarget> = {
 interface Arrow3DProps {
   start: [number, number, number];
   end: [number, number, number];
-  label: string;
+  label: React.ReactNode;
   color?: string;
   lineWidth?: number;
   offsetY?: number;
@@ -558,9 +558,10 @@ interface CameraControllerProps {
   targetLookAt: THREE.Vector3;
   isGliding: React.MutableRefObject<boolean>;
   controlsRef: React.RefObject<any>;
-  triggerGlide?: (pos: [number, number, number], lookAt: [number, number, number]) => void;
+  triggerGlide?: (pos: [number, number, number], lookAt: [number, number, number], secondTarget?: CameraTarget) => void;
   handleManualCamera?: (presetKey: string) => void;
   clearAutoStart?: () => void;
+  nextTargetRef?: React.MutableRefObject<CameraTarget | null>;
 }
 
 function CameraController({ 
@@ -570,7 +571,8 @@ function CameraController({
   controlsRef,
   triggerGlide,
   handleManualCamera,
-  clearAutoStart
+  clearAutoStart,
+  nextTargetRef
 }: CameraControllerProps) {
   const { camera } = useThree();
   const persCamera = camera as THREE.PerspectiveCamera;
@@ -702,7 +704,13 @@ function CameraController({
       const posDist = cam.position.distanceTo(targetPos);
       const targetDist = controlsRef.current.target.distanceTo(targetLookAt);
       if (posDist < 0.05 && targetDist < 0.05) {
-        isGliding.current = false;
+        if (nextTargetRef && nextTargetRef.current) {
+          targetPos.set(...nextTargetRef.current.pos);
+          targetLookAt.set(...nextTargetRef.current.lookAt);
+          nextTargetRef.current = null;
+        } else {
+          isGliding.current = false;
+        }
       }
     }
 
@@ -740,6 +748,7 @@ export default function CourtMeasurements() {
   const isGliding = useRef<boolean>(true);
   const [targetPos] = useState<THREE.Vector3>(() => new THREE.Vector3(...STEP_CAMERAS[0].pos));
   const [targetLookAt] = useState<THREE.Vector3>(() => new THREE.Vector3(...STEP_CAMERAS[0].lookAt));
+  const nextTargetRef = useRef<CameraTarget | null>(null);
 
   // Effect to manage 1-by-1 boundary label animation at Step 0, keeping them all visible for step > 0
   useEffect(() => {
@@ -777,10 +786,15 @@ export default function CourtMeasurements() {
   }, [step]);
 
   // Trigger camera glide to a step target
-  const triggerGlide = (pos: [number, number, number], lookAt: [number, number, number]) => {
+  const triggerGlide = (pos: [number, number, number], lookAt: [number, number, number], secondTarget?: CameraTarget) => {
     targetPos.set(...pos);
     targetLookAt.set(...lookAt);
     isGliding.current = true;
+    if (secondTarget) {
+      nextTargetRef.current = secondTarget;
+    } else {
+      nextTargetRef.current = null;
+    }
   };
 
   // Helper to clear the initial auto-start timer if user interacts with controls
@@ -814,8 +828,14 @@ export default function CourtMeasurements() {
         return 13;
       }
       const nextStep = prev + 1;
-      const camTarget = STEP_CAMERAS[nextStep];
-      triggerGlide(camTarget.pos, camTarget.lookAt);
+      if (prev === 9 && nextStep === 10) {
+        const overhead = STEP_CAMERAS[0];
+        const finalTarget = STEP_CAMERAS[10];
+        triggerGlide(overhead.pos, overhead.lookAt, finalTarget);
+      } else {
+        const camTarget = STEP_CAMERAS[nextStep];
+        triggerGlide(camTarget.pos, camTarget.lookAt);
+      }
       return nextStep;
     });
   };
@@ -848,8 +868,14 @@ export default function CourtMeasurements() {
     if (step < 13) {
       const nextStep = step + 1;
       setStep(nextStep);
-      const camTarget = STEP_CAMERAS[nextStep];
-      triggerGlide(camTarget.pos, camTarget.lookAt);
+      if (step === 9 && nextStep === 10) {
+        const overhead = STEP_CAMERAS[0];
+        const finalTarget = STEP_CAMERAS[10];
+        triggerGlide(overhead.pos, overhead.lookAt, finalTarget);
+      } else {
+        const camTarget = STEP_CAMERAS[nextStep];
+        triggerGlide(camTarget.pos, camTarget.lookAt);
+      }
     }
   };
 
@@ -859,8 +885,14 @@ export default function CourtMeasurements() {
     if (step > 0) {
       const prevStep = step - 1;
       setStep(prevStep);
-      const camTarget = STEP_CAMERAS[prevStep];
-      triggerGlide(camTarget.pos, camTarget.lookAt);
+      if (step === 10 && prevStep === 9) {
+        const overhead = STEP_CAMERAS[0];
+        const finalTarget = STEP_CAMERAS[9];
+        triggerGlide(overhead.pos, overhead.lookAt, finalTarget);
+      } else {
+        const camTarget = STEP_CAMERAS[prevStep];
+        triggerGlide(camTarget.pos, camTarget.lookAt);
+      }
     }
   };
 
@@ -868,6 +900,7 @@ export default function CourtMeasurements() {
     clearAutoStart();
     setIsPlaying(false);
     setStep(0);
+    nextTargetRef.current = null;
     const camTarget = STEP_CAMERAS[0];
     triggerGlide(camTarget.pos, camTarget.lookAt);
   };
@@ -875,6 +908,7 @@ export default function CourtMeasurements() {
   const handleManualCamera = (presetKey: string) => {
     clearAutoStart();
     setCamPreset(presetKey);
+    nextTargetRef.current = null;
     const target = MANUAL_PRESETS[presetKey];
     if (target) {
       triggerGlide(target.pos, target.lookAt);
@@ -1367,6 +1401,7 @@ export default function CourtMeasurements() {
           triggerGlide={triggerGlide}
           handleManualCamera={handleManualCamera}
           clearAutoStart={clearAutoStart}
+          nextTargetRef={nextTargetRef}
         />
 
         {/* ----------------------------------------------------------- */}
@@ -1583,8 +1618,14 @@ export default function CourtMeasurements() {
             <Arrow3D 
               start={[14, 0, 17.5]} 
               end={[13.29, 0, 16.79]} 
-              label={`Start Corner: ${formatDist(1, unit)}`} 
+              label={
+                <div style={{ textAlign: 'center' }}>
+                  <div>Start Corner: {formatDist(1, unit)}</div>
+                  <div style={{ fontSize: '0.85em', fontWeight: 600, opacity: 0.85, marginTop: '2px' }}>(Optional)</div>
+                </div>
+              } 
               color="white"
+              labelOffset={[0, 1.0, 0]}
             />
           </group>
         )}
@@ -1646,6 +1687,7 @@ export default function CourtMeasurements() {
           ref={controlsRef} 
           onStart={() => {
             isGliding.current = false;
+            nextTargetRef.current = null;
           }}
           enablePan={true} 
           maxPolarAngle={Math.PI / 2 - (5 * Math.PI / 180)} 

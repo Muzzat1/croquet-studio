@@ -787,11 +787,12 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
   const camera = threeState.camera;
   const controls = threeState.controls;
   
-  // Track start delay (3s) and end pause (5s) to allow lawn rotation and completion to settle perfectly
+  // Track start delay (2s) and end pause (5s) to allow lawn rotation and completion to settle perfectly
   const prevDemoActiveRef = useRef(false);
-  const startDelayRef = useRef(3.0); // 3 seconds start delay
+  const startDelayRef = useRef(2.0); // 2 seconds start delay
   const endPauseRef = useRef(0.0);   // 5 seconds end pause
   const hasUserMovedCameraRef = useRef(false);
+  const [showSign, setShowSign] = useState(true);
 
   useEffect(() => {
     if (!isDemoActive) return;
@@ -825,10 +826,11 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
     if (isPaused) return;
     if (isDemoActive) {
       if (!prevDemoActiveRef.current) {
-        startDelayRef.current = 3.0; // Reset start delay to 3 seconds
+        startDelayRef.current = 2.0; // Reset start delay to 2 seconds
         endPauseRef.current = 0.0;
         prevDemoActiveRef.current = true;
         hasUserMovedCameraRef.current = false; // Reset to enable automatic tracking!
+        setShowSign(true);
       }
 
       // If loop has completed and is about to restart, reset tracking
@@ -892,9 +894,10 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
       if (endPauseRef.current > 0) {
         endPauseRef.current -= delta;
         if (endPauseRef.current <= 0) {
-          // Loop completed, reset to beginning and start 3-second start delay
+          // Loop completed, reset to beginning and start 2-second start delay
           setDemoProgress(0.0);
-          startDelayRef.current = 3.0;
+          startDelayRef.current = 2.0;
+          setShowSign(true);
         }
         return;
       }
@@ -902,6 +905,9 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
       // If start delay is active, pause progress and hold ball at Corner 4 starting position
       if (startDelayRef.current > 0) {
         startDelayRef.current -= delta;
+        if (startDelayRef.current <= 0) {
+          setShowSign(false);
+        }
         return;
       }
 
@@ -962,14 +968,43 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
   }
 
   return (
-    <mesh position={[ballPos.x, ballPos.y, ballPos.z]} castShadow>
-      <sphereGeometry args={[0.133375, 32, 32]} />
-      <meshStandardMaterial 
-        color="#ffea00" // Use a beautiful bright yellow demo ball that matches starting corner colors!
-        roughness={0.15}
-        metalness={0.1}
-      />
-    </mesh>
+    <group>
+      {showSign && (
+        <group>
+          {/* Wooden Post */}
+          <mesh position={[13.0, 0.4, 15.5]} castShadow>
+            <cylinderGeometry args={[0.03, 0.03, 0.8, 8]} />
+            <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+          </mesh>
+          {/* Billboard Sign Board and Text */}
+          <Billboard position={[13.0, 0.9, 15.5]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.9, 0.35, 0.04]} />
+              <meshStandardMaterial color="#faf9f6" roughness={0.8} />
+            </mesh>
+            <Text
+              position={[0, 0, 0.021]}
+              fontSize={0.09}
+              color="#111111"
+              anchorX="center"
+              anchorY="middle"
+              fontWeight="bold"
+            >
+              START HERE
+            </Text>
+          </Billboard>
+        </group>
+      )}
+
+      <mesh position={[ballPos.x, ballPos.y, ballPos.z]} castShadow>
+        <sphereGeometry args={[0.133375, 32, 32]} />
+        <meshStandardMaterial 
+          color="#ffea00" // Use a beautiful bright yellow demo ball that matches starting corner colors!
+          roughness={0.15}
+          metalness={0.1}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -1514,6 +1549,14 @@ export default function App() {
 
   // Control Panel collapse state
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (isDemoActive) {
+      setIsCollapsed(true);
+    } else {
+      setIsCollapsed(false);
+    }
+  }, [isDemoActive]);
 
   // Track spacebar held state for "Drive Mode" (blast ball off court)
   const isSpaceDown = useRef(false);

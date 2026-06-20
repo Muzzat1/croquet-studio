@@ -47,13 +47,15 @@ function PhysicsManager({
   meshRefs,
   onPositionChange,
   selectedBall,
-  selectedRingRef
+  selectedRingRef,
+  isPaused
 }: {
   physicsBalls: React.MutableRefObject<Record<string, PhysicsBallState>>;
   meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Object3D | null>>>;
   onPositionChange: (color: 'blue' | 'red' | 'black' | 'yellow', x: number, z: number) => void;
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   selectedRingRef: React.RefObject<THREE.Mesh | null>;
+  isPaused: boolean;
 }) {
 
   const outOfBoundsCrossing = useRef<Record<string, { x: number; z: number } | null>>({
@@ -64,6 +66,7 @@ function PhysicsManager({
   });
 
   useFrame((_, delta) => {
+    if (isPaused) return;
     // Limit delta time steps to avoid tunnel-through behaviors during frame rate stutters
     const dt = Math.min(delta, 0.03);
     const SUB_STEPS = 10;
@@ -435,11 +438,13 @@ function PanoramaBackground() {
 // Custom Camera Controller inside the Canvas to handle programmatically updating OrbitControls & camera positions
 interface CameraControllerProps {
   resetCounter: number;
+  resetType: 'reset' | 'start';
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   balls: Record<string, { x: number; z: number }>;
+  isPaused: boolean;
 }
 
-function CameraController({ resetCounter, selectedBall, balls }: CameraControllerProps) {
+function CameraController({ resetCounter, resetType, selectedBall, balls, isPaused }: CameraControllerProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const threeState = useThree() as any;
   const camera = threeState.camera;
@@ -455,14 +460,22 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
     if (resetCounter > 0 && resetCounter !== lastReset.current) {
       lastReset.current = resetCounter;
       
-      // Smoothly transition to Preset 0 coordinates
-      targetPosition.current = new THREE.Vector3(41.79, 7.23, 24.46);
-      targetFov.current = 15.0;
-      if (controls) {
-        targetTarget.current = new THREE.Vector3(-3.45, 1.52, 10.27);
+      if (resetType === 'start') {
+        targetPosition.current = new THREE.Vector3(24.1042, 3.6060, 16.8256);
+        targetFov.current = 45.0;
+        if (controls) {
+          targetTarget.current = new THREE.Vector3(-5.1754, 0.0804, 10.7872);
+        }
+      } else {
+        // Smoothly transition to West View coordinates
+        targetPosition.current = new THREE.Vector3(-31.49, 13.87, -0.11);
+        targetFov.current = 45.0;
+        if (controls) {
+          targetTarget.current = new THREE.Vector3(-3.19, 0.17, 0.28);
+        }
       }
     }
-  }, [resetCounter, camera, controls]);
+  }, [resetCounter, resetType, camera, controls]);
 
   useEffect(() => {
     if (!controls) return;
@@ -478,6 +491,7 @@ function CameraController({ resetCounter, selectedBall, balls }: CameraControlle
   }, [controls]);
 
   useFrame((_, delta) => {
+    if (isPaused) return;
     // Limit delta time steps to prevent huge jumps during frame hiccups
     const dt = Math.min(delta, 0.1);
     const lerpSpeed = 2.1; // Speed multiplier for smooth camera gliding (halved for a more cinematic, slower pace)
@@ -764,9 +778,10 @@ interface SequenceDemoControllerProps {
   isDemoActive: boolean;
   demoProgress: number;
   setDemoProgress: React.Dispatch<React.SetStateAction<number>>;
+  isPaused: boolean;
 }
 
-function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress }: SequenceDemoControllerProps) {
+function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, isPaused }: SequenceDemoControllerProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const threeState = useThree() as any;
   const camera = threeState.camera;
@@ -807,6 +822,7 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress }:
   }, [isDemoActive, controls]);
 
   useFrame((_, delta) => {
+    if (isPaused) return;
     if (isDemoActive) {
       if (!prevDemoActiveRef.current) {
         startDelayRef.current = 3.0; // Reset start delay to 3 seconds
@@ -1035,6 +1051,7 @@ interface AimLineControllerProps {
   balls: Record<string, { x: number; z: number }>;
   hoverPoint: { x: number; z: number } | null;
   ballSet: 'primary' | 'secondary';
+  isPaused: boolean;
 }
 
 function AimLineController({
@@ -1044,12 +1061,14 @@ function AimLineController({
   setHoverPoint,
   balls,
   hoverPoint,
-  ballSet
+  ballSet,
+  isPaused
 }: AimLineControllerProps) {
   const { raycaster } = useThree();
   const groundPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
 
   useFrame(() => {
+    if (isPaused) return;
     if (showAimingLines && selectedBall && activeStriker === null) {
       const target = new THREE.Vector3();
       const intersection = raycaster.ray.intersectPlane(groundPlane, target);
@@ -1217,6 +1236,7 @@ function AimLineController({
 
     if (firstCollision.type === 'ball') {
       hitTargetColor = getBallColor(firstCollision.id || 'white');
+
       if (targetMag > 0.01) {
         const tDirX = targetVx / targetMag;
         const tDirZ = targetVz / targetMag;
@@ -1242,7 +1262,7 @@ function AimLineController({
           <meshStandardMaterial
             color={activeColor}
             transparent
-            opacity={0.35}
+            opacity={0.7}
             roughness={0.2}
             metalness={0.1}
             depthWrite={false}
@@ -1289,10 +1309,11 @@ function AimLineController({
   );
 }
 
-function HoopTeardrop({ pos, label }: { pos: [number, number, number]; label: string }) {
+function HoopTeardrop({ pos, label, isPaused }: { pos: [number, number, number]; label: string; isPaused: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
+    if (isPaused) return;
     if (groupRef.current) {
       // Gentle floating up and down oscillation
       groupRef.current.position.y = pos[1] + Math.sin(state.clock.getElapsedTime() * 2.5 + pos[0]) * 0.08;
@@ -1423,7 +1444,7 @@ export default function App() {
 
     // Print premium developer console welcome banner
     console.log(
-      `%c 👑 GC CROQUET 3D VISUALISER %c Version 0.70 Beta %c\n` +
+      `%c 👑 GC CROQUET 3D VISUALISER %c Version 1.0 %c\n` +
       `%cMurray Tinker's Professional Coaching Suite%c\n` +
       `--------------------------------------------------\n` +
       `• Host Domain     : ${window.location.hostname}\n` +
@@ -1478,6 +1499,7 @@ export default function App() {
   
   // Reset trigger state counter for the CameraController
   const [cameraResetCounter, setCameraResetCounter] = useState(0);
+  const [cameraResetType, setCameraResetType] = useState<'reset' | 'start'>('reset');
 
   // Striker State Machine parameters
   const [activeStriker, setActiveStriker] = useState<'blue' | 'red' | 'black' | 'yellow' | null>(null);
@@ -1523,6 +1545,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const toggleFullscreen = () => {
@@ -1594,6 +1617,12 @@ export default function App() {
         return;
       }
 
+      if (e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setIsPaused(prev => !prev);
+        return;
+      }
+
       if (e.key.toLowerCase() === 'd') {
         e.preventDefault();
         setDrawMode(prev => {
@@ -1616,6 +1645,22 @@ export default function App() {
       if (e.key.toLowerCase() === 'z') {
         e.preventDefault();
         setDrawings(prev => prev.slice(0, -1));
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'u') {
+        e.preventDefault();
+        if (activeStriker === null && history.length > 0) {
+          handleUndo();
+        }
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        if (activeStriker === null) {
+          handleReset();
+        }
         return;
       }
 
@@ -1760,7 +1805,7 @@ export default function App() {
   };
 
   // Reset the simulation state
-  const handleReset = () => {
+  const handleReset = (isFromStartButtonPress: boolean = false) => {
     if (activeStriker !== null) return;
     const isAnyBallMoving = Object.values(physicsBalls.current).some(b => b.vx !== 0 || b.vz !== 0 || b.isRolling);
     if (isAnyBallMoving) return;
@@ -1803,6 +1848,8 @@ export default function App() {
       selectedRingRef.current.position.z = resetPositions.blue.z;
     }
 
+    setCameraResetType(isFromStartButtonPress ? 'start' : 'reset');
+
     // Increment camera reset counter to trigger custom positioning and fov change
     setCameraResetCounter(prev => prev + 1);
   };
@@ -1839,7 +1886,7 @@ export default function App() {
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const handleCourtPointerDown = (e: any) => {
-    if (activeStriker !== null) return;
+    if (activeStriker !== null && !isPaused) return;
     if (drawMode) {
       e.stopPropagation();
       setIsDrawingActive(true);
@@ -1856,7 +1903,7 @@ export default function App() {
   };
 
   const handleCourtPointerMove = (e: any) => {
-    if (activeStriker !== null) return;
+    if (activeStriker !== null && !isPaused) return;
     if (drawMode && isDrawingActive) {
       e.stopPropagation();
       const pt = e.point;
@@ -1901,7 +1948,7 @@ export default function App() {
   };
 
   const handleCourtPointerUp = (e: any) => {
-    if (activeStriker !== null) return;
+    if (activeStriker !== null && !isPaused) return;
     if (drawMode) {
       e.stopPropagation();
       if (isDrawingActive) {
@@ -1935,6 +1982,8 @@ export default function App() {
 
     // Filter out OrbitControls camera drags (if mouse moved more than 6px, it is a drag, not a click)
     if (dragDistance > 6) return;
+
+    if (isPaused) return; // Block playing a shot if paused!
 
     e.stopPropagation();
     const clickPoint = e.point;
@@ -1997,10 +2046,10 @@ export default function App() {
     let targetSpeed = dist * 0.85 + 0.045;
 
     // If Drive Mode is active (Spacebar was held down during click),
-    // set initial speed to a high constant driving speed (54.0 yards/second, which is 50% faster than 36.0)
+    // set initial speed to a high constant driving speed (43.2 yards/second, which is 20% slower than 54.0)
     // that will easily blast the ball off the court in a split second!
     if (isDriveMode.current) {
-      targetSpeed = 54.0;
+      targetSpeed = 43.2;
     }
 
     const impulseSpeed = Math.min(targetSpeed, 60.0);
@@ -2201,19 +2250,59 @@ export default function App() {
         </div>
       )}
 
+      {/* Premium Glassmorphic Paused Indicator */}
+      {isPaused && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(239, 68, 68, 0.2)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          border: '1.5px solid rgba(239, 68, 68, 0.4)',
+          borderRadius: '12px',
+          padding: '8px 16px',
+          color: '#fca5a5',
+          fontFamily: 'sans-serif',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          letterSpacing: '0.05em',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          pointerEvents: 'none'
+        }}>
+          <span style={{ 
+            display: 'inline-block', 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            background: '#ef4444', 
+            boxShadow: '0 0 8px #ef4444'
+          }}></span>
+          SCREEN FREEZE (DRAWING TOOLS ACTIVE)
+        </div>
+      )}
+
       {/* 3D WebGL Canvas Scene */}
-      <Canvas camera={{ position: [31.49, 13.87, 0.11], fov: 45.0, far: 5000 }} shadows>
+      <Canvas camera={{ position: [-31.49, 13.87, -0.11], fov: 45.0, far: 5000 }} shadows>
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 80, 500]} />
         <CameraController 
           resetCounter={cameraResetCounter} 
+          resetType={cameraResetType}
           selectedBall={selectedBall}
           balls={balls}
+          isPaused={isPaused}
         />
         <SequenceDemoController 
           isDemoActive={isDemoActive}
           demoProgress={demoProgress}
           setDemoProgress={setDemoProgress}
+          isPaused={isPaused}
         />
         <AimLineController
           showAimingLines={showAimingLines}
@@ -2223,6 +2312,7 @@ export default function App() {
           balls={balls}
           hoverPoint={hoverPoint}
           ballSet={ballSet}
+          isPaused={isPaused}
         />
         <PanoramaBackground />
         <ambientLight intensity={0.5} />
@@ -2273,12 +2363,12 @@ export default function App() {
 
         {isHPressed && (
           <>
-            <HoopTeardrop pos={[-7, 0.55, 10.5]} label="1" />
-            <HoopTeardrop pos={[-7, 0.55, -10.5]} label="2" />
-            <HoopTeardrop pos={[7, 0.55, -10.5]} label="3" />
-            <HoopTeardrop pos={[7, 0.55, 10.5]} label="4" />
-            <HoopTeardrop pos={[0, 0.55, 7]} label="5" />
-            <HoopTeardrop pos={[0, 0.55, -7]} label="6" />
+            <HoopTeardrop pos={[-7, 0.55, 10.5]} label="1" isPaused={isPaused} />
+            <HoopTeardrop pos={[-7, 0.55, -10.5]} label="2" isPaused={isPaused} />
+            <HoopTeardrop pos={[7, 0.55, -10.5]} label="3" isPaused={isPaused} />
+            <HoopTeardrop pos={[7, 0.55, 10.5]} label="4" isPaused={isPaused} />
+            <HoopTeardrop pos={[0, 0.55, 7]} label="5" isPaused={isPaused} />
+            <HoopTeardrop pos={[0, 0.55, -7]} label="6" isPaused={isPaused} />
           </>
         )}
 
@@ -2296,6 +2386,7 @@ export default function App() {
             onImpact={handleImpact}
             onFinished={handleFinished}
             ballSet={ballSet}
+            isPaused={isPaused}
           />
         )}
 
@@ -2306,6 +2397,7 @@ export default function App() {
           onPositionChange={handleBallChange}
           selectedBall={selectedBall}
           selectedRingRef={selectedRingRef}
+          isPaused={isPaused}
         />
 
 
@@ -2452,7 +2544,7 @@ export default function App() {
           }}
         />
 
-        <OrbitControls makeDefault enabled={!drawMode || !isDrawingActive} maxPolarAngle={Math.PI / 2 - (5 * Math.PI / 180)} minDistance={5} maxDistance={250} target={[3.19, 0.17, -0.28]} />
+        <OrbitControls makeDefault enabled={!drawMode || !isDrawingActive} maxPolarAngle={Math.PI / 2 - (5 * Math.PI / 180)} minDistance={5} maxDistance={250} target={[-3.19, 0.17, 0.28]} />
       </Canvas>
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
@@ -2538,7 +2630,7 @@ export default function App() {
           
           <button 
             className="hud-action-row" 
-            onClick={handleReset} 
+            onClick={() => handleReset(isGameReset)} 
             disabled={activeStriker !== null}
             title={isGameReset ? "Start Game" : "Restart Game"}
           >
@@ -2606,6 +2698,26 @@ export default function App() {
               )}
             </div>
             <span>Fullscreen</span>
+          </button>
+
+          <button
+            className={`hud-action-row ${isPaused ? 'active-toggle' : ''}`}
+            onClick={() => setIsPaused(!isPaused)}
+            title="Pause Screen for Image Capture (P)"
+          >
+            <div className="hud-action-icon">
+              {isPaused ? (
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px' }}>
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px' }}>
+                  <rect x="6" y="4" width="4" height="16" />
+                  <rect x="14" y="4" width="4" height="16" />
+                </svg>
+              )}
+            </div>
+            <span>{isPaused ? 'Resume' : 'Freeze'}</span>
           </button>
         </div>
 
@@ -2814,8 +2926,8 @@ export default function App() {
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (0.70 BETA)</div>
-        <div className="signature-copyright">© 2026</div>
+        <div className="signature-title">GC Croquet 3D Visualiser (1.0)</div>
+        <div className="signature-copyright">© 2026 Murray Tinker. All Rights Reserved.</div>
       </div>
 
       {/* Premium Glassmorphic Toast Notification */}
@@ -2872,6 +2984,7 @@ export default function App() {
           <button 
             onClick={() => {
               setIsDemoActive(false);
+              setCameraResetType('reset');
               setCameraResetCounter(prev => prev + 1);
             }}
             style={{
@@ -2962,7 +3075,7 @@ export default function App() {
                             Drive Mode
                           </div>
                           <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                            Hold down the <kbd className="help-key-badge">Spacebar</kbd> when clicking or tapping the court to activate **Drive Mode**. The ball will be struck at a high driving speed (54 yd/s) that will easily blast it off the court, unless it strikes another ball, a hoop leg, or the center peg!
+                            Hold down the <kbd className="help-key-badge">Spacebar</kbd> when clicking or tapping the court to activate **Drive Mode**. The ball will be struck at a high driving speed (43.2 yd/s) that will easily blast it off the court, unless it strikes another ball, a hoop leg, or the center peg!
                           </div>
                         </div>
                       </div>
@@ -3208,6 +3321,12 @@ export default function App() {
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">P</kbd>
+                    </div>
+                    <div className="help-controls-desc">Freeze / pause screen for image captures (retains drawing tools)</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
                       <kbd className="help-key-badge">D</kbd>
                     </div>
                     <div className="help-controls-desc">Toggle Draw / Telestrator Mode to sketch tactical lines directly on the grass</div>
@@ -3226,6 +3345,18 @@ export default function App() {
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">U</kbd>
+                    </div>
+                    <div className="help-controls-desc">Undo the last ball movement or shot played</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
+                      <kbd className="help-key-badge">R</kbd>
+                    </div>
+                    <div className="help-controls-desc">Reset/restart all balls back to their starting layout spots</div>
+                  </div>
+                  <div className="help-controls-row">
+                    <div className="help-controls-key-col">
                       <kbd className="help-key-badge">H</kbd>
                     </div>
                     <div className="help-controls-desc">Hold down to display floating 3D hoop markers (1-6) </div>
@@ -3234,7 +3365,7 @@ export default function App() {
                     <div className="help-controls-key-col">
                       <kbd className="help-key-badge">Space</kbd>
                     </div>
-                    <div className="help-controls-desc">Hold down for Drive Mode (Power Strike at 54 yd/s)</div>
+                    <div className="help-controls-desc">Hold down for Drive Mode (Power Strike at 43.2 yd/s)</div>
                   </div>
                   <div className="help-controls-row">
                     <div className="help-controls-key-col">

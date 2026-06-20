@@ -11,6 +11,7 @@ interface CartoonPlayerProps {
   onImpact: () => void;
   onFinished: () => void;
   ballSet: 'primary' | 'secondary';
+  isPaused: boolean;
 }
 
 export default function CartoonPlayer({
@@ -20,7 +21,8 @@ export default function CartoonPlayer({
   isStriking,
   onImpact,
   onFinished,
-  ballSet
+  ballSet,
+  isPaused
 }: CartoonPlayerProps) {
   const armGroupRef = useRef<THREE.Group>(null);
   const playerGroupRef = useRef<THREE.Group>(null);
@@ -29,6 +31,22 @@ export default function CartoonPlayer({
   const [phase, setPhase] = useState<'idle' | 'stalking' | 'aiming' | 'backswing' | 'downswing' | 'followthrough'>('idle');
   const timer = useRef(0);
   const impactTriggered = useRef(false);
+
+  // Freeze ballPosition and targetPosition when striking begins to prevent character from moving/sliding with the ball
+  const frozenBallPos = useRef<[number, number, number]>(ballPosition);
+  const frozenTargetPos = useRef<[number, number, number]>(targetPosition);
+  const wasStriking = useRef(false);
+
+  if (isStriking && !wasStriking.current) {
+    frozenBallPos.current = ballPosition;
+    frozenTargetPos.current = targetPosition;
+    wasStriking.current = true;
+  } else if (!isStriking) {
+    wasStriking.current = false;
+  }
+
+  const frozenBall = frozenBallPos.current;
+  const frozenTarget = frozenTargetPos.current;
 
   // Hex colors matching our court balls
   const colorMap = {
@@ -39,16 +57,16 @@ export default function CartoonPlayer({
   };
 
   // Position player behind the ball based on target direction
-  const dx = targetPosition[0] - ballPosition[0];
-  const dz = targetPosition[2] - ballPosition[2];
+  const dx = frozenTarget[0] - frozenBall[0];
+  const dz = frozenTarget[2] - frozenBall[2];
   const dist = Math.sqrt(dx * dx + dz * dz);
   const ux = dist > 0 ? dx / dist : 0;
   const uz = dist > 0 ? dz / dist : -1;
 
   const playerDistance = 0.55; // yards behind ball (approx 20 inches for natural stance and close arm hang)
-  const px = ballPosition[0] - ux * playerDistance;
+  const px = frozenBall[0] - ux * playerDistance;
   const py = 0; // standing on grass
-  const pz = ballPosition[2] - uz * playerDistance;
+  const pz = frozenBall[2] - uz * playerDistance;
   
   // Angle facing the target peg
   const angle = Math.atan2(ux, uz);
@@ -68,7 +86,7 @@ export default function CartoonPlayer({
   }, [isStriking, color]);
 
   useFrame((_, delta) => {
-    if (!isStriking) return;
+    if (isPaused || !isStriking) return;
 
     timer.current += delta;
     const arm = armGroupRef.current;
@@ -81,8 +99,8 @@ export default function CartoonPlayer({
       const progress = Math.min(timer.current / 1.5, 1);
       const currentDistance = 1.6 - progress * (1.6 - 0.55);
       
-      const currPx = ballPosition[0] - ux * currentDistance;
-      const currPz = ballPosition[2] - uz * currentDistance;
+      const currPx = frozenBall[0] - ux * currentDistance;
+      const currPz = frozenBall[2] - uz * currentDistance;
       const bobY = Math.abs(Math.sin(timer.current * Math.PI * 3.5)) * 0.025;
 
       if (player) {
@@ -101,7 +119,7 @@ export default function CartoonPlayer({
 
       if (progress >= 1) {
         // Reset player posture to settled standard stance
-        if (player) player.position.set(ballPosition[0] - ux * 0.55, 0, ballPosition[2] - uz * 0.55);
+        if (player) player.position.set(frozenBall[0] - ux * 0.55, 0, frozenBall[2] - uz * 0.55);
         if (leftFoot) leftFoot.position.set(-0.12, 0.04, 0);
         if (rightFoot) rightFoot.position.set(0.12, 0.04, 0);
         

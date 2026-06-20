@@ -787,9 +787,9 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
   const camera = threeState.camera;
   const controls = threeState.controls;
   
-  // Track start delay (2s) and end pause (5s) to allow lawn rotation and completion to settle perfectly
+  // Track start delay (5s) and end pause (5s) to allow lawn rotation and completion to settle perfectly
   const prevDemoActiveRef = useRef(false);
-  const startDelayRef = useRef(2.0); // 2 seconds start delay
+  const startDelayRef = useRef(5.0); // 5 seconds start delay
   const endPauseRef = useRef(0.0);   // 5 seconds end pause
   const hasUserMovedCameraRef = useRef(false);
   const [showSign, setShowSign] = useState(true);
@@ -826,7 +826,7 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
     if (isPaused) return;
     if (isDemoActive) {
       if (!prevDemoActiveRef.current) {
-        startDelayRef.current = 2.0; // Reset start delay to 2 seconds
+        startDelayRef.current = 5.0; // Reset start delay to 5 seconds
         endPauseRef.current = 0.0;
         prevDemoActiveRef.current = true;
         hasUserMovedCameraRef.current = false; // Reset to enable automatic tracking!
@@ -894,9 +894,9 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
       if (endPauseRef.current > 0) {
         endPauseRef.current -= delta;
         if (endPauseRef.current <= 0) {
-          // Loop completed, reset to beginning and start 2-second start delay
+          // Loop completed, reset to beginning and start 5-second start delay
           setDemoProgress(0.0);
-          startDelayRef.current = 2.0;
+          startDelayRef.current = 5.0;
           setShowSign(true);
         }
         return;

@@ -2938,7 +2938,7 @@ export default function App() {
       {isDemoActive && (
         <div style={{
           position: 'absolute',
-          bottom: '10%',
+          bottom: '20%',
           left: '50%',
           transform: 'translateX(-50%)',
           background: 'rgba(9, 13, 22, 0.85)',

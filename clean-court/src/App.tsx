@@ -971,6 +971,7 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
     <group>
       {showSign && (
         <group>
+          {/* Start Sign Post */}
           {/* Wooden Post */}
           <mesh position={[13.0, 0.7, 15.5]} castShadow>
             <cylinderGeometry args={[0.04, 0.04, 1.4, 8]} />
@@ -991,6 +992,30 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
               fontWeight="bold"
             >
               START HERE
+            </Text>
+          </Billboard>
+
+          {/* Hoop 1 'First Hoop' Sign Post */}
+          {/* Wooden Post */}
+          <mesh position={[-8.5, 0.7, 10.5]} castShadow>
+            <cylinderGeometry args={[0.04, 0.04, 1.4, 8]} />
+            <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+          </mesh>
+          {/* Billboard Sign Board and Text */}
+          <Billboard position={[-8.5, 1.5, 10.5]}>
+            <mesh castShadow>
+              <boxGeometry args={[1.8, 0.55, 0.05]} />
+              <meshStandardMaterial color="#ffea00" roughness={0.6} />
+            </mesh>
+            <Text
+              position={[0, 0, 0.027]}
+              fontSize={0.24}
+              color="#000000"
+              anchorX="center"
+              anchorY="middle"
+              fontWeight="bold"
+            >
+              FIRST HOOP
             </Text>
           </Billboard>
         </group>

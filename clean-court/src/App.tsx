@@ -984,7 +984,7 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
             </mesh>
             <Text
               position={[0, 0, 0.027]}
-              fontSize={0.14}
+              fontSize={0.24}
               color="#000000"
               anchorX="center"
               anchorY="middle"

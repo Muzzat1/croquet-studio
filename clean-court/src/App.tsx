@@ -759,12 +759,12 @@ const DEMO_SEGMENTS: DemoSegment[] = [
 
   // Hoop 11: N Center (anticlockwise: N Center Hoop, run South-bound)
   { start: [7.0, 0.133375, -13.5], end: [0.0, 0.133375, -10.0], hoop: "Hoop 11 (N Center)", desc: "Positioning North of N Center Hoop for Hoop 11" },
-  { start: [0.0, 0.133375, -10.0], end: [0.0, 0.133375, -4.0], hoop: "Hoop 11 (N Center)", desc: "Running Hoop 11 (North Center - Opposite Side)" },
+  { start: [0.0, 0.133375, -10.0], end: [0.0, 0.133375, -5.5], hoop: "Hoop 11 (N Center)", desc: "Running Hoop 11 (North Center - Opposite Side)" },
 
   // Hoop 12: S Center (anticlockwise: S Center Hoop, run South-bound)
-  // Position around West side of Center Peg to prevent pegs collisions
-  { start: [0.0, 0.133375, -4.0], end: [-1.8, 0.133375, 0.0], hoop: "Hoop 12 (S Center)", desc: "Positioning around Center Peg for Hoop 12" },
-  { start: [-1.8, 0.133375, 0.0], end: [0.0, 0.133375, 4.0], hoop: "Hoop 12 (S Center)", desc: "Approaching Hoop 12 (South Center - Opposite Side)" },
+  // Position close past Center Peg (West side)
+  { start: [0.0, 0.133375, -5.5], end: [-0.6, 0.133375, 0.0], hoop: "Hoop 12 (S Center)", desc: "Positioning close past peg for Hoop 12" },
+  { start: [-0.6, 0.133375, 0.0], end: [0.0, 0.133375, 4.0], hoop: "Hoop 12 (S Center)", desc: "Approaching Hoop 12 (South Center - Opposite Side)" },
   { start: [0.0, 0.133375, 4.0], end: [0.0, 0.133375, 10.0], hoop: "Hoop 12 (S Center)", desc: "Running Hoop 12 (South Center - Opposite Side)" },
 
   // Hoop 13: NE (deciding hoop: run from the correct side: North to South)

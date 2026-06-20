@@ -733,11 +733,10 @@ const DEMO_SEGMENTS: DemoSegment[] = [
 
   // Hoop 5: S Center (approach, then run)
   { start: [7.0, 0.133375, 13.5], end: [0.0, 0.133375, 10.0], hoop: "Hoop 5 (S Center)", desc: "Positioning for Hoop 5 (South Center)" },
-  { start: [0.0, 0.133375, 10.0], end: [0.0, 0.133375, 4.0], hoop: "Hoop 5 (S Center)", desc: "Running Hoop 5 (South Center)" },
+  { start: [0.0, 0.133375, 10.0], end: [0.0, 0.133375, 5.5], hoop: "Hoop 5 (S Center)", desc: "Running Hoop 5 (South Center)" },
 
   // Hoop 6: N Center (approach, then run)
-  { start: [0.0, 0.133375, 4.0], end: [1.5, 0.133375, 0.0], hoop: "Hoop 6 (N Center)", desc: "Positioning around Center Peg for Hoop 6" },
-  { start: [1.5, 0.133375, 0.0], end: [0.0, 0.133375, -4.0], hoop: "Hoop 6 (N Center)", desc: "Approaching Hoop 6 (North Center)" },
+  { start: [0.0, 0.133375, 5.5], end: [0.0, 0.133375, -4.0], hoop: "Hoop 6 (N Center)", desc: "Positioning for Hoop 6 (North Center)" },
   { start: [0.0, 0.133375, -4.0], end: [0.0, 0.133375, -10.0], hoop: "Hoop 6 (N Center)", desc: "Running Hoop 6 (North Center)" },
 
   // Hoop 7: NW (start of anticlockwise second round: run from the North side, South-bound)

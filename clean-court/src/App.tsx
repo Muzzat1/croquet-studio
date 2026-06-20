@@ -861,31 +861,11 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
       }
 
       if (!hasUserMovedCameraRef.current) {
-        // AUTOMATIC CAMERA TRACKING AND ZOOM EFFECTS MODE!
-        const targetCamPos = new THREE.Vector3();
-        const targetCamTarget = new THREE.Vector3();
-        let targetFov: number;
+        // STATIC CAMERA TRACKING MODE FOR GC SEQUENCE DEMO
+        const targetCamPos = new THREE.Vector3(-7.4492, 23.2276, 63.9012);
+        const targetCamTarget = new THREE.Vector3(1.1084, 1.2842, 9.9425);
+        const targetFov = 15.1;
         const targetUp = new THREE.Vector3(0, 1, 0);
-
-        if (startDelayRef.current > 0) {
-          // 1. Start delay: Camera at Preset 0
-          targetCamPos.set(41.79, 7.23, 24.46);
-          targetCamTarget.set(-3.45, 1.52, 10.27);
-          targetFov = 15.0;
-          targetUp.set(0, 1, 0);
-        } else if (segmentIndex_segs >= 26 || endPauseRef.current > 0) {
-          // 3. Final shot (Hoop 13 approach & run) & end pause: Camera 3 (Preset 3)
-          targetCamPos.set(7.0, 18.25, -54.79);
-          targetCamTarget.set(7.0, 1.52, -10.27);
-          targetFov = 15.0;
-          targetUp.set(0, 1, 0);
-        } else {
-          // 2. Play following: Overhead camera following the ball
-          targetCamPos.set(ballPos.x, 50.0, ballPos.z + 0.1);
-          targetCamTarget.set(ballPos.x, ballPos.y, ballPos.z);
-          targetFov = 21.6; // Zoomed out 20% (from 18.0 to 21.6) for a perfectly balanced play follow!
-          targetUp.set(1, 0, 0); // Keep West boundary at the bottom of the screen!
-        }
 
         // Smoothly lerp camera and controls for beautiful transitions
         camera.position.lerp(targetCamPos, 0.05);

@@ -972,20 +972,20 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
       {showSign && (
         <group>
           {/* Wooden Post */}
-          <mesh position={[13.0, 0.4, 15.5]} castShadow>
-            <cylinderGeometry args={[0.03, 0.03, 0.8, 8]} />
+          <mesh position={[13.0, 0.7, 15.5]} castShadow>
+            <cylinderGeometry args={[0.04, 0.04, 1.4, 8]} />
             <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
           </mesh>
           {/* Billboard Sign Board and Text */}
-          <Billboard position={[13.0, 0.9, 15.5]}>
+          <Billboard position={[13.0, 1.5, 15.5]}>
             <mesh castShadow>
-              <boxGeometry args={[0.9, 0.35, 0.04]} />
-              <meshStandardMaterial color="#faf9f6" roughness={0.8} />
+              <boxGeometry args={[1.8, 0.55, 0.05]} />
+              <meshStandardMaterial color="#ffea00" roughness={0.6} />
             </mesh>
             <Text
-              position={[0, 0, 0.021]}
-              fontSize={0.09}
-              color="#111111"
+              position={[0, 0, 0.027]}
+              fontSize={0.14}
+              color="#000000"
               anchorX="center"
               anchorY="middle"
               fontWeight="bold"

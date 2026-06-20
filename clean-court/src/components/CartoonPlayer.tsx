@@ -225,28 +225,53 @@ export default function CartoonPlayer({
         <meshStandardMaterial color="#ffffff" roughness={0.5} />
       </mesh>
 
+      {/* Neck */}
+      <mesh position={[0, 0.95, 0]} castShadow>
+        <cylinderGeometry args={[0.045, 0.05, 0.08, 12]} />
+        <meshStandardMaterial color="#fcd5b5" roughness={0.7} />
+      </mesh>
+
       {/* 4. Head */}
-      <mesh position={[0, 1.08, 0]} castShadow>
+      <mesh position={[0, 1.07, 0]} castShadow>
         <sphereGeometry args={[0.14, 16, 16]} />
         <meshStandardMaterial color="#fcd5b5" roughness={0.7} />
       </mesh>
 
-      {/* 5. Stylized Cap (matching shirt color) */}
-      <mesh position={[0, 1.20, 0.02]} rotation={[-0.1, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.145, 0.145, 0.04, 12]} />
-        <meshStandardMaterial color={colorMap[color]} roughness={0.5} />
+      {/* 5. White Panama Hat */}
+      {/* Hat Brim */}
+      <mesh position={[0, 1.18, 0.01]} rotation={[-0.05, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.24, 0.24, 0.01, 24]} />
+        <meshStandardMaterial color="#faf9f6" roughness={0.9} />
       </mesh>
-      {/* Cap Visor Rim */}
-      <mesh position={[0, 1.19, 0.12]} rotation={[0.2, 0, 0]} castShadow>
-        <boxGeometry args={[0.17, 0.015, 0.09]} />
-        <meshStandardMaterial color={colorMap[color]} roughness={0.5} />
+      {/* Hat Ribbon (Black Band) */}
+      <mesh position={[0, 1.205, 0.01]} rotation={[-0.05, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.136, 0.137, 0.03, 18]} />
+        <meshStandardMaterial color="#111111" roughness={0.7} />
+      </mesh>
+      {/* Hat Crown */}
+      <mesh position={[0, 1.25, 0.01]} rotation={[-0.05, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.125, 0.135, 0.07, 18]} />
+        <meshStandardMaterial color="#faf9f6" roughness={0.9} />
       </mesh>
 
-      {/* 6. Cartoon Sunglasses/Eyes for visual flair */}
-      <mesh position={[0, 1.10, 0.11]} castShadow>
-        <boxGeometry args={[0.19, 0.03, 0.03]} />
-        <meshStandardMaterial color="#111111" metalness={0.9} roughness={0.1} />
-      </mesh>
+      {/* 6. Cartoon Sunglasses/Eyes for visual flair - realistic aviators */}
+      <group position={[0, 1.08, 0.07]}>
+        {/* Left Lens */}
+        <mesh position={[-0.045, 0, 0.06]} castShadow>
+          <sphereGeometry args={[0.035, 12, 12]} />
+          <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* Right Lens */}
+        <mesh position={[0.045, 0, 0.06]} castShadow>
+          <sphereGeometry args={[0.035, 12, 12]} />
+          <meshStandardMaterial color="#222222" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* Bridge */}
+        <mesh position={[0, 0.01, 0.06]} castShadow>
+          <boxGeometry args={[0.05, 0.008, 0.01]} />
+          <meshStandardMaterial color="#d4af37" metalness={0.9} roughness={0.1} />
+        </mesh>
+      </group>
 
       {/* 7. Swing Arm & Mallet Assembly */}
       <group ref={armGroupRef} position={[0, 0.85, 0.10]}>

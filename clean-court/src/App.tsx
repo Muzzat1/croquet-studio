@@ -945,6 +945,7 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
   const N = DEMO_SEGMENTS.length;
   const totalProgress = demoProgress * N;
   const segmentIndex = Math.floor(totalProgress) % N;
+  const showLastHoopSign = isDemoActive && (segmentIndex >= N - 2 || endPauseRef.current > 0);
   const tLocal = totalProgress % 1.0; // 0.0 to 1.0 within this segment
 
   // If start delay is active, hold the ball stationary at Corner 4 starting coordinates
@@ -1001,21 +1002,49 @@ function SequenceDemoController({ isDemoActive, demoProgress, setDemoProgress, i
             <cylinderGeometry args={[0.04, 0.04, 1.4, 8]} />
             <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
           </mesh>
-          {/* Billboard Sign Board and Text */}
+          {/* Billboard Sign Board and Text (Blue background with white text) */}
           <Billboard position={[-8.5, 1.5, 10.5]}>
             <mesh castShadow>
               <boxGeometry args={[1.8, 0.55, 0.05]} />
-              <meshStandardMaterial color="#ffea00" roughness={0.6} />
+              <meshStandardMaterial color="#1e88e5" roughness={0.6} />
             </mesh>
             <Text
               position={[0, 0, 0.027]}
               fontSize={0.24}
-              color="#000000"
+              color="#ffffff"
               anchorX="center"
               anchorY="middle"
               fontWeight="bold"
             >
               FIRST HOOP
+            </Text>
+          </Billboard>
+        </group>
+      )}
+
+      {showLastHoopSign && (
+        <group>
+          {/* Hoop 13 'Last Hoop' Sign Post */}
+          {/* Wooden Post */}
+          <mesh position={[8.5, 0.7, -10.5]} castShadow>
+            <cylinderGeometry args={[0.04, 0.04, 1.4, 8]} />
+            <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+          </mesh>
+          {/* Billboard Sign Board and Text (Red background with white text) */}
+          <Billboard position={[8.5, 1.5, -10.5]}>
+            <mesh castShadow>
+              <boxGeometry args={[1.8, 0.55, 0.05]} />
+              <meshStandardMaterial color="#ff1744" roughness={0.6} />
+            </mesh>
+            <Text
+              position={[0, 0, 0.027]}
+              fontSize={0.24}
+              color="#ffffff"
+              anchorX="center"
+              anchorY="middle"
+              fontWeight="bold"
+            >
+              LAST HOOP
             </Text>
           </Billboard>
         </group>

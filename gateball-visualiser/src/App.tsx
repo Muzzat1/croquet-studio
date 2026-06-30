@@ -149,6 +149,8 @@ export default function App() {
     setContactEffects(prev => [...prev, newEffect]);
   }, []);
 
+  const touchOccurredRef = useRef(false);
+
 
   const touchingSparkTargetId = React.useMemo(() => {
     if (!activeBallId || isPlaying || isReplaying) return null;
@@ -246,12 +248,33 @@ export default function App() {
       });
     }
   }, [sparkMode, activeBallId, sparkTargetId, angle, isPlaying]);
+
+  useEffect(() => {
+    if (isRecording && touchOccurredRef.current && sparkMode && activeBallId && sparkTargetId && !isPlaying) {
+      const activeBall = balls[activeBallId];
+      const targetBall = balls[sparkTargetId];
+      if (activeBall && targetBall) {
+        const rad = (angle * Math.PI) / 180;
+        const expectedX = activeBall.x + Math.sin(rad) * (2 * DISPLAY_RADIUS);
+        const expectedY = activeBall.y - Math.cos(rad) * (2 * DISPLAY_RADIUS);
+        const diffX = Math.abs(targetBall.x - expectedX);
+        const diffY = Math.abs(targetBall.y - expectedY);
+        
+        // Check if the ball has snapped close to the expected position
+        if (diffX < 0.1 && diffY < 0.1) {
+          handleCaptureFrame();
+          touchOccurredRef.current = false;
+        }
+      }
+    }
+  }, [balls, sparkMode, activeBallId, sparkTargetId, angle, isRecording, isPlaying]);
   const animationRef = useRef<number>(null);
 
   const handleUndo = () => {
     if (history.length === 0 || isPlaying || isReplaying) return;
     const lastItem = history[history.length - 1];
     setBalls(lastItem.state);
+    touchOccurredRef.current = false;
     
     if (lastItem.isShot && isRecording) {
       setSequence(prev => {
@@ -273,6 +296,7 @@ export default function App() {
     setGhostBallEnabled(false); // Hide ghost balls and predictions in place mode
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     setBalls(initBalls(ballSet));
+    touchOccurredRef.current = false;
   }, [ballSet, isReplaying, initBalls]);
 
   const animateToFrame = (targetIndex: number) => {
@@ -302,9 +326,49 @@ export default function App() {
             renderScene(nextBalls);
             if (targetFrame.impacts?.includes(currentStep)) {
               playSound(SOUNDS.collision, 0.3);
+
+              // 1. Goal Pole contact
+              BALL_IDS.forEach(id => {
+                const b = nextBalls[id];
+                if (isBallDocked(b)) return;
+                const dxPeg = b.x - GOAL_POLE_POS.x;
+                const dyPeg = b.y - GOAL_POLE_POS.y;
+                const distPeg = Math.sqrt(dxPeg * dxPeg + dyPeg * dyPeg);
+                if (distPeg <= b.radius + GOAL_POLE_RADIUS + 0.5) {
+                  addContactEffect(GOAL_POLE_POS.x, GOAL_POLE_POS.y, 'HIT!', '#3b82f6');
+                }
+              });
+
+              // 2. Ball-to-ball contact
+              for (let i = 0; i < BALL_IDS.length; i++) {
+                for (let j = i + 1; j < BALL_IDS.length; j++) {
+                  const b1 = nextBalls[BALL_IDS[i]];
+                  const b2 = nextBalls[BALL_IDS[j]];
+                  if (!b1 || !b2 || isBallDocked(b1) || isBallDocked(b2)) continue;
+
+                  const dx = b1.x - b2.x;
+                  const dy = b1.y - b2.y;
+                  const dist = Math.sqrt(dx * dx + dy * dy);
+                  if (dist <= 2 * BALL_RADIUS + 0.5) {
+                    addContactEffect((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, 'TOUCH', '#f59e0b');
+                  }
+                }
+              }
             }
-            currentStep += 1; // Playback at normal speed, maybe can speed up if needed, but 1x is best
-            if (currentStep < maxLength) {
+
+            // Clean up expired contact effects in the replay loop
+            const now = performance.now();
+            const activeEffects = contactEffectsRef.current.filter(eff => now - eff.startTime < 1000);
+            if (activeEffects.length !== contactEffectsRef.current.length) {
+              setContactEffects(activeEffects);
+            }
+
+            const hasActiveEffects = contactEffectsRef.current.some(eff => performance.now() - eff.startTime < 1000);
+
+            if (currentStep < maxLength || hasActiveEffects) {
+              if (currentStep < maxLength) {
+                currentStep += 1;
+              }
               replayRef.current.animId = requestAnimationFrame(step);
             } else {
               setBalls(nextBalls);
@@ -365,6 +429,7 @@ export default function App() {
     if (index < 0 || index >= sequence.length || isPlaying || isReplaying) return;
     replayRef.current.active = true; replayRef.current.isAutoReplaying = false;
     setTargetSpot(null); setTargetSelectedWithA(false); setDrawings([]); setHistory([]);
+    touchOccurredRef.current = false;
     await animateToFrame(index);
     replayRef.current.active = false;
   };
@@ -373,6 +438,7 @@ export default function App() {
     if (sequence.length < 2) return;
     setIsReplaying(true); replayRef.current.active = true; replayRef.current.isAutoReplaying = true;
     setTargetSpot(null); setTargetSelectedWithA(false); setDrawings([]); setHistory([]);
+    touchOccurredRef.current = false;
 
     const frame0 = sequenceRef.current[0];
     setBalls(frame0.positions);
@@ -443,7 +509,7 @@ export default function App() {
     }
   };
 
-  const clearSequence = () => { if (isReplaying) return; setSequence([]); setCurrentShotIndex(0); setDrawings([]); };
+  const clearSequence = () => { if (isReplaying) return; setSequence([]); setCurrentShotIndex(0); setDrawings([]); touchOccurredRef.current = false; };
 
   const exportSequence = async () => {
     const d = new Date();
@@ -501,6 +567,7 @@ export default function App() {
     if (isBallDocked(activeBall)) return;
 
     setHistory(prev => [...prev, { state: { ...balls }, isShot: true }]);
+    touchOccurredRef.current = false;
 
     const pairs: string[] = [];
     const bs = Object.values(balls);
@@ -1381,6 +1448,11 @@ export default function App() {
 
                   // Trigger "TOUCH" effect at midpoint of the two balls
                   addContactEffect((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, 'TOUCH', '#f59e0b');
+
+                  // Track if the striker's ball touched another ball
+                  if (b1.id === activeBallIdRef.current || b2.id === activeBallIdRef.current) {
+                    touchOccurredRef.current = true;
+                  }
                 }
                 const overlap = (2 * BALL_RADIUS) - dist;
                 const nx_pos = relX / dist; const ny_pos = relY / dist;

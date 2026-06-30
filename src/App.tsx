@@ -70,7 +70,7 @@ function App() {
         {/* Grid Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
           <GameCard 
-            href="/gateball.html"
+            href="/gateball-visualiser/"
             title="Gateball"
             description="The 10 ball team strategy game from Japan. Played internationally on a smaller court with 3 gates and a central goal pole."
             icon={CircleDot}
@@ -80,7 +80,7 @@ function App() {
           />
 
           <GameCard 
-            href="/golf-croquet.html"
+            href="/golf-croquet-visualiser/"
             title="Golf Croquet"
             description={`Fast-paced 4 ball sequence game for singles or pairs. Standard croquet court with 6 hoops.\nRicochet can be visualised on this tool`}
             icon={MoveDiagonal}
@@ -89,7 +89,7 @@ function App() {
           />
 
           <GameCard 
-            href="/association.html"
+            href="/association-croquet-visualiser/"
             title="Association Croquet"
             description="Classic break-building tactical game. Features croquet shots and advanced physics."
             icon={CircleDot}

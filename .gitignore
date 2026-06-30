@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Visualizer Local Assets & Backups
+backups/
+Video/

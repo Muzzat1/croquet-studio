@@ -109,7 +109,7 @@ export default function App() {
 
   const activeBallIdRef = useRef<BallId | null>(activeBallId);
   const traceRef = useRef<Record<BallId, Point[]>>({} as Record<BallId, Point[]>);
-  const impactsRef = useRef<number[]>([]);
+  const impactsRef = useRef<(number | { step: number; x: number; y: number; text: string; color: string })[]>([]);
   useEffect(() => { activeBallIdRef.current = activeBallId; }, [activeBallId]);
 
   const isAPressedRef = useRef(false);
@@ -153,7 +153,7 @@ export default function App() {
 
 
   const touchingSparkTargetId = React.useMemo(() => {
-    if (!activeBallId || isPlaying || isReplaying) return null;
+    if (!activeBallId || isPlaying) return null;
     const activeBall = balls[activeBallId];
     if (isBallDocked(activeBall)) return null;
     const others = Object.values(balls).filter(b => b.id !== activeBallId && !isBallDocked(b));
@@ -166,7 +166,7 @@ export default function App() {
       }
     }
     return null;
-  }, [activeBallId, balls, isPlaying, isReplaying]);
+  }, [activeBallId, balls, isPlaying]);
 
   const sparkMode = !!touchingSparkTargetId;
   const sparkTargetId = touchingSparkTargetId;
@@ -324,36 +324,48 @@ export default function App() {
             });
             ballsRef.current = nextBalls;
             renderScene(nextBalls);
-            if (targetFrame.impacts?.includes(currentStep)) {
+            const stepImpacts = targetFrame.impacts?.filter(imp => {
+              if (typeof imp === 'number') return imp === currentStep;
+              return imp && imp.step === currentStep;
+            }) || [];
+
+            if (stepImpacts.length > 0) {
               playSound(SOUNDS.collision, 0.3);
 
-              // 1. Goal Pole contact
-              BALL_IDS.forEach(id => {
-                const b = nextBalls[id];
-                if (isBallDocked(b)) return;
-                const dxPeg = b.x - GOAL_POLE_POS.x;
-                const dyPeg = b.y - GOAL_POLE_POS.y;
-                const distPeg = Math.sqrt(dxPeg * dxPeg + dyPeg * dyPeg);
-                if (distPeg <= b.radius + GOAL_POLE_RADIUS + 0.5) {
-                  addContactEffect(GOAL_POLE_POS.x, GOAL_POLE_POS.y, 'HIT!', '#3b82f6');
-                }
-              });
+              stepImpacts.forEach(imp => {
+                if (typeof imp === 'object') {
+                  addContactEffect(imp.x, imp.y, imp.text, imp.color);
+                } else {
+                  // Fallback: if it's an old number-based impact, find the contact dynamically
+                  // 1. Goal Pole contact
+                  BALL_IDS.forEach(id => {
+                    const b = nextBalls[id];
+                    if (isBallDocked(b)) return;
+                    const dxPeg = b.x - GOAL_POLE_POS.x;
+                    const dyPeg = b.y - GOAL_POLE_POS.y;
+                    const distPeg = Math.sqrt(dxPeg * dxPeg + dyPeg * dyPeg);
+                    if (distPeg <= b.radius + GOAL_POLE_RADIUS + 1.5) {
+                      addContactEffect(GOAL_POLE_POS.x, GOAL_POLE_POS.y, 'HIT!', '#3b82f6');
+                    }
+                  });
 
-              // 2. Ball-to-ball contact
-              for (let i = 0; i < BALL_IDS.length; i++) {
-                for (let j = i + 1; j < BALL_IDS.length; j++) {
-                  const b1 = nextBalls[BALL_IDS[i]];
-                  const b2 = nextBalls[BALL_IDS[j]];
-                  if (!b1 || !b2 || isBallDocked(b1) || isBallDocked(b2)) continue;
+                  // 2. Ball-to-ball contact
+                  for (let i = 0; i < BALL_IDS.length; i++) {
+                    for (let j = i + 1; j < BALL_IDS.length; j++) {
+                      const b1 = nextBalls[BALL_IDS[i]];
+                      const b2 = nextBalls[BALL_IDS[j]];
+                      if (!b1 || !b2 || isBallDocked(b1) || isBallDocked(b2)) continue;
 
-                  const dx = b1.x - b2.x;
-                  const dy = b1.y - b2.y;
-                  const dist = Math.sqrt(dx * dx + dy * dy);
-                  if (dist <= 2 * BALL_RADIUS + 0.5) {
-                    addContactEffect((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, 'TOUCH', '#f59e0b');
+                      const dx = b1.x - b2.x;
+                      const dy = b1.y - b2.y;
+                      const dist = Math.sqrt(dx * dx + dy * dy);
+                      if (dist <= 2 * BALL_RADIUS + 2.0) {
+                        addContactEffect((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, 'TOUCH', '#f59e0b');
+                      }
+                    }
                   }
                 }
-              }
+              });
             }
 
             // Clean up expired contact effects in the replay loop
@@ -683,8 +695,13 @@ export default function App() {
       const hits = Object.values(balls).map(b => ({ id: b.id, dist: getHitDistance(b) })).filter(h => h.dist !== Infinity).sort((a, b) => a.dist - b.dist);
       if (hits.length > 0) {
         const hitId = hits[0].id as BallId;
-        setActiveBallId(hitId);
-        activeBallIdRef.current = hitId; // SYNCHRONOUS FIX: Instantly updates the ref to kill closure lag
+        
+        // Preserve active striker ball ID if a touch was already recorded and we are prepping a spark!
+        if (!touchOccurredRef.current) {
+          setActiveBallId(hitId);
+          activeBallIdRef.current = hitId; // SYNCHRONOUS FIX: Instantly updates the ref to kill closure lag
+        }
+        
         setDraggingItem(hitId);
         setTargetSpot(null); // Clears old targets so the line doesn't snap to 0
         setTargetSelectedWithA(false);
@@ -1235,7 +1252,24 @@ export default function App() {
       }
     }
 
-    if (sparkMode && activeBallId) {
+    let isSparkingInScene = false;
+    if (activeBallId) {
+      const activeBall = ballsToRender[activeBallId];
+      if (activeBall && !isBallDocked(activeBall)) {
+        const others = Object.values(ballsToRender).filter(b => b.id !== activeBallId && !isBallDocked(b));
+        for (const b of others) {
+          const dx = activeBall.x - b.x;
+          const dy = activeBall.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= 2 * DISPLAY_RADIUS + 0.5) {
+            isSparkingInScene = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (isSparkingInScene && activeBallId) {
       const activeBall = ballsToRender[activeBallId];
       if (activeBall && !isBallDocked(activeBall)) {
         ctx.save();
@@ -1390,7 +1424,15 @@ export default function App() {
             if (velAlongNormal < 0) { 
               const j = -(1 + 0.5) * velAlongNormal; ball.vx += j * nx; ball.vy += j * ny; 
               playSound(SOUNDS.collision, 0.2); 
-              if (stateRefs.current.isRecording) impactsRef.current.push(traceRef.current[ball.id]?.length || 0);
+              if (stateRefs.current.isRecording) {
+                impactsRef.current.push({
+                  step: traceRef.current[ball.id]?.length || 0,
+                  x: GOAL_POLE_POS.x,
+                  y: GOAL_POLE_POS.y,
+                  text: 'HIT!',
+                  color: '#3b82f6'
+                });
+              }
 
               // Trigger "HIT!" effect at Goal Pole center
               addContactEffect(GOAL_POLE_POS.x, GOAL_POLE_POS.y, 'HIT!', '#3b82f6');
@@ -1444,7 +1486,15 @@ export default function App() {
                   b1.vx += j_impulse * nx; b1.vy += j_impulse * ny;
                   b2.vx -= j_impulse * nx; b2.vy -= j_impulse * ny;
                   playSound(SOUNDS.collision, 0.3);
-                  if (stateRefs.current.isRecording) impactsRef.current.push(traceRef.current[b1.id]?.length || 0);
+                  if (stateRefs.current.isRecording) {
+                    impactsRef.current.push({
+                      step: traceRef.current[b1.id]?.length || 0,
+                      x: (b1.x + b2.x) / 2,
+                      y: (b1.y + b2.y) / 2,
+                      text: 'TOUCH',
+                      color: '#f59e0b'
+                    });
+                  }
 
                   // Trigger "TOUCH" effect at midpoint of the two balls
                   addContactEffect((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, 'TOUCH', '#f59e0b');

@@ -24,7 +24,7 @@ export interface RecordedShot {
   speed: number; 
   positions: Record<BallId, Ball>; 
   trace?: Record<BallId, Point[]>;
-  impacts?: number[];
+  impacts?: (number | { step: number; x: number; y: number; text: string; color: string })[];
   isAutoEnd?: boolean;
   isSparkShot?: boolean;
   sparkTargetId?: BallId;

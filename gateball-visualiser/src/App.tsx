@@ -1,7 +1,7 @@
 import { SphericalController } from './components/SphericalController';
 import { HelpScreen, ToolButton } from './components/UIComponents';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Minus, Plus } from 'lucide-react';
+import { Play, RotateCcw, Search, MousePointer2, Maximize2, Minimize2, HelpCircle, X, Eye, Clapperboard, ChevronLeft, ChevronRight, Save, FolderUp, Trash2, MonitorPlay, Camera, ZoomIn, ZoomOut, Pencil, Eraser, Settings, Undo2, Minus, Plus, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Point, Path, BallId, Ball, RecordedShot, BALL_RADIUS, DISPLAY_RADIUS, SCALE, EDGING, FIELD_WIDTH, FIELD_HEIGHT, ZOOM_LEVELS, SPACING, BALL_IDS, getInitialPositions, GATE_WIDTH, GOAL_POLE_RADIUS, GATES, GOAL_POLE_POS, SOUNDS, playSound, BALL_SETS, getActiveColor } from './constants';
 
@@ -107,6 +107,17 @@ export default function App() {
     }
   }, [balls, isPlaying]);
 
+  const [isPowerShot, setIsPowerShot] = useState(false);
+
+  const targetSpotRef = useRef(targetSpot);
+  const isPlayingRef = useRef(isPlaying);
+  const isReplayingRef = useRef(isReplaying);
+  const isPowerShotRef = useRef(isPowerShot);
+  useEffect(() => { targetSpotRef.current = targetSpot; }, [targetSpot]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { isReplayingRef.current = isReplaying; }, [isReplaying]);
+  useEffect(() => { isPowerShotRef.current = isPowerShot; }, [isPowerShot]);
+
   const activeBallIdRef = useRef<BallId | null>(activeBallId);
   const traceRef = useRef<Record<BallId, Point[]>>({} as Record<BallId, Point[]>);
   const impactsRef = useRef<(number | { step: number; x: number; y: number; text: string; color: string })[]>([]);
@@ -119,6 +130,12 @@ export default function App() {
       if (e.key.toLowerCase() === 'a') {
         isAPressedRef.current = true;
       }
+      if (e.key === ' ' || e.code === 'Space') {
+        if (targetSpotRef.current !== null && !isPlayingRef.current && !isReplayingRef.current) {
+          e.preventDefault();
+          setIsPowerShot(prev => !prev);
+        }
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'a') {
@@ -129,7 +146,7 @@ export default function App() {
       isAPressedRef.current = false;
     };
 
-    window.addEventListener('keydown', handleKeyDown, { passive: true });
+    window.addEventListener('keydown', handleKeyDown, { passive: false });
     window.addEventListener('keyup', handleKeyUp, { passive: true });
     window.addEventListener('blur', handleBlur, { passive: true });
 
@@ -139,6 +156,12 @@ export default function App() {
       window.removeEventListener('blur', handleBlur);
     };
   }, []);
+
+  useEffect(() => {
+    if (!targetSpot) {
+      setIsPowerShot(false);
+    }
+  }, [targetSpot]);
 
   const [contactEffects, setContactEffects] = useState<{ id: number; x: number; y: number; startTime: number; text: string; color: string }[]>([]);
   const contactEffectsRef = useRef(contactEffects);
@@ -211,7 +234,8 @@ export default function App() {
           speed: stateRefs.current.speed, 
           positions: positionsCopy,
           trace: currentTrace,
-          impacts: currentImpacts
+          impacts: currentImpacts,
+          isPowerShot: isPowerShotRef.current
         }];
         setCurrentShotIndex(newSeq.length - 1); 
         return newSeq;
@@ -275,6 +299,7 @@ export default function App() {
     const lastItem = history[history.length - 1];
     setBalls(lastItem.state);
     touchOccurredRef.current = false;
+    setIsPowerShot(false);
     
     if (lastItem.isShot && isRecording) {
       setSequence(prev => {
@@ -297,6 +322,7 @@ export default function App() {
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     setBalls(initBalls(ballSet));
     touchOccurredRef.current = false;
+    setIsPowerShot(false);
   }, [ballSet, isReplaying, initBalls]);
 
   const animateToFrame = (targetIndex: number) => {
@@ -388,6 +414,7 @@ export default function App() {
               setActiveBallId(targetFrame.activeBallId);
               setAngle(targetFrame.angle);
               setSpeed(targetFrame.speed);
+              setIsPowerShot(!!targetFrame.isPowerShot);
               resolve();
             }
           };
@@ -430,6 +457,7 @@ export default function App() {
           setActiveBallId(sequenceRef.current[targetIndex].activeBallId);
           setAngle(sequenceRef.current[targetIndex].angle);
           setSpeed(sequenceRef.current[targetIndex].speed);
+          setIsPowerShot(!!sequenceRef.current[targetIndex].isPowerShot);
           resolve();
         }
       };
@@ -599,7 +627,8 @@ export default function App() {
         positions: JSON.parse(JSON.stringify(ballsRef.current)),
         activeBallId: activeBallId || 'r1',
         angle,
-        speed
+        speed,
+        isPowerShot
       }]);
       setCurrentShotIndex(0);
     }
@@ -610,7 +639,8 @@ export default function App() {
     }
     playSound(SOUNDS.mallet, 0.6);
     const rad = (angle * Math.PI) / 180; const decel = 0.06; const distance = (speed / 100) * 20 * SCALE; const initialSpeed = Math.sqrt(2 * decel * distance);
-    const vx = Math.sin(rad) * initialSpeed; const vy = -Math.cos(rad) * initialSpeed;
+    const velocityMultiplier = isPowerShot ? 2.0 : 1.0;
+    const vx = Math.sin(rad) * initialSpeed * velocityMultiplier; const vy = -Math.cos(rad) * initialSpeed * velocityMultiplier;
 
     if (sparkMode && sparkTargetId) {
       ballsRef.current = { ...ballsRef.current, [sparkTargetId]: { ...ballsRef.current[sparkTargetId], vx, vy } };
@@ -1774,6 +1804,21 @@ export default function App() {
         <main className="relative z-10 flex-1 h-full overflow-hidden bg-black/20" ref={viewportRef}>
 
           <AnimatePresence>
+            {isPowerShot && !cleanFeed && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: -20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: -20 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="absolute top-2 md:top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 p-1.5 px-4 rounded-full border border-amber-500/40 bg-zinc-950/90 shadow-[0_0_20px_rgba(245,158,11,0.25)] backdrop-blur-md"
+              >
+                <Zap size={14} className="text-amber-400 animate-pulse shrink-0 fill-amber-400/20" />
+                <span className="text-amber-400 text-xs md:text-sm font-black tracking-[0.2em] uppercase select-none">
+                  Power Shot
+                </span>
+                <Zap size={14} className="text-amber-400 animate-pulse shrink-0 fill-amber-400/20" />
+              </motion.div>
+            )}
             {drawMode && !cleanFeed && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -1825,7 +1870,7 @@ export default function App() {
                 {sparkMode && !targetSpot && placementMode && !isReplaying && !cleanFeed && activeBallId && balls[activeBallId] && (
                   <motion.div 
                     initial={{ opacity: 0, y: 5 }} 
-                    animate={{ opacity: 1, y: 0 }} 
+                    animate={{ opacity: 0.4, y: 0 }} 
                     exit={{ opacity: 0, y: 5 }} 
                     className="absolute z-[100] pointer-events-none" 
                     style={{ 
@@ -1834,8 +1879,8 @@ export default function App() {
                       transform: 'translate(-50%, -40px)'
                     }}
                   >
-                    <div className="px-3 py-1.5 rounded-full bg-zinc-950/90 backdrop-blur-sm text-emerald-400 text-[9px] md:text-[10px] font-bold tracking-wider uppercase border border-zinc-800 shadow-xl whitespace-nowrap">
-                      Click Spark Target
+                    <div className="px-3 py-1.5 rounded-full bg-zinc-950/40 backdrop-blur-sm text-emerald-400 text-[9px] md:text-[10px] font-bold tracking-wider uppercase border border-zinc-800 shadow-xl whitespace-nowrap">
+                      Aim Spark
                     </div>
                   </motion.div>
                 )}

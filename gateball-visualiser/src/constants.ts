@@ -28,6 +28,7 @@ export interface RecordedShot {
   isAutoEnd?: boolean;
   isSparkShot?: boolean;
   sparkTargetId?: BallId;
+  isPowerShot?: boolean;
 }
 
 // --- Court Dimensions & Scaling ---

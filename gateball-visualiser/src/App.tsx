@@ -886,44 +886,47 @@ export default function App() {
       cx = Math.max(BALL_RADIUS, Math.min(FIELD_WIDTH - BALL_RADIUS, cx));
       cy = Math.max(BALL_RADIUS, Math.min(FIELD_HEIGHT - BALL_RADIUS, cy));
 
-      setBalls(prev => {
-        const next = { ...prev, [draggingItem as BallId]: { ...prev[draggingItem as BallId], x: cx, y: cy } };
-
-        const currentOthers = Object.values(next).filter(b => b.id !== draggingItem && !isBallDocked(b));
-        for (const b of currentOthers) {
-          const dist = Math.sqrt((cx - b.x) ** 2 + (cy - b.y) ** 2);
-          if (dist <= 2 * DISPLAY_RADIUS + 0.5) {
-            if (activeBallIdRef.current !== b.id) {
+      // 1. Detect if the dragged ball is touching any other ball on the court to snap active ball
+      const currentOthers = Object.values(balls).filter(b => b.id !== draggingItem && !isBallDocked(b));
+      for (const b of currentOthers) {
+        const dist = Math.sqrt((cx - b.x) ** 2 + (cy - b.y) ** 2);
+        if (dist <= 2 * DISPLAY_RADIUS + 0.5) {
+          if (activeBallIdRef.current !== b.id) {
+            // Preserve active striker ball ID if a touch was already recorded and we are prepping a spark!
+            if (!touchOccurredRef.current) {
               setActiveBallId(b.id as BallId);
               activeBallIdRef.current = b.id as BallId;
             }
-            break;
+          }
+          break;
+        }
+      }
+
+      // 2. Calculate next balls state object
+      const nextBalls = { ...balls, [draggingItem as BallId]: { ...balls[draggingItem as BallId], x: cx, y: cy } };
+
+      // 3. Snapping of spark target
+      if (sparkMode && sparkTargetId && draggingItem === activeBallIdRef.current) {
+        const rad = (angle * Math.PI) / 180;
+        nextBalls[sparkTargetId] = {
+          ...nextBalls[sparkTargetId],
+          x: cx + Math.sin(rad) * 2 * DISPLAY_RADIUS,
+          y: cy - Math.cos(rad) * 2 * DISPLAY_RADIUS
+        };
+      }
+
+      // 4. Spark auto-aim logic
+      if (draggingItem !== activeBallIdRef.current && activeBallIdRef.current) {
+        const activeBall = nextBalls[activeBallIdRef.current];
+        if (!isBallDocked(activeBall)) {
+          const dist = Math.sqrt((cx - activeBall.x) ** 2 + (cy - activeBall.y) ** 2);
+          if (dist > 0 && dist <= 2 * DISPLAY_RADIUS + 0.5) {
+            setAngle((Math.atan2(cy - activeBall.y, cx - activeBall.x) * 180 / Math.PI + 90 + 360) % 360);
           }
         }
+      }
 
-        if (sparkMode && sparkTargetId && draggingItem === activeBallIdRef.current) {
-          const rad = (angle * Math.PI) / 180;
-          next[sparkTargetId] = {
-            ...next[sparkTargetId],
-            x: cx + Math.sin(rad) * 2 * DISPLAY_RADIUS,
-            y: cy - Math.cos(rad) * 2 * DISPLAY_RADIUS
-          };
-        }
-
-        // FIXED SPARK AUTO-AIM LOGIC
-        if (draggingItem !== activeBallIdRef.current && activeBallIdRef.current) {
-          const activeBall = next[activeBallIdRef.current];
-          if (!isBallDocked(activeBall)) {
-            const dist = Math.sqrt((cx - activeBall.x) ** 2 + (cy - activeBall.y) ** 2);
-            // Must be strictly greater than 0 to prevent atan2(0,0) reverting angle
-            if (dist > 0 && dist <= 2 * DISPLAY_RADIUS + 0.5) {
-              setAngle((Math.atan2(cy - activeBall.y, cx - activeBall.x) * 180 / Math.PI + 90 + 360) % 360);
-            }
-          }
-        }
-
-        return next;
-      });
+      setBalls(nextBalls);
     }
     else if (draggingItem === 'ghost' && !cleanFeed) {
       const activeBall = balls[activeBallIdRef.current!];

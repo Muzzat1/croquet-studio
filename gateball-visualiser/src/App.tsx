@@ -108,6 +108,7 @@ export default function App() {
   }, [balls, isPlaying]);
 
   const [isPowerShot, setIsPowerShot] = useState(false);
+  const [showSparkInstruction, setShowSparkInstruction] = useState(false);
 
   const targetSpotRef = useRef(targetSpot);
   const isPlayingRef = useRef(isPlaying);
@@ -163,6 +164,8 @@ export default function App() {
     }
   }, [targetSpot]);
 
+
+
   const [contactEffects, setContactEffects] = useState<{ id: number; x: number; y: number; startTime: number; text: string; color: string }[]>([]);
   const contactEffectsRef = useRef(contactEffects);
   useEffect(() => { contactEffectsRef.current = contactEffects; }, [contactEffects]);
@@ -193,6 +196,18 @@ export default function App() {
 
   const sparkMode = !!touchingSparkTargetId;
   const sparkTargetId = touchingSparkTargetId;
+
+  useEffect(() => {
+    if (sparkMode && !isPlaying && !isReplaying) {
+      setShowSparkInstruction(true);
+      const timer = setTimeout(() => {
+        setShowSparkInstruction(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowSparkInstruction(false);
+    }
+  }, [sparkMode, isPlaying, isReplaying]);
 
   useEffect(() => {
     setBalls(prev => {
@@ -1870,7 +1885,7 @@ export default function App() {
                     </div>
                   </motion.div>
                 )}
-                {sparkMode && !targetSpot && placementMode && !isReplaying && !cleanFeed && activeBallId && balls[activeBallId] && (
+                {showSparkInstruction && !targetSpot && placementMode && !isReplaying && !cleanFeed && activeBallId && balls[activeBallId] && (
                   <motion.div 
                     initial={{ opacity: 0, y: 5 }} 
                     animate={{ opacity: 1, y: 0 }} 

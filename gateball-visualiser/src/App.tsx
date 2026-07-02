@@ -1873,7 +1873,7 @@ export default function App() {
                 {sparkMode && !targetSpot && placementMode && !isReplaying && !cleanFeed && activeBallId && balls[activeBallId] && (
                   <motion.div 
                     initial={{ opacity: 0, y: 5 }} 
-                    animate={{ opacity: 0.4, y: 0 }} 
+                    animate={{ opacity: 1, y: 0 }} 
                     exit={{ opacity: 0, y: 5 }} 
                     className="absolute z-[100] pointer-events-none" 
                     style={{ 
@@ -1882,8 +1882,9 @@ export default function App() {
                       transform: 'translate(-50%, -40px)'
                     }}
                   >
-                    <div className="px-3 py-1.5 rounded-full bg-zinc-950/40 backdrop-blur-sm text-emerald-400 text-[9px] md:text-[10px] font-bold tracking-wider uppercase border border-zinc-800 shadow-xl whitespace-nowrap">
+                    <div className="relative w-max px-3 py-1.5 rounded-xl border shadow-2xl uppercase tracking-widest text-[8px] font-bold text-center leading-snug whitespace-nowrap bg-zinc-950 text-emerald-400 border-zinc-800">
                       Aim Spark
+                      <div className="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 border-b border-r bg-zinc-950 border-zinc-800"></div>
                     </div>
                   </motion.div>
                 )}

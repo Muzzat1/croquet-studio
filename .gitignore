@@ -26,3 +26,10 @@ dist-ssr
 # Visualizer Local Assets & Backups
 backups/
 Video/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

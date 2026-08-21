@@ -69,6 +69,18 @@ function HalfwayPeg({ position }: HalfwayPegProps) {
   );
 }
 
+function WhiteCornerPeg({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      {/* Vertical White Peg body (9 inches / 0.25 yards tall, 1.4 inches / 0.04 yards wide) */}
+      <mesh position={[0, 0.125, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.02, 0.02, 0.25, 8]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.1} />
+      </mesh>
+    </group>
+  );
+}
+
 // Parametric math helper to generate points for circle arcs in 3D
 function getArcPoints(
   centerX: number,
@@ -90,7 +102,37 @@ function getArcPoints(
   return points;
 }
 
-export default function CourtSurface() {
+// Math helper to generate dashed line segments
+function getDashedLineSegments(
+  x1: number, z1: number,
+  x2: number, z2: number,
+  dashLength: number = 0.4,
+  gapLength: number = 0.3
+): [number, number, number][][] {
+  const segments: [number, number, number][][] = [];
+  const dx = x2 - x1;
+  const dz = z2 - z1;
+  const totalLength = Math.sqrt(dx * dx + dz * dz);
+  const dirX = dx / totalLength;
+  const dirZ = dz / totalLength;
+  let curr = 0;
+
+  while (curr < totalLength) {
+    const nextDash = Math.min(curr + dashLength, totalLength);
+    segments.push([
+      [x1 + dirX * curr, 0.020, z1 + dirZ * curr],
+      [x1 + dirX * nextDash, 0.020, z1 + dirZ * nextDash]
+    ]);
+    curr += dashLength + gapLength;
+  }
+  return segments;
+}
+
+interface CourtSurfaceProps {
+  gameMode?: 'GC' | 'AC';
+}
+
+export default function CourtSurface({ gameMode = 'GC' }: CourtSurfaceProps) {
   // Official 28x35 yard boundary coordinates
   // X = Width (28 yards: -14 to +14)
   // Z = Length (35 yards: -17.5 to +17.5)
@@ -113,7 +155,7 @@ export default function CourtSurface() {
     return { x: xCenter, color };
   });
 
-  // Halfway pegs (offside markers) coordinates
+  // Halfway pegs (offside markers) coordinates for GC
   const halfwayPegPositions: [number, number, number][] = useMemo(() => [
     // North boundary short edge (Z = -17.5): at X = -3.5, 0, 3.5
     [-3.5, 0, -17.5],
@@ -132,6 +174,25 @@ export default function CourtSurface() {
     [14, 0, 0]
   ], []);
 
+  // 8 white pegs on boundary lines 1 yard in from each corner for AC
+  const cornerPegPositions: [number, number, number][] = useMemo(() => [
+    // Corner 1 (South-West: -14, 17.5)
+    [-13, 0, 17.5],  // 1yd in on South boundary
+    [-14, 0, 16.5],  // 1yd in on West boundary
+
+    // Corner 2 (North-West: -14, -17.5)
+    [-13, 0, -17.5], // 1yd in on North boundary
+    [-14, 0, -16.5], // 1yd in on West boundary
+
+    // Corner 3 (North-East: 14, -17.5)
+    [13, 0, -17.5],  // 1yd in on North boundary
+    [14, 0, -16.5],  // 1yd in on East boundary
+
+    // Corner 4 (South-East: 14, 17.5)
+    [13, 0, 17.5],   // 1yd in on South boundary
+    [14, 0, 16.5]    // 1yd in on East boundary
+  ], []);
+
   // WCF Starting Area quarter-circle (Corner 4, South-East: X = 14, Z = 17.5, radius = 1yd)
   // Inside the court means sweeps from angle PI (West) to 1.5 * PI (North)
   const startingAreaPoints = useMemo(() => {
@@ -148,6 +209,16 @@ export default function CourtSurface() {
   // Inside court means sweeps from 0.5 * PI (South) to 1.5 * PI (North)
   const eastPenaltyPoints = useMemo(() => {
     return getArcPoints(14, 0, 1.0, 0.5 * Math.PI, 1.5 * Math.PI);
+  }, []);
+
+  // AC Yard Line (narrow dashed line 1 yard inside the 4 boundary lines)
+  const yardLineSegments = useMemo(() => {
+    return [
+      ...getDashedLineSegments(-13, 16.5, 13, 16.5, 0.4, 0.3),   // South yard line
+      ...getDashedLineSegments(13, 16.5, 13, -16.5, 0.4, 0.3),   // East yard line
+      ...getDashedLineSegments(13, -16.5, -13, -16.5, 0.4, 0.3), // North yard line
+      ...getDashedLineSegments(-13, -16.5, -13, 16.5, 0.4, 0.3)  // West yard line
+    ];
   }, []);
 
   return (
@@ -187,42 +258,60 @@ export default function CourtSurface() {
         polygonOffsetUnits={-10}
       />
 
-      {/* 1-yard starting area boundary quarter-circle arc */}
-      <Line
-        points={startingAreaPoints}
-        color="white"
-        lineWidth={3.5}
-        polygonOffset
-        polygonOffsetFactor={-10}
-        polygonOffsetUnits={-10}
-      />
+      {/* GC Arcs (Starting Area + 2 Penalty Areas) */}
+      {gameMode === 'GC' && (
+        <>
+          {/* 1-yard starting area boundary quarter-circle arc */}
+          <Line
+            points={startingAreaPoints}
+            color="white"
+            lineWidth={3.5}
+            polygonOffset
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
+          />
 
-      {/* 1-yard West penalty area boundary semi-circle arc */}
-      <Line
-        points={westPenaltyPoints}
-        color="white"
-        lineWidth={3.5}
-        polygonOffset
-        polygonOffsetFactor={-10}
-        polygonOffsetUnits={-10}
-      />
+          {/* 1-yard West penalty area boundary semi-circle arc */}
+          <Line
+            points={westPenaltyPoints}
+            color="white"
+            lineWidth={3.5}
+            polygonOffset
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
+          />
 
-      {/* 1-yard East penalty area boundary semi-circle arc */}
-      <Line
-        points={eastPenaltyPoints}
-        color="white"
-        lineWidth={3.5}
-        polygonOffset
-        polygonOffsetFactor={-10}
-        polygonOffsetUnits={-10}
-      />
+          {/* 1-yard East penalty area boundary semi-circle arc */}
+          <Line
+            points={eastPenaltyPoints}
+            color="white"
+            lineWidth={3.5}
+            polygonOffset
+            polygonOffsetFactor={-10}
+            polygonOffsetUnits={-10}
+          />
+        </>
+      )}
+
+      {/* AC Yard Line (narrow dashed line 1 yard inside boundary lines) */}
+      {gameMode === 'AC' && yardLineSegments.map((seg, idx) => (
+        <Line
+          key={`yard-line-seg-${idx}`}
+          points={seg}
+          color="white"
+          lineWidth={2.0}
+          polygonOffset
+          polygonOffsetFactor={-10}
+          polygonOffsetUnits={-10}
+        />
+      ))}
 
       {/* Standard WCF Corner Flags */}
       {/* Corner 1 (South-West) */}
       <CornerFlag position={[-14, 0, 17.5]} color="#0055ff" /> 
       
       {/* Corner 2 (North-West) */}
-      <CornerFlag position={[-14, 0, -17.5]} color="#ff0000" />
+      <CornerFlag position={[-14, 0, -17.5]} color="#ff0000" /> 
       
       {/* Corner 3 (North-East) */}
       <CornerFlag position={[14, 0, -17.5]} color="#222222" /> 
@@ -230,9 +319,14 @@ export default function CourtSurface() {
       {/* Corner 4 (South-East) */}
       <CornerFlag position={[14, 0, 17.5]} color="#ffcc00" />
 
-      {/* Standard WCF Halfway Pegs (Offside Markers) */}
-      {halfwayPegPositions.map((pos, idx) => (
+      {/* GC Halfway Pegs (Offside Markers) */}
+      {gameMode === 'GC' && halfwayPegPositions.map((pos, idx) => (
         <HalfwayPeg key={`halfway-peg-${idx}`} position={pos} />
+      ))}
+
+      {/* AC Corner Pegs (8 white boundary pegs 1yd from corners) */}
+      {gameMode === 'AC' && cornerPegPositions.map((pos, idx) => (
+        <WhiteCornerPeg key={`corner-peg-${idx}`} position={pos} />
       ))}
     </group>
   );

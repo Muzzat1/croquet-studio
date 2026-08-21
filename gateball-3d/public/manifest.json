@@ -1,0 +1,17 @@
+{
+  "short_name": "Croquet3D",
+  "name": "3D Croquet Visualiser",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0a0f0d",
+  "theme_color": "#0a0f0d",
+  "display": "standalone",
+  "orientation": "any"
+}

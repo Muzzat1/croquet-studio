@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const file = 'e:\\Documents\\- Croquet Coaching\\croquet-studio\\src\\App.tsx';
+const file = './src/App.tsx';
 let data = fs.readFileSync(file, 'utf8');
 
 // Fix velocity cap

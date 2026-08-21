@@ -38,3 +38,8 @@ To make mallet alignment intuitive and prevent alignment errors:
 ## 4. Mallet Aim Integration & Guide Lines
 - **Aim-to-Spot Snapping**: If the mallet is selected and in striking range of a ball (within 2.0 yards), clicking any point on the court represents aiming. The system must automatically rotate the mallet to point from the ball's center to the target spot, and position the mallet exactly `0.53` yards behind the ball (perfect stance offset with a realistic visual gap) along that line of aim.
 - **Projected Hitting Guide Line**: When the mallet is selected and in striking range of a ball, render a dashed aiming line in the 3D Canvas extending `12` yards from the ball's center in the direction of the mallet's heading (adjusted for symmetrical hitting). The line color must match the target ball's high-fidelity color to provide clear, immediate visual feedback of the shot path.
+
+## 5. Gateball Terminology Standards
+To align with official Gateball terminology:
+- **Hoops are Gates**: In all codebase variables, documentation, and user interfaces representing Gateball elements, a hoop must be referred to as a **gate** (e.g., Gate 1, Gate 2, Gate 3, `GateballGate`).
+- **Hits/Strikes are Strokes**: Direct mallet impacts and shot plays must be referred to as **strokes** rather than hits or strikes (e.g., `playStroke`, "Stroke Play").

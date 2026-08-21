@@ -68,15 +68,24 @@ function App() {
         </header>
 
         {/* Grid Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
           <GameCard 
             href="/gateball-visualiser/"
-            title="Gateball"
+            title="Gateball 2D"
             description="The 10 ball team strategy game from Japan. Played internationally on a smaller court with 3 gates and a central goal pole."
+            icon={CircleDot}
+            colorClass="text-zinc-400"
+            hoverShadow="hover:border-zinc-500/50 hover:shadow-[0_20px_40px_-15px_rgba(161,161,170,0.2)]"
+          />
+
+          <GameCard 
+            href="/gateball-3d/"
+            title="Gateball 3D"
+            description="Premium 3D simulation of Gateball. Real-time physics, 3D gates, 3D Goal Pole, spark shots, and fully animated mallet strikes."
             icon={CircleDot}
             colorClass="text-indigo-400"
             hoverShadow="hover:border-indigo-500/50 hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.2)]"
-            workInProgressText="Work in Progress"
+            workInProgressText="New 3D Simulation"
           />
 
           <GameCard 

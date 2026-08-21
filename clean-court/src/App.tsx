@@ -8,6 +8,7 @@ import ParkSurroundings from './components/ParkSurroundings';
 import QuadwayHoop from './components/QuadwayHoop';
 import CroquetBall from './components/CroquetBall';
 import CartoonPlayer from './components/CartoonPlayer';
+import ScoringClip from './components/ScoringClip';
 
 const BOUNDARY_X = 18 - 0.133375;  // 17.866625
 const BOUNDARY_Z = 21.5 - 0.133375; // 21.366625
@@ -42,13 +43,88 @@ interface PhysicsBallState {
   isRolling: boolean;
 }
 
+const APP_VERSION = '2.0';
+
+type ClipColor = 'blue' | 'red' | 'black' | 'yellow';
+
+interface ClipState {
+  targetType: 'hoop' | 'peg';
+  hoopId: number; // 1 to 6
+  placement: 'crown' | 'left' | 'right';
+}
+
+const HOOP_COORDINATES: Record<number, [number, number, number]> = {
+  1: [-7, 0, 10.5],
+  2: [-7, 0, -10.5],
+  3: [7, 0, -10.5],
+  4: [7, 0, 10.5],
+  5: [0, 0, 7],
+  6: [0, 0, -7]
+};
+
+function getClipTransform(
+  clipColor: ClipColor,
+  clips: Record<ClipColor, ClipState>
+): { position: [number, number, number]; rotation: [number, number, number] } {
+  const clip = clips[clipColor];
+  const allColors: ClipColor[] = ['blue', 'red', 'black', 'yellow'];
+
+  if (clip.targetType === 'hoop') {
+    const hoopPos = HOOP_COORDINATES[clip.hoopId] || HOOP_COORDINATES[1];
+
+    if (clip.placement === 'crown') {
+      const crownClips = allColors.filter(
+        c => clips[c].targetType === 'hoop' && clips[c].hoopId === clip.hoopId && clips[c].placement === 'crown'
+      );
+      const slotIndex = crownClips.indexOf(clipColor);
+      const totalInCrown = crownClips.length;
+      const spacing = 0.082;
+      const xOffset = (slotIndex - (totalInCrown - 1) / 2) * spacing;
+      return {
+        position: [hoopPos[0] + xOffset, 0.875 + 0.115, hoopPos[2]],
+        rotation: [0, Math.PI / 2, 0]
+      };
+    } else if (clip.placement === 'left') {
+      const leftClips = allColors.filter(
+        c => clips[c].targetType === 'hoop' && clips[c].hoopId === clip.hoopId && clips[c].placement === 'left'
+      );
+      const slotIndex = leftClips.indexOf(clipColor);
+      const yOffset = 0.60 - slotIndex * 0.12;
+      return {
+        position: [hoopPos[0] - 0.1875 - 0.115, yOffset, hoopPos[2]],
+        rotation: [0, Math.PI / 2, Math.PI / 2]
+      };
+    } else {
+      const rightClips = allColors.filter(
+        c => clips[c].targetType === 'hoop' && clips[c].hoopId === clip.hoopId && clips[c].placement === 'right'
+      );
+      const slotIndex = rightClips.indexOf(clipColor);
+      const yOffset = 0.60 - slotIndex * 0.12;
+      return {
+        position: [hoopPos[0] + 0.1875 + 0.115, yOffset, hoopPos[2]],
+        rotation: [0, -Math.PI / 2, -Math.PI / 2]
+      };
+    }
+  } else {
+    // targetType === 'peg'
+    const pegClips = allColors.filter(c => clips[c].targetType === 'peg');
+    const slotIndex = pegClips.indexOf(clipColor);
+    const yOffset = 1.38 + slotIndex * 0.09;
+    return {
+      position: [0.115, yOffset, 0],
+      rotation: [0, -Math.PI / 2, -Math.PI / 2]
+    };
+  }
+}
+
 function PhysicsManager({
   physicsBalls,
   meshRefs,
   onPositionChange,
   selectedBall,
   selectedRingRef,
-  isPaused
+  isPaused,
+  gameMode = 'GC'
 }: {
   physicsBalls: React.MutableRefObject<Record<string, PhysicsBallState>>;
   meshRefs: React.MutableRefObject<Record<string, React.RefObject<THREE.Object3D | null>>>;
@@ -56,6 +132,7 @@ function PhysicsManager({
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   selectedRingRef: React.RefObject<THREE.Mesh | null>;
   isPaused: boolean;
+  gameMode?: 'GC' | 'AC';
 }) {
 
   const outOfBoundsCrossing = useRef<Record<string, { x: number; z: number } | null>>({
@@ -225,7 +302,7 @@ function PhysicsManager({
             b.vz = 0;
             b.isRolling = false;
 
-            // Place back on the outside of the boundary line where it left the court
+            // Place back on the outside of the boundary line (GC) or on the 1-yard dashed line at right angles to point of exit (AC)
             const crossing = outOfBoundsCrossing.current[c];
             if (crossing) {
               const radius = 0.133375;
@@ -239,14 +316,48 @@ function PhysicsManager({
               const distToBottom = Math.abs(crossing.z - (-17.5));
               const minDist = Math.min(distToRight, distToLeft, distToTop, distToBottom);
 
-              if (minDist === distToRight) {
-                placedX = 14 + radius;
-              } else if (minDist === distToLeft) {
-                placedX = -14 - radius;
-              } else if (minDist === distToTop) {
-                placedZ = 17.5 + radius;
-              } else if (minDist === distToBottom) {
-                placedZ = -17.5 - radius;
+              if (gameMode === 'AC') {
+                // AC Rule: Automatic replacement at right angles to the point of exit on the 1-yard dashed line
+                if (minDist === distToRight) {
+                  placedX = 13; // 1 yard inside East boundary
+                  placedZ = Math.min(Math.max(crossing.z, -16.5), 16.5);
+                } else if (minDist === distToLeft) {
+                  placedX = -13; // 1 yard inside West boundary
+                  placedZ = Math.min(Math.max(crossing.z, -16.5), 16.5);
+                } else if (minDist === distToTop) {
+                  placedX = Math.min(Math.max(crossing.x, -13), 13);
+                  placedZ = 16.5; // 1 yard inside South boundary
+                } else if (minDist === distToBottom) {
+                  placedX = Math.min(Math.max(crossing.x, -13), 13);
+                  placedZ = -16.5; // 1 yard inside North boundary
+                }
+
+                // If another ball is on this exact yard line spot, shift slightly along the line so they don't overlap
+                const otherColors = colors.filter(col => col !== c);
+                otherColors.forEach(otherCol => {
+                  const otherBall = balls[otherCol];
+                  const distToOther = Math.hypot(placedX - otherBall.x, placedZ - otherBall.z);
+                  if (distToOther < 0.28) {
+                    if (minDist === distToRight || minDist === distToLeft) {
+                      placedZ += (placedZ >= otherBall.z ? 0.28 : -0.28);
+                      placedZ = Math.min(Math.max(placedZ, -16.5), 16.5);
+                    } else {
+                      placedX += (placedX >= otherBall.x ? 0.28 : -0.28);
+                      placedX = Math.min(Math.max(placedX, -13), 13);
+                    }
+                  }
+                });
+              } else {
+                // GC Rule: Placed outside the boundary line
+                if (minDist === distToRight) {
+                  placedX = 14 + radius;
+                } else if (minDist === distToLeft) {
+                  placedX = -14 - radius;
+                } else if (minDist === distToTop) {
+                  placedZ = 17.5 + radius;
+                } else if (minDist === distToBottom) {
+                  placedZ = -17.5 - radius;
+                }
               }
 
               b.x = placedX;
@@ -442,9 +553,10 @@ interface CameraControllerProps {
   selectedBall: 'blue' | 'red' | 'black' | 'yellow' | null;
   balls: Record<string, { x: number; z: number }>;
   isPaused: boolean;
+  gameMode?: 'GC' | 'AC';
 }
 
-function CameraController({ resetCounter, resetType, selectedBall, balls, isPaused }: CameraControllerProps) {
+function CameraController({ resetCounter, resetType, selectedBall, balls, isPaused, gameMode = 'GC' }: CameraControllerProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const threeState = useThree() as any;
   const camera = threeState.camera;
@@ -461,10 +573,20 @@ function CameraController({ resetCounter, resetType, selectedBall, balls, isPaus
       lastReset.current = resetCounter;
       
       if (resetType === 'start') {
-        targetPosition.current = new THREE.Vector3(24.1042, 3.6060, 16.8256);
-        targetFov.current = 45.0;
-        if (controls) {
-          targetTarget.current = new THREE.Vector3(-5.1754, 0.0804, 10.7872);
+        if (gameMode === 'AC') {
+          // South View looking North
+          targetPosition.current = new THREE.Vector3(-2.35, 30.77, 89.13);
+          targetFov.current = 15.0;
+          if (controls) {
+            targetTarget.current = new THREE.Vector3(0.26, 0.00, 1.87);
+          }
+        } else {
+          // GC Start view
+          targetPosition.current = new THREE.Vector3(24.1042, 3.6060, 16.8256);
+          targetFov.current = 45.0;
+          if (controls) {
+            targetTarget.current = new THREE.Vector3(-5.1754, 0.0804, 10.7872);
+          }
         }
       } else {
         // Smoothly transition to West View coordinates
@@ -475,7 +597,7 @@ function CameraController({ resetCounter, resetType, selectedBall, balls, isPaus
         }
       }
     }
-  }, [resetCounter, resetType, camera, controls]);
+  }, [resetCounter, resetType, camera, controls, gameMode]);
 
   useEffect(() => {
     if (!controls) return;
@@ -645,10 +767,16 @@ function CameraController({ resetCounter, resetType, selectedBall, balls, isPaus
             tarX = 0.26; tarY = -0.00; tarZ = -1.87;
             fovValue = 15.0;
             break;
-          case '0': // Custom Preset 0
-            posX = 41.79; posY = 7.23; posZ = 24.46;
-            tarX = -3.45; tarY = 1.52; tarZ = 10.27;
-            fovValue = 15.0;
+          case '0': // Custom Preset 0 / Game Start View
+            if (gameMode === 'AC') {
+              posX = -2.35; posY = 30.77; posZ = 89.13;
+              tarX = 0.26; tarY = 0.00; tarZ = 1.87;
+              fovValue = 15.0;
+            } else {
+              posX = 41.79; posY = 7.23; posZ = 24.46;
+              tarX = -3.45; tarY = 1.52; tarZ = 10.27;
+              fovValue = 15.0;
+            }
             break;
           case '1': // Hoop 1 (South-West Corner looking straight North)
             posX = -7.0; posY = 18.25; posZ = 54.79;
@@ -701,7 +829,7 @@ function CameraController({ resetCounter, resetType, selectedBall, balls, isPaus
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [camera, controls, selectedBall, balls]);
+  }, [camera, controls, selectedBall, balls, gameMode]);
 
   return null;
 }
@@ -1542,6 +1670,81 @@ export default function App() {
     };
   }, []);
 
+  // GC vs AC initial & off-court ball rack coordinates
+  // GC: Staged at SE Corner 4
+  const GC_RESET_POSITIONS = useMemo(() => ({
+    blue: { x: 13.5, z: 17.65 },
+    red: { x: 12.9, z: 17.65 },
+    black: { x: 12.3, z: 17.65 },
+    yellow: { x: 11.7, z: 17.65 }
+  }), []);
+
+  // AC: Staged in the middle of the South boundary (shifted sideways ~14 yards to center around X=0)
+  const AC_RESET_POSITIONS = useMemo(() => ({
+    blue: { x: -0.9, z: 17.65 },
+    red: { x: -0.3, z: 17.65 },
+    black: { x: 0.3, z: 17.65 },
+    yellow: { x: 0.9, z: 17.65 }
+  }), []);
+
+  // Court Configuration Mode: GC (Golf Croquet) or AC (Association Croquet)
+  const [gameMode, setGameMode] = useState<'GC' | 'AC'>('GC');
+
+  // AC Scoring Clips State (Blue, Red, Black, Yellow)
+  const INITIAL_CLIPS: Record<ClipColor, ClipState> = useMemo(() => ({
+    blue: { targetType: 'hoop', hoopId: 1, placement: 'crown' },
+    red: { targetType: 'hoop', hoopId: 1, placement: 'crown' },
+    black: { targetType: 'hoop', hoopId: 1, placement: 'crown' },
+    yellow: { targetType: 'hoop', hoopId: 1, placement: 'crown' }
+  }), []);
+
+  const [clips, setClips] = useState<Record<ClipColor, ClipState>>({
+    blue: { targetType: 'hoop', hoopId: 1, placement: 'crown' },
+    red: { targetType: 'hoop', hoopId: 1, placement: 'crown' },
+    black: { targetType: 'hoop', hoopId: 1, placement: 'crown' },
+    yellow: { targetType: 'hoop', hoopId: 1, placement: 'crown' }
+  });
+
+  const [selectedClip, setSelectedClip] = useState<ClipColor | null>(null);
+
+  const getClipRenderColor = (color: ClipColor) => {
+    if (ballSet === 'primary') {
+      if (color === 'blue') return '#1565c0';
+      if (color === 'red') return '#d32f2f';
+      if (color === 'black') return '#212121';
+      if (color === 'yellow') return '#fbc02d';
+    } else {
+      if (color === 'blue') return '#2e7d32'; // Green
+      if (color === 'red') return '#ec4899';   // Pink
+      if (color === 'black') return '#795548'; // Brown
+      if (color === 'yellow') return '#f5f5f5'; // White
+    }
+    return '#1565c0';
+  };
+
+  const moveSelectedClip = (targetType: 'hoop' | 'peg', hoopId: number = 1, placement: 'crown' | 'left' | 'right' = 'crown') => {
+    if (!selectedClip) return;
+    saveToHistory();
+    const clipName = ballSet === 'primary'
+      ? (selectedClip === 'blue' ? 'Blue' : selectedClip === 'red' ? 'Red' : selectedClip === 'black' ? 'Black' : 'Yellow')
+      : (selectedClip === 'blue' ? 'Green' : selectedClip === 'red' ? 'Pink' : selectedClip === 'black' ? 'Brown' : 'White');
+
+    const destName = targetType === 'peg'
+      ? 'Centre Peg'
+      : `Hoop ${hoopId} (${placement === 'crown' ? 'Top' : placement === 'left' ? 'Left upright' : 'Right upright'})`;
+
+    setClips(prev => ({
+      ...prev,
+      [selectedClip]: {
+        targetType,
+        hoopId,
+        placement
+      }
+    }));
+    setSelectedClip(null);
+    showToast(`${clipName} clip moved to ${destName}`);
+  };
+
   // React State for initial ball positioning & synchronization (drag and drop)
   const [balls, setBalls] = useState<Record<string, { x: number; z: number }>>({
     blue: { x: 13.5, z: 17.65 },
@@ -1564,6 +1767,49 @@ export default function App() {
     }, 3000);
   };
 
+  // Switch between GC and AC configurations
+  const handleModeChange = (mode: 'GC' | 'AC') => {
+    if (activeStriker !== null || mode === gameMode) return;
+    const prevMode = gameMode;
+    setGameMode(mode);
+    showToast(mode === 'AC' ? "Association Croquet (AC) Mode" : "Golf Croquet (GC) Mode");
+
+    const currReset = prevMode === 'GC' ? GC_RESET_POSITIONS : AC_RESET_POSITIONS;
+    const newReset = mode === 'GC' ? GC_RESET_POSITIONS : AC_RESET_POSITIONS;
+
+    // If the balls are currently in the reset / off-court positions, update them to new mode positions
+    const areBallsInResetPosition =
+      balls.blue.x === currReset.blue.x && balls.blue.z === currReset.blue.z &&
+      balls.red.x === currReset.red.x && balls.red.z === currReset.red.z &&
+      balls.black.x === currReset.black.x && balls.black.z === currReset.black.z &&
+      balls.yellow.x === currReset.yellow.x && balls.yellow.z === currReset.yellow.z;
+
+    if (areBallsInResetPosition) {
+      setBalls(newReset);
+      const colors = ['blue', 'red', 'black', 'yellow'] as const;
+      colors.forEach(c => {
+        physicsBalls.current[c].x = newReset[c].x;
+        physicsBalls.current[c].z = newReset[c].z;
+        physicsBalls.current[c].vx = 0;
+        physicsBalls.current[c].vz = 0;
+        physicsBalls.current[c].isRolling = false;
+        const mesh = meshRefs.current[c].current;
+        if (mesh) {
+          mesh.position.x = newReset[c].x;
+          mesh.position.z = newReset[c].z;
+        }
+      });
+      if (selectedRingRef.current && selectedBall) {
+        selectedRingRef.current.position.x = newReset[selectedBall].x;
+        selectedRingRef.current.position.z = newReset[selectedBall].z;
+      }
+    }
+
+    // Automatically transition camera to the new mode's start camera angle
+    setCameraResetType('start');
+    setCameraResetCounter(prev => prev + 1);
+  };
+
   // Undo position history stack (capped at 50 entries)
   const [history, setHistory] = useState<Record<string, { x: number; z: number }>[]>([]);
   
@@ -1583,6 +1829,23 @@ export default function App() {
   // Aiming guides state
   const [showAimingLines, setShowAimingLines] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showFirstUseMessage, setShowFirstUseMessage] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('croquet_v2_announcement_seen') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const dismissFirstUseMessage = () => {
+    setShowFirstUseMessage(false);
+    try {
+      localStorage.setItem('croquet_v2_announcement_seen', 'true');
+    } catch {
+      // ignore
+    }
+  };
+
   const [hasClickedStart, setHasClickedStart] = useState(false);
   const [hoverPoint, setHoverPoint] = useState<{ x: number; z: number } | null>(null);
 
@@ -1827,17 +2090,21 @@ export default function App() {
     yellow: { x: 11.7, z: 17.65, vx: 0, vz: 0, isRolling: false }
   });
 
-  // Save current layout of all balls to history before any action
+  // Save current layout of all balls and scoring clips to history before any action
   const saveToHistory = () => {
     const snapshot = {
-      blue: { x: physicsBalls.current.blue.x, z: physicsBalls.current.blue.z },
-      red: { x: physicsBalls.current.red.x, z: physicsBalls.current.red.z },
-      black: { x: physicsBalls.current.black.x, z: physicsBalls.current.black.z },
-      yellow: { x: physicsBalls.current.yellow.x, z: physicsBalls.current.yellow.z }
+      balls: {
+        blue: { x: physicsBalls.current.blue.x, z: physicsBalls.current.blue.z },
+        red: { x: physicsBalls.current.red.x, z: physicsBalls.current.red.z },
+        black: { x: physicsBalls.current.black.x, z: physicsBalls.current.black.z },
+        yellow: { x: physicsBalls.current.yellow.x, z: physicsBalls.current.yellow.z }
+      },
+      clips: { ...clips }
     };
     
     setHistory(prev => {
-      const next = [...prev, snapshot];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const next = [...prev, snapshot as any];
       if (next.length > 50) {
         next.shift(); // Cap history to 50 items
       }
@@ -1853,32 +2120,39 @@ export default function App() {
 
     if (history.length === 0) return;
 
-    const previousSnapshot = history[history.length - 1];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const previousSnapshot: any = history[history.length - 1];
     setHistory(prev => prev.slice(0, prev.length - 1));
 
     // Restore the balls state
-    setBalls(previousSnapshot);
+    const restoredBalls = previousSnapshot.balls || previousSnapshot;
+    setBalls(restoredBalls);
+
+    if (previousSnapshot.clips) {
+      setClips(previousSnapshot.clips);
+    }
+    setSelectedClip(null);
 
     // Sync physics reference engine and instant visual meshes
     const colors = ['blue', 'red', 'black', 'yellow'] as const;
     colors.forEach(c => {
-      physicsBalls.current[c].x = previousSnapshot[c].x;
-      physicsBalls.current[c].z = previousSnapshot[c].z;
+      physicsBalls.current[c].x = restoredBalls[c].x;
+      physicsBalls.current[c].z = restoredBalls[c].z;
       physicsBalls.current[c].vx = 0;
       physicsBalls.current[c].vz = 0;
       physicsBalls.current[c].isRolling = false;
 
       const mesh = meshRefs.current[c].current;
       if (mesh) {
-        mesh.position.x = previousSnapshot[c].x;
-        mesh.position.z = previousSnapshot[c].z;
+        mesh.position.x = restoredBalls[c].x;
+        mesh.position.z = restoredBalls[c].z;
       }
     });
 
     // Update selection ring positions
     if (selectedRingRef.current && selectedBall) {
-      selectedRingRef.current.position.x = previousSnapshot[selectedBall].x;
-      selectedRingRef.current.position.z = previousSnapshot[selectedBall].z;
+      selectedRingRef.current.position.x = restoredBalls[selectedBall].x;
+      selectedRingRef.current.position.z = restoredBalls[selectedBall].z;
     }
   };
 
@@ -1893,15 +2167,12 @@ export default function App() {
     // Snapshot the current state before resetting so that reset itself can be undone!
     saveToHistory();
 
-    // Spaced out near starting flag to match official coaching layouts (All 4 balls lined up vertically on sideline outside East of boundary line)
-    const resetPositions = {
-      blue: { x: 13.5, z: 17.65 },
-      red: { x: 12.9, z: 17.65 },
-      black: { x: 12.3, z: 17.65 },
-      yellow: { x: 11.7, z: 17.65 }
-    };
+    // Reset positions match GC vs AC configuration
+    const resetPositions = gameMode === 'GC' ? GC_RESET_POSITIONS : AC_RESET_POSITIONS;
 
     setBalls(resetPositions);
+    setClips(INITIAL_CLIPS);
+    setSelectedClip(null);
 
     const colors = ['blue', 'red', 'black', 'yellow'] as const;
     colors.forEach(c => {
@@ -1959,6 +2230,7 @@ export default function App() {
   const handleHUDSelect = (color: 'blue' | 'red' | 'black' | 'yellow') => {
     if (activeStriker !== null) return; // Prevent selection changes during active striking
     setHasClickedStart(true); // Dismiss initial start arrow on direct ball selection
+    setSelectedClip(null); // Deselect any active clip
     setSelectedBall(selectedBall === color ? null : color);
   };
 
@@ -2058,6 +2330,15 @@ export default function App() {
 
     pointerDownPos.current = null;
 
+    // If mouse was dragged (camera orbit), don't treat as a click
+    if (dragDistance > 6) return;
+
+    // If a clip was selected and user clicked on the empty lawn, cancel selection
+    if (selectedClip) {
+      setSelectedClip(null);
+      return;
+    }
+
     // Filter out OrbitControls camera drags (if mouse moved more than 6px, it is a drag, not a click)
     if (dragDistance > 6) return;
 
@@ -2152,11 +2433,12 @@ export default function App() {
     ? (Math.abs(activeBallCoords.x) > 14 || Math.abs(activeBallCoords.z) > 17.5)
     : true;
 
+  const currentResetPositions = gameMode === 'GC' ? GC_RESET_POSITIONS : AC_RESET_POSITIONS;
   const isGameReset = 
-    balls.blue.x === 13.5 && balls.blue.z === 17.65 &&
-    balls.red.x === 12.9 && balls.red.z === 17.65 &&
-    balls.black.x === 12.3 && balls.black.z === 17.65 &&
-    balls.yellow.x === 11.7 && balls.yellow.z === 17.65;
+    balls.blue.x === currentResetPositions.blue.x && balls.blue.z === currentResetPositions.blue.z &&
+    balls.red.x === currentResetPositions.red.x && balls.red.z === currentResetPositions.red.z &&
+    balls.black.x === currentResetPositions.black.x && balls.black.z === currentResetPositions.black.z &&
+    balls.yellow.x === currentResetPositions.yellow.x && balls.yellow.z === currentResetPositions.yellow.z;
 
   if (!isOnline) {
     return (
@@ -2324,6 +2606,10 @@ export default function App() {
               50% { transform: rotate(90deg); }
               100% { transform: rotate(0deg); }
             }
+            @keyframes paused-pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.7; }
+            }
           `}</style>
         </div>
       )}
@@ -2351,7 +2637,7 @@ export default function App() {
           alignItems: 'center',
           gap: '8px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          pointerEvents: 'none'
+          animation: 'paused-pulse 2s infinite ease-in-out'
         }}>
           <span style={{ 
             display: 'inline-block', 
@@ -2375,6 +2661,7 @@ export default function App() {
           selectedBall={selectedBall}
           balls={balls}
           isPaused={isPaused}
+          gameMode={gameMode}
         />
         <SequenceDemoController 
           isDemoActive={isDemoActive}
@@ -2409,7 +2696,7 @@ export default function App() {
           shadow-bias={-0.00002}
         />
         
-        <CourtSurface />
+        <CourtSurface gameMode={gameMode} />
         <ParkSurroundings />
 
         {/* Center Peg (Height = 1.3125, Radius = 0.075) */}
@@ -2431,13 +2718,146 @@ export default function App() {
           </mesh>
         ))}
 
+        {/* Center Peg Extension Rod (Only in AC Mode, Matching Image 2) */}
+        {gameMode === 'AC' && (
+          <group position={[0, 1.3125, 0]}>
+            <mesh position={[0, 0.225, 0]} castShadow>
+              <cylinderGeometry args={[0.018, 0.018, 0.45, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.35} metalness={0.6} />
+            </mesh>
+            <mesh position={[0, 0.45, 0]} castShadow>
+              <sphereGeometry args={[0.018, 16, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.35} metalness={0.6} />
+            </mesh>
+          </group>
+        )}
+
         {/* Official Quadway Hoop Coordinates */}
         <QuadwayHoop position={[-7, 0, 10.5]} crownColor="#1565c0" />
         <QuadwayHoop position={[-7, 0, -10.5]} crownColor="#ffffff" />
-        <QuadwayHoop position={[7, 0, -10.5]} crownColor="#d32f2f" />
+        <QuadwayHoop position={[7, 0, -10.5]} crownColor={gameMode === 'GC' ? '#d32f2f' : '#ffffff'} />
         <QuadwayHoop position={[7, 0, 10.5]} crownColor="#ffffff" />
         <QuadwayHoop position={[0, 0, -7]} crownColor="#ffffff" />
-        <QuadwayHoop position={[0, 0, 7]} crownColor="#ffffff" />
+        <QuadwayHoop position={[0, 0, 7]} crownColor={gameMode === 'AC' ? '#d32f2f' : '#ffffff'} />
+
+        {/* AC Moveable Scoring Clips (Blue, Red, Black, Yellow / Green, Pink, Brown, White) */}
+        {gameMode === 'AC' && (
+          <>
+            {(['blue', 'red', 'black', 'yellow'] as const).map(color => {
+              const transform = getClipTransform(color, clips);
+              const renderColor = getClipRenderColor(color);
+              return (
+                <ScoringClip
+                  key={`scoring-clip-${color}`}
+                  color={renderColor}
+                  position={transform.position}
+                  rotation={transform.rotation}
+                  isSelected={selectedClip === color}
+                  onSelect={() => {
+                    if (selectedClip === color) {
+                      setSelectedClip(null);
+                    } else {
+                      setSelectedClip(color);
+                      setSelectedBall(null);
+                      const clipName = ballSet === 'primary'
+                        ? (color === 'blue' ? 'Blue' : color === 'red' ? 'Red' : color === 'black' ? 'Black' : 'Yellow')
+                        : (color === 'blue' ? 'Green' : color === 'red' ? 'Pink' : color === 'black' ? 'Brown' : 'White');
+                      showToast(`Selected ${clipName} Clip — Click hoop crown, side, or centre peg`);
+                    }
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
+
+        {/* AC Interactive Target Zones when a clip is selected */}
+        {gameMode === 'AC' && selectedClip && (
+          <>
+            {[1, 2, 3, 4, 5, 6].map(hoopId => {
+              const hoopPos = HOOP_COORDINATES[hoopId];
+              return (
+                <group key={`clip-targets-hoop-${hoopId}`} position={[hoopPos[0], 0, hoopPos[2]]}>
+                  {/* Crown Target (Top) */}
+                  <mesh
+                    position={[0, 0.92, 0]}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      moveSelectedClip('hoop', hoopId, 'crown');
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = 'pointer';
+                    }}
+                    onPointerOut={() => {
+                      document.body.style.cursor = 'auto';
+                    }}
+                  >
+                    <boxGeometry args={[0.48, 0.16, 0.16]} />
+                    <meshBasicMaterial color="#ffe680" transparent opacity={0.4} />
+                  </mesh>
+
+                  {/* Left Upright Target (Side) */}
+                  <mesh
+                    position={[-0.1875, 0.55, 0]}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      moveSelectedClip('hoop', hoopId, 'left');
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = 'pointer';
+                    }}
+                    onPointerOut={() => {
+                      document.body.style.cursor = 'auto';
+                    }}
+                  >
+                    <boxGeometry args={[0.16, 0.7, 0.16]} />
+                    <meshBasicMaterial color="#ffe680" transparent opacity={0.3} />
+                  </mesh>
+
+                  {/* Right Upright Target (Side) */}
+                  <mesh
+                    position={[0.1875, 0.55, 0]}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      moveSelectedClip('hoop', hoopId, 'right');
+                    }}
+                    onPointerOver={(e) => {
+                      e.stopPropagation();
+                      document.body.style.cursor = 'pointer';
+                    }}
+                    onPointerOut={() => {
+                      document.body.style.cursor = 'auto';
+                    }}
+                  >
+                    <boxGeometry args={[0.16, 0.7, 0.16]} />
+                    <meshBasicMaterial color="#ffe680" transparent opacity={0.3} />
+                  </mesh>
+                </group>
+              );
+            })}
+
+            {/* Centre Peg Extension Target */}
+            <mesh
+              position={[0, 1.55, 0]}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                moveSelectedClip('peg');
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = 'auto';
+              }}
+            >
+              <cylinderGeometry args={[0.1, 0.1, 0.55, 16]} />
+              <meshBasicMaterial color="#ffe680" transparent opacity={0.4} />
+            </mesh>
+          </>
+        )}
 
         {isHPressed && (
           <>
@@ -2476,6 +2896,7 @@ export default function App() {
           selectedBall={selectedBall}
           selectedRingRef={selectedRingRef}
           isPaused={isPaused}
+          gameMode={gameMode}
         />
 
 
@@ -2627,8 +3048,30 @@ export default function App() {
 
       {/* Floating Control Panel HUD (HTML Overlay) */}
       <div className={`floating-control-panel ${isCollapsed ? 'collapsed' : ''}`}>
-        {/* Left Column: Color set selector and ball stack */}
+        {/* Left Column: Game mode switch, Color set selector and ball stack */}
         <div className="hud-left-column">
+          {/* GC / AC Game Mode Switch */}
+          <div className="hud-mode-row" style={{ display: 'flex', gap: '4px', width: '100%', marginBottom: '2px' }}>
+            <button 
+              className={`pri-sec-btn ${gameMode === 'GC' ? 'active' : ''}`}
+              onClick={() => handleModeChange('GC')}
+              disabled={activeStriker !== null}
+              style={{ flex: 1, width: 'auto', height: '24px', fontSize: '10px', fontWeight: 900 }}
+              title="Golf Croquet (GC) Mode"
+            >
+              GC
+            </button>
+            <button 
+              className={`pri-sec-btn ${gameMode === 'AC' ? 'active' : ''}`}
+              onClick={() => handleModeChange('AC')}
+              disabled={activeStriker !== null}
+              style={{ flex: 1, width: 'auto', height: '24px', fontSize: '10px', fontWeight: 900 }}
+              title="Association Croquet (AC) Mode"
+            >
+              AC
+            </button>
+          </div>
+
           <div className="panel-title">Active Ball</div>
           
           <div className="hud-selector-row">
@@ -2997,14 +3440,14 @@ export default function App() {
       {/* Onboarding Title Banner */}
       {!hasClickedStart && !showHelp && (
         <div className="onboarding-title-banner">
-          <div className="onboarding-title-text">3D Golf Croquet Visualiser</div>
+          <div className="onboarding-title-text">3D Croquet Visualiser</div>
         </div>
       )}
 
       {/* Signature Watermark Overlay */}
       <div className="signature-watermark">
         <div className="signature-name">Murray Tinker's</div>
-        <div className="signature-title">GC Croquet 3D Visualiser (1.0)</div>
+        <div className="signature-title">Croquet Visualiser ({APP_VERSION})</div>
         <div className="signature-copyright">© 2026 Murray Tinker. All Rights Reserved.</div>
       </div>
 
@@ -3083,12 +3526,147 @@ export default function App() {
         </div>
       )}
 
+      {/* Version 2.0 First-Use Announcement Modal */}
+      {showFirstUseMessage && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10002,
+            padding: '20px'
+          }}
+          onClick={dismissFirstUseMessage}
+        >
+          <div 
+            style={{
+              background: 'linear-gradient(145deg, #111827 0%, #0b1120 100%)',
+              border: '1.5px solid #ffe680',
+              borderRadius: '20px',
+              padding: '24px 28px',
+              maxWidth: '500px',
+              width: '100%',
+              boxShadow: '0 24px 50px rgba(0,0,0,0.8), 0 0 30px rgba(255, 230, 128, 0.25)',
+              fontFamily: 'sans-serif',
+              color: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              animation: 'modal-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🏆</span>
+                <div>
+                  <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#ffe680', fontWeight: 800 }}>
+                    What's New
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff' }}>
+                    Croquet Visualiser v{APP_VERSION}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={dismissFirstUseMessage}
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Close"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '16px', height: '16px' }}>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div style={{ 
+              fontSize: '14.5px', 
+              lineHeight: '1.6', 
+              color: '#e2e8f0', 
+              background: 'rgba(255, 255, 255, 0.04)', 
+              borderRadius: '12px', 
+              padding: '14px 16px',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              This model now supports <strong>Association Croquet (AC)</strong> and <strong>Golf Croquet (GC)</strong> Court configurations. Switchable in the control panel.
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <button
+                onClick={() => {
+                  dismissFirstUseMessage();
+                  setShowHelp(true);
+                }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '10px',
+                  color: '#ffffff',
+                  padding: '9px 16px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Open Guide
+              </button>
+              <button
+                onClick={dismissFirstUseMessage}
+                style={{
+                  background: 'linear-gradient(135deg, #ffe680 0%, #ffb300 100%)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: '#000000',
+                  padding: '9px 20px',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(255, 230, 128, 0.35)'
+                }}
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Premium Glassmorphic Help Modal Overlay */}
       {showHelp && (
         <div className="help-modal-overlay" onClick={() => setShowHelp(false)}>
           <div className="help-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="help-modal-header">
-              <h3 className="help-modal-title">GC Croquet 3D Visualiser Guide</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3 className="help-modal-title">Croquet 3D Visualiser Guide (GC & AC)</h3>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, rgba(255, 230, 128, 0.25) 0%, rgba(255, 179, 0, 0.25) 100%)',
+                  border: '1px solid #ffe680',
+                  color: '#ffe680',
+                  borderRadius: '6px',
+                  padding: '2px 8px',
+                  letterSpacing: '0.04em'
+                }}>
+                  v{APP_VERSION}
+                </span>
+              </div>
               <button className="help-modal-close-btn" onClick={() => setShowHelp(false)} title="Close Guide">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px' }}>
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -3097,6 +3675,13 @@ export default function App() {
               </button>
             </div>
             <div className="help-modal-body">
+              {/* App Description */}
+              <div className="help-section" style={{ marginBottom: '1.8rem', background: 'rgba(255, 230, 128, 0.1)', padding: '18px', borderRadius: '8px', border: '1px solid rgba(255, 230, 128, 0.3)', borderLeft: '4px solid #ffe680' }}>
+                <p style={{ margin: 0, fontSize: '16px', fontWeight: '500', lineHeight: '1.6', color: '#ffffff' }}>
+                  This App is a 3D render of Croquet Lawn and has the controls and physics to enable virtual play, sequence demonstrations, live stream overlays and visualisation of tutorials and drills. The app provides complete control over camera angles and has a large range of zoom capability.
+                </p>
+              </div>
+
               {/* Getting Started */}
               <div className="help-section">
                 <h4 className="help-section-title">
@@ -3109,15 +3694,15 @@ export default function App() {
                   <li className="help-step-item">
                     <span className="help-step-num">1</span>
                     <div className="help-gesture-desc">
-                      <span className="help-gesture-title">Start the Game</span>
-                      The game loads automatically. You can click the <strong style={{ color: '#ffe680' }}>Start / Restart</strong> button in the control panel to set the 4 balls at their starting positions near Corner 4 (South-East). Drag your ball(s) onto the lawn to activate play.
+                      <span className="help-gesture-title">Start the Visualiser</span>
+                      The visualiser loads into a view of a single court croquet club. On the lower left is a collapsible control panel offering selection of court layout for AC or GC / RC, Ball Colour and other functions. Once your choices are selected press the <strong style={{ color: '#ffe680' }}>Start (or Restart)</strong> button to move the camera to an appropriate camera position for common starting plays.
                     </div>
                   </li>
                   <li className="help-step-item">
                     <span className="help-step-num">2</span>
                     <div className="help-gesture-desc">
                       <span className="help-gesture-title">Select a ball and hit</span>
-                      Click directly on any ball on the court and then click a location on the court. The ball if selected will go there. (you may also select a ball from the control panel). If a ball is knocked "off-court", simply drag it back onto the court where it went out.
+                      A ball or balls must be selected and dragged onto the play area before strokes can be played. To play a stroke click directly on the desired ball (it should change colour) and then click a target on the court. An animation of a person will appear and hit the ball to that location. (you may also select a ball from the control panel). If a ball is knocked "off-court", it will return to the point it left the lawn or the yard line if in AC mode.
                     </div>
                   </li>
                   <li className="help-step-item">
@@ -3287,6 +3872,42 @@ export default function App() {
                             </svg>
                             OPEN COURT SETUP GUIDE
                           </a>
+                        </div>
+
+                        {/* Association Croquet (AC) & Moveable Scoring Clips */}
+                        <div style={{ 
+                          background: 'rgba(56, 189, 248, 0.04)', 
+                          border: '1px solid rgba(56, 189, 248, 0.2)', 
+                          borderRadius: '8px', 
+                          padding: '10px 12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          marginTop: '12px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff', fontWeight: 700, marginBottom: '2px' }}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: '14px', height: '14px', color: '#38bdf8' }}>
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            Association Croquet (AC) & Moveable Scoring Clips
+                          </div>
+                          <div style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                            • <strong>GC / AC Mode Switch:</strong> Toggle between <strong>Golf Croquet (GC)</strong> and <strong>Association Croquet (AC)</strong> at the top of the control panel. In AC mode, the court switches to the South start camera view, off-court balls sit centered along the South boundary, and the 1-yard dashed line with corner pegs is displayed.
+                            <br/><br/>
+                            • <strong>4 Moveable Scoring Clips:</strong> In AC mode, 4 scoring clips start clamped across the top crown of <strong>Hoop 1</strong>. Toggling between <strong>Pri / Sec</strong> dynamically updates the clips between 1st colors (Blue, Red, Black, Yellow) and 2nd colors (Green, Pink, Brown, White).
+                            <br/><br/>
+                            • <strong>How to Move a Clip:</strong>
+                            <div style={{ margin: '4px 0 0 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div>1. Click directly on any scoring clip to select it (a golden wireframe halo and top indicator banner will appear).</div>
+                              <div>2. Click the <strong>Top Crown</strong> of any hoop to clamp the clip over the crossbar (Hoops 1–6).</div>
+                              <div>3. Click the <strong>Left or Right Upright</strong> of any hoop to clamp the clip sideways onto the vertical leg (for back hoops 1-back to rover).</div>
+                              <div>4. Click the <strong>Centre Peg Extension</strong> to clamp the clip onto the peg extension rod (for pegged-out / peg-point balls).</div>
+                              <div>5. Click the clip again or click <strong>Cancel</strong> on the top banner to cancel selection.</div>
+                            </div>
+                            <br/>
+                            • <strong>Undo & Reset:</strong> Clip moves are saved in history and can be undone with <kbd className="help-key-badge">U</kbd> (Undo), or returned to Hoop 1 with <kbd className="help-key-badge">R</kbd> (Restart).
+                          </div>
                         </div>
                       </div>
                     </div>

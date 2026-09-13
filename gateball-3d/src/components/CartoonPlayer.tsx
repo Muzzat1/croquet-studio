@@ -9,9 +9,9 @@ type BallId = 'r1' | 'w2' | 'r3' | 'w4' | 'r5' | 'w6' | 'r7' | 'w8' | 'r9' | 'w1
 interface CartoonPlayerProps {
   ballId: BallId;
   ballPosition: [number, number, number];
-  targetPosition: [number, number, number]; // Target position to align towards
+  targetPosition: [number, number, number]; // Aim target
   isStriking: boolean;
-  isStalking: boolean;   // NEW: player walks up to ball from behind
+  isStalking: boolean;
   onImpact: () => void;
   onFinished: () => void;
   ballSet: 'primary' | 'secondary';

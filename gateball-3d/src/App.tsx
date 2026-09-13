@@ -1855,8 +1855,7 @@ export default function App() {
 
       } else if (isOutBall && (!wasSparkStrokeRef.current || outBalls.includes(strikerId))) {
         // ── OUT BALL (Normal stroke, or Striker fouled during spark) ──────────
-        const outBallNums = outBalls.map(id => id.replace(/[^\d]/g, '')).join(', ');
-        endTurn(`Out Ball (Ball ${outBallNums})! ${getNextBallMessage()}`);
+        endTurn(getNextBallMessage());
 
       } else if (wasSparkStrokeRef.current) {
         // ── SPARK STROKE JUST RESOLVED ────────────────────────────────────────
@@ -1894,8 +1893,8 @@ export default function App() {
             setPlayerState('hidden');
             setShowAimingLines(false);
             const msg = extraStrokes === 2
-              ? 'Spark Complete! 2 CONTINUOUS STROKES (Gate + Touch combo)!'
-              : 'Spark Complete! 1 CONTINUOUS STROKE gained!';
+              ? 'Spark Complete! 2 CONTINUATION STROKES (Gate + Touch combo)!'
+              : 'Spark Complete! 1 CONTINUATION STROKE gained!';
             showToast(msg);
           }
         }
@@ -1915,13 +1914,13 @@ export default function App() {
         setSelectedBall(strikerId);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast('Gate Cleared! 1 CONTINUOUS STROKE gained!');
+        showToast('Gate Cleared! 1 CONTINUATION STROKE gained!');
       } else if (continuousStrokes > 1) {
         setContinuousStrokes(prev => prev - 1);
         setSelectedBall(strikerId);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast(`Continuous Stroke remaining: ${continuousStrokes - 1}`);
+        showToast(`Continuation Stroke remaining: ${continuousStrokes - 1}`);
       } else if (continuousStrokes === 1) {
         setContinuousStrokes(0);
         sparkedBallsThisTurnRef.current.clear();
@@ -2222,18 +2221,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Power Shot Toggle */}
-        {!placementMode && selectedBall && (
-          <div className="hud-left-column" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)' }}>
-            <input 
-              type="checkbox" id="power-shot-left" checked={isPowerShot} 
-              onChange={(e) => setIsPowerShot(e.target.checked)} 
-              style={{ accentColor: '#10b981' }}
-            />
-            <label htmlFor="power-shot-left" style={{ fontSize: '10px', color: '#e2e8f0', fontWeight: '600', cursor: 'pointer' }}>Power Shot (2x Velocity)</label>
-          </div>
-        )}
-
         {/* Action Button: Play Stroke / Play Spark */}
         <button 
           className="hud-action-row" 
@@ -2261,7 +2248,7 @@ export default function App() {
           {sparkMode 
             ? 'PLAY SPARK' 
             : continuousStrokes > 0 
-              ? `CONTINUOUS STROKE (${continuousStrokes})` 
+              ? `CONTINUATION STROKE (${continuousStrokes})` 
               : 'PLAY STROKE'}
         </button>
 
@@ -2412,7 +2399,7 @@ export default function App() {
           ) : continuousStrokes > 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '13px', fontWeight: '800', letterSpacing: '0.02em' }}>
               <span style={{ fontSize: '15px' }}>🎯</span>
-              <span>CONTINUOUS STROKE · {continuousStrokes} stroke{continuousStrokes > 1 ? 's' : ''} remaining</span>
+              <span>CONTINUATION STROKE · {continuousStrokes} stroke{continuousStrokes > 1 ? 's' : ''} remaining</span>
             </div>
           ) : selectedBall ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>
@@ -2434,38 +2421,15 @@ export default function App() {
         {/* Divider */}
         <div style={{ width: '1px', height: '24px', background: 'rgba(255, 255, 255, 0.16)' }} />
 
-        {/* 3. Controls: Power Shot, Undo, Play */}
+        {/* 3. Controls: Undo, Play */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Power Shot Toggle */}
-          <button
-            onClick={() => setIsPowerShot(!isPowerShot)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '5px 10px',
-              borderRadius: '16px',
-              background: isPowerShot ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255, 255, 255, 0.06)',
-              border: isPowerShot ? '1.5px solid #10b981' : '1px solid rgba(255, 255, 255, 0.14)',
-              color: isPowerShot ? '#34d399' : '#cbd5e1',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title="Toggle 2x Velocity Power Shot"
-          >
-            <span>⚡</span>
-            <span>Power {isPowerShot ? 'ON' : 'OFF'}</span>
-          </button>
-
           {/* Undo Button */}
           <button
             onClick={handleUndo}
             disabled={history.length === 0 || isPlaying}
             style={{
-              width: '30px',
-              height: '30px',
+              width: '32px',
+              height: '32px',
               borderRadius: '50%',
               background: 'rgba(255, 255, 255, 0.06)',
               border: '1px solid rgba(255, 255, 255, 0.14)',
@@ -2477,7 +2441,7 @@ export default function App() {
               cursor: history.length === 0 || isPlaying ? 'not-allowed' : 'pointer',
               transition: 'all 0.15s ease'
             }}
-            title="Undo Stroke (Ctrl+Z)"
+            title="Replay Turn / Undo (Ctrl+Z)"
           >
             ↩
           </button>
@@ -2513,7 +2477,7 @@ export default function App() {
             {sparkMode
               ? 'PLAY SPARK'
               : continuousStrokes > 0
-                ? `CONTINUE (${continuousStrokes})`
+                ? `CONTINUATION (${continuousStrokes})`
                 : 'PLAY STROKE'}
           </button>
         </div>
@@ -2525,7 +2489,7 @@ export default function App() {
           key={scoringEvent.id}
           style={{
             position: 'absolute',
-            top: '24px',
+            top: '76px',
             left: '50%',
             transform: 'translateX(-50%)',
             background: 'rgba(15, 23, 42, 0.75)',
@@ -2752,7 +2716,7 @@ export default function App() {
               <p>Welcome to <strong>Gateball 3D</strong>! This sandbox lets you model and visualise game play on a 20m x 15m court.</p>
               <p><strong>Striker Rules:</strong> Select a ball from the right sidebar or click on it directly in 3D. Odd balls are Red, Even balls are White.</p>
               <p><strong>Place Mode:</strong> Click on the court to place your selected ball. Balls start docked off-court. You can place them anywhere, but standard rules require launching them inside the <strong>Start Area</strong> (bottom right).</p>
-              <p><strong>Aim Mode:</strong> Move your mouse over the court. Click to point your mallet towards that target spot. The mallet automatically snaps exactly 0.53m behind the ball. Adjust the angle or speed using the sliders in the left panel, and toggle Power Shot for double the punch.</p>
+              <p><strong>Aim Mode:</strong> Move your mouse over the court. Click to point your mallet towards that target spot. The mallet automatically snaps exactly 0.53m behind the ball. Adjust the angle or speed using the sliders in the left panel.</p>
               <p><strong>Spark Mode:</strong> When your striker ball makes contact with another ball, they touch! In the sandbox, you can aim a spark shot by clicking where you want to send the sparked ball. Hit the striker, and the target ball launches while the striker ball remains stationary!</p>
               <p><strong>Gate Passing & Agari:</strong> Pass Gate 1, 2, and 3 in order to score 1 point each. Hit the central Goal Pole after running all 3 gates to get Agari (Finish) and earn 2 points!</p>
             </div>

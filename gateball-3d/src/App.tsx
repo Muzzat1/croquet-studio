@@ -626,16 +626,16 @@ export default function App() {
 
   // Initial docked positions along the right margin (X = 9.0) starting next to the Start Box (Z = -6.0)
   const resetPositions = useMemo<Record<BallId, { x: number; z: number }>>(() => ({
-    r1: { x: 9.0, z: -6.0 },
-    w2: { x: 9.0, z: -5.5 },
-    r3: { x: 9.0, z: -5.0 },
-    w4: { x: 9.0, z: -4.5 },
-    r5: { x: 9.0, z: -4.0 },
-    w6: { x: 9.0, z: -3.5 },
-    r7: { x: 9.0, z: -3.0 },
-    w8: { x: 9.0, z: -2.5 },
-    r9: { x: 9.0, z: -2.0 },
-    w10: { x: 9.0, z: -1.5 }
+    r1: { x: 8.5, z: -6.0 },
+    w2: { x: 8.5, z: -5.5 },
+    r3: { x: 8.5, z: -5.0 },
+    w4: { x: 8.5, z: -4.5 },
+    r5: { x: 8.5, z: -4.0 },
+    w6: { x: 8.5, z: -3.5 },
+    r7: { x: 8.5, z: -3.0 },
+    w8: { x: 8.5, z: -2.5 },
+    r9: { x: 8.5, z: -2.0 },
+    w10: { x: 8.5, z: -1.5 }
   }), []);
 
   // React State for ball coordination
@@ -802,6 +802,7 @@ export default function App() {
   const gateAndTouchSameStrokeRef = useRef(false);
   const wasSparkStrokeRef = useRef(false);
   const wasStrokeActiveRef = useRef(false);
+  const preStrokePositionsRef = useRef<Record<BallId, { x: number; z: number }>>(resetPositions);
 
   // Tutorial State & Audio Narration
   const [isTutorialActive, setIsTutorialActive] = useState(false);
@@ -1202,6 +1203,10 @@ export default function App() {
     }
 
     wasStrokeActiveRef.current = true;
+    
+    const snap: any = {};
+    BALL_IDS.forEach(id => { snap[id] = { x: physicsBalls.current[id].x, z: physicsBalls.current[id].z }; });
+    preStrokePositionsRef.current = snap;
     if (sparkPhase === 'aiming' && sparkTargetId) {
       // This is a spark stroke — mark it, record pre-spark position
       wasSparkStrokeRef.current = true;
@@ -1447,6 +1452,7 @@ export default function App() {
   };
 
   const handleCourtPointerUp = (e: any) => {
+    console.log("[DEBUG] handleCourtPointerUp triggered. isPlaying:", isPlaying, "isReplaying:", isReplaying);
     if (isPlaying || isReplaying) return;
     if (drawMode) {
       e.stopPropagation();
@@ -1481,16 +1487,18 @@ export default function App() {
     const clickPoint = e.point;
     
     if (clickPoint && selectedBall) {
+      console.log("[DEBUG] clickPoint and selectedBall found. selectedBall:", selectedBall, "dragDistance:", dragDistance);
       const clickX = clickPoint.x;
       const clickZ = clickPoint.z;
       const ball = balls[selectedBall];
       
       // Any camera orbit drag cancels the action entirely
-      if (dragDistance > 6) return;
+      if (dragDistance > 6) { console.log("[DEBUG] dragDistance > 6"); return; }
 
       // Only act if the selected ball is already on the court or in the Start Box — docked balls
       // must be positioned by dragging, not by clicking the court.
-      if (ball.x > 8.8) return;
+      if (ball.x > 8.8) { console.log("[DEBUG] ball.x > 8.8"); return; }
+      console.log("[DEBUG] Passed basic checks. sparkPhase:", sparkPhase, "sparkTargetId:", sparkTargetId);
 
       // Standard Aiming/Striking Logic (Only runs if the ball is already on the court)
       const aimDx = clickX - ball.x;
@@ -1779,7 +1787,7 @@ export default function App() {
       
       // ── Find balls that moved and check boundaries ─────────────────────────
       const movedBalls = BALL_IDS.filter(id => {
-        const pre = balls[id];
+        const pre = preStrokePositionsRef.current[id];
         const post = physicsBalls.current[id];
         return Math.abs(pre.x - post.x) > 0.001 || Math.abs(pre.z - post.z) > 0.001;
       });

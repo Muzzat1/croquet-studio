@@ -43,3 +43,6 @@ To make mallet alignment intuitive and prevent alignment errors:
 To align with official Gateball terminology:
 - **Hoops are Gates**: In all codebase variables, documentation, and user interfaces representing Gateball elements, a hoop must be referred to as a **gate** (e.g., Gate 1, Gate 2, Gate 3, `GateballGate`).
 - **Hits/Strikes are Strokes**: Direct mallet impacts and shot plays must be referred to as **strokes** rather than hits or strikes (e.g., `playStroke`, "Stroke Play").
+
+## 6. Execution Protocol
+- **Explicit Authorization Required**: Before executing any code changes, creating files, or running commands that modify the environment, the agent MUST present a plan and wait for the user's explicit authorization to proceed.

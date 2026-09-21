@@ -47,8 +47,6 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
 
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const handlePointerDown = (e: any) => {
-      e.stopPropagation();
-
       // Record where the pointer went down — but don't start dragging yet.
       // We commit to a drag only after the pointer moves beyond the threshold,
       // so that short clicks near the ball don't accidentally disable OrbitControls.
@@ -61,6 +59,15 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
 
     const handlePointerMove = (e: any) => {
       if (!isDragging) return;
+    if (e.buttons === 0 && e.type !== 'pointerup') {
+      handlePointerUp(e as any);
+      return;
+    }
+
+      if (e.buttons === 0 && e.type !== 'pointerup') {
+        handlePointerUp(e);
+        return;
+      }
 
       const clientX = e.clientX ?? e.nativeEvent?.clientX ?? 0;
       const clientY = e.clientY ?? e.nativeEvent?.clientY ?? 0;
@@ -80,8 +87,6 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
         }
       }
 
-      e.stopPropagation();
-
       // Raycast onto horizontal plane at Y = radius
       if (raycasterRef.current?.ray) {
         raycasterRef.current.ray.intersectPlane(dragPlane.current, intersectionPoint.current);
@@ -91,7 +96,10 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
 
     const handlePointerUp = (e: any) => {
       if (!isDragging) return;
-      e.stopPropagation();
+    if (e.buttons === 0 && e.type !== 'pointerup') {
+      handlePointerUp(e as any);
+      return;
+    }
       setIsDragging(false);
 
       if (dragHasMoved.current) {
@@ -175,8 +183,8 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          onPointerOver={(e) => { e.stopPropagation(); setIsHovered(true); }}
-          onPointerOut={(e) => { e.stopPropagation(); setIsHovered(false); }}
+          onPointerOver={(e) => { /* e.stopPropagation(); Removed to allow aiming clicks to bubble up */ setIsHovered(true); }}
+          onPointerOut={(e) => { /* e.stopPropagation(); Removed to allow aiming clicks to bubble up */ setIsHovered(false); }}
         >
           <sphereGeometry args={[radius * 1.30, 16, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />

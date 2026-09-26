@@ -772,7 +772,7 @@
       document.getElementById('mapModal').classList.add('hidden');
     }
 
-    function setMapLocation(lat, lon) {
+    async function setMapLocation(lat, lon, skipReverse = false) {
       selectedMapLat = lat;
       selectedMapLon = lon;
       
@@ -784,6 +784,31 @@
       
       document.getElementById('mapSelectedCoords').innerText = `Selected: Lat ${lat.toFixed(4)}, Lng ${lon.toFixed(4)}`;
       document.getElementById('mapApplyBtn').disabled = false;
+
+      if (!skipReverse) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`);
+          const data = await res.json();
+          if (data && data.address) {
+            const stateAbbr = {
+              'Queensland': 'QLD', 'New South Wales': 'NSW', 'Victoria': 'VIC',
+              'South Australia': 'SA', 'Western Australia': 'WA', 'Tasmania': 'TAS',
+              'Australian Capital Territory': 'ACT', 'Northern Territory': 'NT'
+            };
+            const state = stateAbbr[data.address.state] || data.address.state || '';
+            const cityOrTown = data.address.city || data.address.town || data.address.village || data.address.suburb || 'Map Point';
+            const nameInput = document.getElementById('mapCustomName');
+            
+            if (state) {
+              nameInput.value = `${cityOrTown}, ${state}`;
+            } else {
+              nameInput.value = cityOrTown;
+            }
+          }
+        } catch (err) {
+          console.error("Reverse geocoding failed", err);
+        }
+      }
     }
 
     async function searchMapLocation() {
@@ -797,21 +822,30 @@
         let loc = null;
         
         // Use Nominatim (OpenStreetMap) to support full street address search
-        const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=au&limit=1`);
+        const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=au&limit=1&addressdetails=1`);
         const nomData = await nomRes.json();
         
         if (nomData && nomData.length > 0) {
+          const stateAbbr = {
+            'Queensland': 'QLD', 'New South Wales': 'NSW', 'Victoria': 'VIC',
+            'South Australia': 'SA', 'Western Australia': 'WA', 'Tasmania': 'TAS',
+            'Australian Capital Territory': 'ACT', 'Northern Territory': 'NT'
+          };
+          const stateRaw = nomData[0].address ? nomData[0].address.state : '';
+          const state = stateAbbr[stateRaw] || stateRaw || '';
+          
+          let name = nomData[0].display_name.split(',')[0];
+          if (state) {
+            name += `, ${state}`;
+          }
+
           loc = {
             latitude: parseFloat(nomData[0].lat),
             longitude: parseFloat(nomData[0].lon),
-            name: nomData[0].display_name.split(',')[0]
+            name: name
           };
           
-          // Prefill the custom location name if empty
-          const nameInput = document.getElementById('mapCustomName');
-          if (!nameInput.value) {
-            nameInput.value = loc.name;
-          }
+          document.getElementById('mapCustomName').value = loc.name;
         }
 
         if (!loc) {
@@ -820,7 +854,7 @@
           return;
         }
 
-        setMapLocation(loc.latitude, loc.longitude);
+        setMapLocation(loc.latitude, loc.longitude, true);
         leafletMap.setView([loc.latitude, loc.longitude], 15); // Zoom in closer for addresses
         
       } catch (err) {

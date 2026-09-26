@@ -25,7 +25,7 @@
     /* Safe area for iPhone notch/home bar */
     main { padding-bottom: env(safe-area-inset-bottom, 16px); }
   </style>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>%E2%98%94</text></svg>">
+  <link rel="icon" type="image/png" href="favicon.png?v=2">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -58,7 +58,7 @@
             <button onclick="openConditionsModal()" id="conditionsBtn" class="flex-1 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white px-4 py-2.5 rounded-md text-[13px] sm:text-sm font-bold transition shadow-sm whitespace-nowrap">
               <span>🔥</span><span>Current Conditions</span>
             </button>
-            <button onclick="openMapModal()" class="flex-none flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-4 py-2.5 rounded-md text-sm font-bold transition shadow-sm" title="Find My Location on Map">
+            <button onclick="openMapModal()" class="hidden md:flex flex-none items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-4 py-2.5 rounded-md text-sm font-bold transition shadow-sm" title="Find My Location on Map">
               <span>📍</span><span>Map</span>
             </button>
           </div>
@@ -1029,3 +1029,5 @@
   </div>
 </body>
 </html>
+
+

@@ -353,7 +353,7 @@
     // --- Live Forecast ---
     async function fetchLiveForecast(lat = currentLat, lon = currentLon, tz = currentTz) {
       try {
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,precipitation_probability_max,windspeed_10m_max&timezone=${tz}`);
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,precipitation_sum,windspeed_10m_max&timezone=${tz}`);
         const data = await res.json();
         
         const container = document.getElementById('forecast-container');
@@ -365,7 +365,8 @@
           const dayName = idx === 0 ? 'Today' : days[date.getDay()];
           const maxTemp = Math.round(data.daily.temperature_2m_max[idx]);
           const apparent = Math.round(data.daily.apparent_temperature_max[idx]);
-          const rainProb = data.daily.precipitation_probability_max[idx];
+          const rainRaw = data.daily.precipitation_sum[idx] ?? 0;
+          const rainMm = Number.isInteger(rainRaw) ? rainRaw : rainRaw.toFixed(1);
           const windSpeed = Math.round(data.daily.windspeed_10m_max[idx]);
             const wCode = data.daily.weathercode[idx];
           
@@ -383,7 +384,7 @@
               <span class="text-2xl my-1">${icon}</span>
               <div class="text-sm font-bold text-slate-800">${maxTemp}°C <span class="text-xs font-normal text-slate-500">Max</span></div>
               <div class="text-[10px] text-rose-600 font-semibold mt-1">Feels ${apparent}°C</div>
-              <div class="text-[10px] text-blue-500 mt-0.5">Rain: ${rainProb}%</div>
+              <div class="text-[10px] text-blue-500 mt-0.5 font-medium">Rain: ${rainMm} mm</div>
                 <div class="text-[10px] text-teal-600 mt-0.5 font-medium">Wind: ${windSpeed} km/h</div>
             </div>
           `;

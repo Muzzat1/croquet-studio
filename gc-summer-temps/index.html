@@ -37,13 +37,13 @@
     <div class="max-w-6xl mx-auto px-4 py-4 md:py-6">
       <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <!-- Logo & Title -->
-        <div class="flex items-center gap-4">
-          <img src="Caloundra%20Mallet%20Sports%20Club%20Logo%202026.png" alt="Caloundra Mallet Sports Club Logo" class="h-12 md:h-16 w-auto bg-white rounded-lg p-1 flex-shrink-0" />
+        <div class="flex items-center gap-3 md:gap-4">
+          <img src="croquet_weather_logo.png" alt="Croquet Weather by Murray" class="h-14 md:h-20 w-14 md:w-20 rounded-full shadow-md object-contain bg-[#fdfbf7] flex-shrink-0 border-2 border-emerald-400/40" />
           <div>
             <h1 class="text-xl md:text-3xl font-bold tracking-tight leading-tight">
-              Caloundra Mallet Sports Club <span id="appSubtitleLocation" class="block text-base md:text-xl font-bold text-emerald-300 mt-1"></span>
+              Weather Information for <span id="appHeaderLocation">Caloundra Mallet Sports Club</span>
             </h1>
-            <p class="text-emerald-200 text-sm mt-1">12-Month Playing Conditions & Hourly Weather Analysis (7:00 am - 4:00 pm)</p>
+            <p id="appHeaderSubtitle" class="text-emerald-200 text-xs md:text-sm font-medium mt-1">Croquet and Gateball Playing Conditions (Current and Historic)</p>
           </div>
         </div>
         
@@ -274,7 +274,15 @@
       }
     }
 
-    let currentMonth = 'January';
+    function updateHeaderLocation(name) {
+      const locEl = document.getElementById('appHeaderLocation');
+      if (locEl) locEl.innerText = name;
+      const subEl = document.getElementById('appHeaderSubtitle');
+      if (subEl) subEl.innerText = 'Croquet and Gateball Playing Conditions (Current and Historic)';
+    }
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    let currentMonth = monthNames[new Date().getMonth()];
     let chartInstance = null;
 
     // --- Search & Geocoding ---
@@ -322,7 +330,7 @@
         const stateDisplay = stateAbbr[loc.admin1] || loc.admin1 || loc.country;
         const locName = `${loc.name}, ${stateDisplay}`;
         
-        document.getElementById('appSubtitleLocation').innerText = `showing weather for: ${locName}`;
+        updateHeaderLocation(locName);
         currentLat = loc.latitude;
         currentLon = loc.longitude;
         currentLocName = locName;
@@ -704,7 +712,7 @@
         currentLocName = urlParams.get('name') || 'Selected Location';
         currentTz = urlParams.get('tz') || 'Australia/Brisbane';
         
-        document.getElementById('appSubtitleLocation').innerText = `showing weather for: ${currentLocName}`;
+        updateHeaderLocation(currentLocName);
         document.getElementById('infoSourceTitle').innerText = `Data Source: Open-Meteo (${currentLocName})`;
         document.getElementById('forecastLocationName').innerText = `Real-time forecast for ${currentLocName}`;
         
@@ -729,7 +737,7 @@
         updateDaylightCalculator();
       }
       initChart();
-      updateView();
+      setMonth(currentMonth);
       fetchLiveForecast();
     };
 
@@ -811,7 +819,7 @@
       // Create Shareable URL
       const shareUrl = `${window.location.origin}${window.location.pathname}?lat=${roundedLat}&lon=${roundedLon}&name=${encodeURIComponent(finalName)}`;
       
-      document.getElementById('appSubtitleLocation').innerText = `showing weather for: ${currentLocName}`;
+      updateHeaderLocation(currentLocName);
       document.getElementById('infoSourceTitle').innerText = `Data Source: Open-Meteo (${currentLocName})`;
       document.getElementById('forecastLocationName').innerText = `Real-time forecast for ${currentLocName}`;
       

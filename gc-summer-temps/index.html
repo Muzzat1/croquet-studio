@@ -919,34 +919,38 @@
   <!-- Map Location Modal -->
   <div id="mapModal" class="fixed inset-0 z-[60] hidden flex flex-col items-center justify-center p-4">
     <div onclick="closeMapModal()" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
-    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden flex flex-col h-[85vh] md:h-[650px]">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-        <h3 class="font-bold text-slate-800 flex items-center gap-2">📍 Find Location</h3>
-        <button onclick="closeMapModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg leading-none">✕</button>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden flex flex-col h-[85vh] md:h-[650px] border border-slate-100">
+      <!-- Header bar in main emerald theme colours -->
+      <div class="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between shadow-sm">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2"><span>📍</span> Find Location</h2>
+          <p class="text-emerald-200 text-xs mt-0.5">Select any court, club, or Australian location on the map</p>
+        </div>
+        <button onclick="closeMapModal()" class="text-white/75 hover:text-white text-2xl leading-none font-light transition">&times;</button>
       </div>
       
-      <div class="p-3 md:p-4 flex gap-2 border-b border-slate-100 bg-white">
-        <button onclick="useBrowserGPS()" class="flex-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300 font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2">
+      <div class="p-3 md:p-3.5 flex gap-2 border-b border-emerald-100 bg-emerald-50/40">
+        <button onclick="useBrowserGPS()" class="flex-1 bg-white text-emerald-800 hover:bg-emerald-100/70 border border-emerald-300 font-bold px-4 py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
           <span>🎯</span> Use My GPS Location
         </button>
       </div>
 
-      <div id="mapContainer" class="flex-1 w-full bg-slate-100 relative z-0 border-4 border-emerald-500 rounded-lg mx-auto w-[calc(100%-1.5rem)] shadow-md"></div>
+      <div id="mapContainer" class="flex-1 w-full bg-slate-100 relative z-0 border-4 border-emerald-600 rounded-xl mx-auto w-[calc(100%-1.5rem)] shadow-inner my-2"></div>
       
       <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
-        <div class="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3.5 mx-4 text-xs text-emerald-900 leading-relaxed shadow-sm mt-2 mb-2">
-            <strong class="block mb-1 text-[13px]">How to use:</strong>
-            Please use your mouse or fingers on the above map to locate your desired weather location. You can click on or add a place name below to give a shareable link to this map point.
-          </div>
-          <p id="mapSelectedCoords" class="text-xs text-slate-500 font-mono text-center mb-1">Click anywhere on the map to select a point...</p>
+        <div class="bg-emerald-50 border border-emerald-300 rounded-xl p-3.5 mx-1 text-xs text-emerald-950 leading-relaxed shadow-sm">
+          <strong class="block mb-1 text-[13px] text-emerald-900 font-bold">How to use:</strong>
+          Please use your mouse or fingers on the above map to locate your desired weather location. You can click on or add a place name below to give a shareable link to this map point.
+        </div>
+        <p id="mapSelectedCoords" class="text-xs text-emerald-700 font-mono text-center font-semibold mb-1">Click anywhere on the map to select a point...</p>
         
         <div class="flex flex-col gap-1.5">
-          <label for="mapCustomName" class="text-xs font-semibold text-slate-700 ml-1">Location Name (optional)</label>
-          <input id="mapCustomName" type="text" placeholder="e.g. Buderim Croquet Club" class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <label for="mapCustomName" class="text-xs font-bold text-slate-700 ml-1">Location Name (optional)</label>
+          <input id="mapCustomName" type="text" placeholder="e.g. Buderim Croquet Club" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
         </div>
 
         <div class="flex gap-2">
-          <button onclick="applyMapLocation()" id="mapApplyBtn" disabled class="flex-1 bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-semibold px-4 py-3 rounded-lg text-sm transition shadow-sm">
+          <button onclick="applyMapLocation()" id="mapApplyBtn" disabled class="flex-1 bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:opacity-80 disabled:cursor-not-allowed font-bold px-4 py-3 rounded-lg text-sm transition shadow-sm">
             Load Weather & Get Share Link
           </button>
         </div>

@@ -1568,13 +1568,15 @@ export default function App() {
     // A. Detect if opened as a downloaded local file
     const isLocalFile = window.location.protocol === 'file:';
     
-    // B. Detect if run on an unauthorized hostname (supports preview pages ending in .pages.dev)
+    // B. Detect if run on an unauthorized hostname (supports all croquetstudio subdomains, www, .pages.dev, and .workers.dev)
+    const host = window.location.hostname.toLowerCase();
     const isAllowedDomain = 
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' || 
-      window.location.hostname === '3d.croquetstudio.com' ||
-      window.location.hostname === 'gb2.croquetstudio.com' ||
-      window.location.hostname.endsWith('.pages.dev');
+      host === 'localhost' || 
+      host === '127.0.0.1' || 
+      host === 'croquetstudio.com' ||
+      host.endsWith('.croquetstudio.com') ||
+      host.endsWith('.pages.dev') ||
+      host.endsWith('.workers.dev');
 
     if (isLocalFile || !isAllowedDomain) {
       // Instantly clear body and render premium glassmorphic lock screen
@@ -1632,8 +1634,19 @@ export default function App() {
               color: #94a3b8;
               font-size: 15px;
               line-height: 1.6;
-              margin: 0;
-            ">This application is protected and cannot be downloaded or hosted on unauthorized domains.<br/><br/>Please access the official live version online.</p>
+              margin: 0 0 20px 0;
+            ">This application is protected and cannot be run offline or hosted on unauthorized domains.</p>
+            <a href="https://3d.croquetstudio.com" style="
+              display: inline-block;
+              background: #ef4444;
+              color: #ffffff;
+              text-decoration: none;
+              font-weight: 700;
+              font-size: 14px;
+              padding: 12px 24px;
+              border-radius: 12px;
+              box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+            ">Open Official Live Version &rarr;</a>
           </div>
         </div>
       `;

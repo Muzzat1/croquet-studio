@@ -786,6 +786,49 @@
       document.getElementById('mapApplyBtn').disabled = false;
     }
 
+    async function searchMapLocation() {
+      const query = document.getElementById('mapSearchInput').value.trim();
+      if (!query) return;
+
+      const oldText = document.getElementById('mapSelectedCoords').innerText;
+      document.getElementById('mapSelectedCoords').innerText = "Searching...";
+      
+      try {
+        let loc = null;
+        if (/^\d{4}$/.test(query)) {
+          const zipRes = await fetch("https://api.zippopotam.us/au/" + query);
+          if (zipRes.ok) {
+            const zipData = await zipRes.json();
+            if (zipData.places && zipData.places.length > 0) {
+              loc = {
+                latitude: parseFloat(zipData.places[0].latitude),
+                longitude: parseFloat(zipData.places[0].longitude)
+              };
+            }
+          }
+        } else {
+          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=100&language=en&format=json`);
+          const geoData = await geoRes.json();
+          if (geoData.results) {
+            loc = geoData.results.find(r => r.country_code === 'AU' || r.country === 'Australia');
+          }
+        }
+
+        if (!loc) {
+          alert('Australian location not found. Please try a different town or postcode.');
+          document.getElementById('mapSelectedCoords').innerText = oldText;
+          return;
+        }
+
+        setMapLocation(loc.latitude, loc.longitude);
+        leafletMap.setView([loc.latitude, loc.longitude], 12);
+        
+      } catch (err) {
+        alert('Error fetching location data: ' + err.message);
+        document.getElementById('mapSelectedCoords').innerText = oldText;
+      }
+    }
+
     function useBrowserGPS() {
       if ("geolocation" in navigator) {
         document.getElementById('mapSelectedCoords').innerText = "Requesting GPS...";
@@ -938,8 +981,12 @@
         <button onclick="closeMapModal()" class="text-white/75 hover:text-white text-2xl leading-none font-light transition">&times;</button>
       </div>
       
-      <div class="p-3 md:p-3.5 flex gap-2 border-b border-emerald-100 bg-emerald-50/40">
-        <button onclick="useBrowserGPS()" class="flex-1 bg-white text-emerald-800 hover:bg-emerald-100/70 border border-emerald-300 font-bold px-4 py-2.5 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
+      <div class="p-3 md:p-3.5 flex flex-col gap-2 border-b border-emerald-100 bg-emerald-50/40">
+        <div class="flex gap-2">
+          <input id="mapSearchInput" type="text" placeholder="Search address or postcode..." class="flex-1 px-3 py-2 border border-emerald-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" onkeydown="if(event.key === 'Enter') searchMapLocation()">
+          <button onclick="searchMapLocation()" class="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition shadow-sm">Search</button>
+        </div>
+        <button onclick="useBrowserGPS()" class="w-full bg-white text-emerald-800 hover:bg-emerald-100/70 border border-emerald-300 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
           <span>🎯</span> Use My GPS Location
         </button>
       </div>

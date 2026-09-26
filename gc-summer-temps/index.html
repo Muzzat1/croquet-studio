@@ -795,33 +795,33 @@
       
       try {
         let loc = null;
-        if (/^\d{4}$/.test(query)) {
-          const zipRes = await fetch("https://api.zippopotam.us/au/" + query);
-          if (zipRes.ok) {
-            const zipData = await zipRes.json();
-            if (zipData.places && zipData.places.length > 0) {
-              loc = {
-                latitude: parseFloat(zipData.places[0].latitude),
-                longitude: parseFloat(zipData.places[0].longitude)
-              };
-            }
-          }
-        } else {
-          const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=100&language=en&format=json`);
-          const geoData = await geoRes.json();
-          if (geoData.results) {
-            loc = geoData.results.find(r => r.country_code === 'AU' || r.country === 'Australia');
+        
+        // Use Nominatim (OpenStreetMap) to support full street address search
+        const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=au&limit=1`);
+        const nomData = await nomRes.json();
+        
+        if (nomData && nomData.length > 0) {
+          loc = {
+            latitude: parseFloat(nomData[0].lat),
+            longitude: parseFloat(nomData[0].lon),
+            name: nomData[0].display_name.split(',')[0]
+          };
+          
+          // Prefill the custom location name if empty
+          const nameInput = document.getElementById('mapCustomName');
+          if (!nameInput.value) {
+            nameInput.value = loc.name;
           }
         }
 
         if (!loc) {
-          alert('Australian location not found. Please try a different town or postcode.');
+          alert('Address not found. Please try adding the city or postcode.');
           document.getElementById('mapSelectedCoords').innerText = oldText;
           return;
         }
 
         setMapLocation(loc.latitude, loc.longitude);
-        leafletMap.setView([loc.latitude, loc.longitude], 12);
+        leafletMap.setView([loc.latitude, loc.longitude], 15); // Zoom in closer for addresses
         
       } catch (err) {
         alert('Error fetching location data: ' + err.message);

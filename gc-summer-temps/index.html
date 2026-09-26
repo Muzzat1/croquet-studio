@@ -863,23 +863,6 @@
       }
     }
 
-    function useBrowserGPS() {
-      if ("geolocation" in navigator) {
-        document.getElementById('mapSelectedCoords').innerText = "Requesting GPS...";
-        navigator.geolocation.getCurrentPosition(position => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          setMapLocation(lat, lon);
-          leafletMap.setView([lat, lon], 12);
-        }, err => {
-          alert("GPS Error: " + err.message);
-          document.getElementById('mapSelectedCoords').innerText = "GPS Failed. Please click the map manually.";
-        });
-      } else {
-        alert("Geolocation is not supported by your browser");
-      }
-    }
-
     async function applyMapLocation() {
       if (selectedMapLat === null || selectedMapLon === null) return;
       
@@ -1020,9 +1003,6 @@
           <input id="mapSearchInput" type="text" placeholder="Search address or postcode..." class="flex-1 px-3 py-2 border border-emerald-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" onkeydown="if(event.key === 'Enter') searchMapLocation()">
           <button onclick="searchMapLocation()" class="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition shadow-sm">Search</button>
         </div>
-        <button onclick="useBrowserGPS()" class="w-full bg-white text-emerald-800 hover:bg-emerald-100/70 border border-emerald-300 font-bold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
-          <span>🎯</span> Use My GPS Location
-        </button>
       </div>
 
       <div id="mapContainer" class="flex-1 w-full bg-slate-100 relative z-0 border-4 border-emerald-600 rounded-xl mx-auto w-[calc(100%-1.5rem)] shadow-inner my-2"></div>

@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!--
+There is currently no expected resumption date for the Australian Bureau of Meteorology (BOM) open-data feed to Open-Meteo.
+
+The suspension occurred because the BOM upgraded its ACCESS global weather model from APS3 to APS4. During this transition, they did not set up the data feed to the National Computational Infrastructure (NCI), which Open-Meteo relied upon.
+
+According to correspondence shared by the Open-Meteo developer community, the BOM has not yet determined whether the APS4 open-data feed will be enabled in the future, making it unlikely that the capability will return anytime soon.
+
+While the BOM data is suspended, Open-Meteo is using the ECMWF IFS HRES (9 km) model for Australian weather forecasts, which generally provides comparable or higher-resolution forecasting than the previous ACCESS-G model.
+-->
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes">
@@ -353,7 +363,7 @@
     // --- Live Forecast ---
     async function fetchLiveForecast(lat = currentLat, lon = currentLon, tz = currentTz) {
       try {
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,precipitation_sum,windspeed_10m_max&timezone=${tz}`);
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,apparent_temperature_max,precipitation_sum,wind_gusts_10m_max&timezone=${tz}`);
         const data = await res.json();
         
         const container = document.getElementById('forecast-container');
@@ -367,7 +377,7 @@
           const apparent = Math.round(data.daily.apparent_temperature_max[idx]);
           const rainRaw = data.daily.precipitation_sum[idx] ?? 0;
           const rainMm = Number.isInteger(rainRaw) ? rainRaw : rainRaw.toFixed(1);
-          const windSpeed = Math.round(data.daily.windspeed_10m_max[idx]);
+          const windSpeed = Math.round(data.daily.wind_gusts_10m_max[idx]);
             const wCode = data.daily.weathercode[idx];
           
           let icon = '☀️';
@@ -397,7 +407,7 @@
     // --- Dynamic 12-Month Historical Data ---
     async function fetchHistoricalData(lat, lon, tz) {
       // Pulls full preceding calendar year of hourly observations
-      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=2025-01-01&end_date=2025-12-31&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&daily=sunrise,sunset&timezone=${tz}`;
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=2025-01-01&end_date=2025-12-31&hourly=temperature_2m,relative_humidity_2m,wind_gusts_10m&daily=sunrise,sunset&timezone=${tz}`;
       
       try {
         const res = await fetch(url);
@@ -423,7 +433,7 @@
           if(monthName && hour >= 7 && hour <= 16) {
             const t = data.hourly.temperature_2m[i];
             const rh = data.hourly.relative_humidity_2m[i];
-            const w = data.hourly.wind_speed_10m[i];
+            const w = data.hourly.wind_gusts_10m[i];
             
             if (t !== null && rh !== null && w !== null) {
               accum[monthName][hour].t += t;
@@ -608,7 +618,7 @@
     async function fetchCurrentConditions() {
       try {
         const tz = (currentTz === 'auto') ? 'Australia/Brisbane' : currentTz;
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weathercode,precipitation&timezone=${tz}`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_gusts_10m,weathercode,precipitation&timezone=${tz}`;
         const res = await fetch(url);
         const data = await res.json();
         const c = data.current;
@@ -616,7 +626,7 @@
         const temp    = Math.round(c.temperature_2m);
         const feels   = Math.round(c.apparent_temperature);
         const rh      = Math.round(c.relative_humidity_2m);
-        const wind    = Math.round(c.wind_speed_10m);
+        const wind    = Math.round(c.wind_gusts_10m);
         const wcode   = c.weathercode;
 
         // Populate readings

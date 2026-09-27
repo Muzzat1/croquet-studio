@@ -300,7 +300,7 @@ export default function CartoonPlayer({
         </mesh>
 
         {/* Mallet */}
-        <group position={[0, -0.34, 0.16]} rotation={[-0.28, 0, 0]}>
+        <group position={[0, -0.34, 0.08]} rotation={[-0.28, 0, 0]}>
           <mesh castShadow>
             <cylinderGeometry args={[0.012, 0.012, 0.72, 8]} />
             <meshStandardMaterial color="#8b5a2b" roughness={0.8} />

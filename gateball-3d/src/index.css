@@ -233,6 +233,21 @@ code {
   transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* Responsive HUD Panel Scaling */
+@media (max-width: 900px), (max-height: 500px) {
+  .hud-panel {
+    transform: scale(0.7) !important;
+    transform-origin: top left;
+    top: 8px !important;
+    left: 8px !important;
+  }
+}
+@media (max-width: 650px), (max-height: 420px) {
+  .hud-panel {
+    transform: scale(0.55) !important;
+  }
+}
+
 /* Two-Column Vertical Layout Structures */
 .hud-left-column {
   display: flex;

@@ -114,9 +114,9 @@ export default function CourtSurface() {
       {/* Corner Labels (Flat on the grass, no flags) */}
       {/* Corner 1: Bottom-Right [7.5, 10.0] */}
       <Text
-        position={[8.0, 0.015, 10.5]}
+        position={[8.0, 0.03, 10.5]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.25}
+        fontSize={0.19}
         color="#cccccc"
         fontWeight="bold"
         anchorX="center"
@@ -127,9 +127,9 @@ export default function CourtSurface() {
 
       {/* Corner 2: Bottom-Left [-7.5, 10.0] */}
       <Text
-        position={[-8.0, 0.015, 10.5]}
+        position={[-8.0, 0.03, 10.5]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.25}
+        fontSize={0.19}
         color="#cccccc"
         fontWeight="bold"
         anchorX="center"
@@ -140,9 +140,9 @@ export default function CourtSurface() {
 
       {/* Corner 3: Top-Left [-7.5, -10.0] */}
       <Text
-        position={[-8.0, 0.015, -10.5]}
+        position={[-8.0, 0.03, -10.5]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.25}
+        fontSize={0.19}
         color="#cccccc"
         fontWeight="bold"
         anchorX="center"
@@ -153,9 +153,9 @@ export default function CourtSurface() {
 
       {/* Corner 4: Top-Right [7.5, -10.0] */}
       <Text
-        position={[8.0, 0.015, -10.5]}
+        position={[8.0, 0.03, -10.5]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.25}
+        fontSize={0.19}
         color="#cccccc"
         fontWeight="bold"
         anchorX="center"

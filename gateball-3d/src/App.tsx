@@ -12,6 +12,11 @@ import { useAudioNarration } from './utils/useAudioNarration';
 import TutorialPlayer from './components/TutorialPlayer';
 import Scoreboard from './components/Scoreboard';
 const BOUNDARY_X = 7.5;
+// Start Box: 2m×1m outside east boundary near Corner 4 (all values in 3× world scale)
+const START_BOX = { xMin: 7.5, xMax: 8.5, zMin: -9.0, zMax: -7.0 };
+const isInStartBox = (x: number, z: number) =>
+  x >= START_BOX.xMin - BALL_RADIUS && x <= START_BOX.xMax + BALL_RADIUS &&
+  z >= START_BOX.zMin - BALL_RADIUS && z <= START_BOX.zMax + BALL_RADIUS;
 const BOUNDARY_Z = 10;
 const BALL_RADIUS = 0.1425; // 3× real (0.0475 × 3)
 const GOAL_POLE_RADIUS = 0.03;  // 3× real (0.01 × 3)
@@ -74,6 +79,7 @@ interface PhysicsBallState {
   vz: number;
   isRolling: boolean;
   isDragging?: boolean;
+  gateArmed?: Record<number, boolean>;
 }
 
 interface BallScore {
@@ -102,31 +108,35 @@ const checkGatePass = (id: number, x1: number, z1: number, x2: number, z2: numbe
   const gate = GATES.find(g => g.id === id);
   if (!gate) return false;
 
-  const halfOpening = GATE_WIDTH / 2; // 0.345m (scaled 3x to match ball and screen visibility)
+  const halfOpening = GATE_WIDTH / 2; // 0.345m
+  const CLEARANCE = 0.02 + BALL_RADIUS; // Leg thickness (0.02) + Ball radius (0.235)
+  // Expand the acceptable intersect window slightly at the clearance line to allow for diagonal exits
+  // A ball missing the gate entirely would be at least halfOpening + leg + radius = 0.6m away.
+  const acceptableHalfOpening = halfOpening + 0.15;
 
   if (id === 1) {
-    // Gate 1: cross line is at X = 3.5, moving from East (x1 > 3.5) to West (x2 <= 3.5)
-    const crossX = 3.5;
+    // Gate 1: center at X = 3.5. Moving from East to West (decreasing X)
+    const crossX = 3.5 - CLEARANCE;
     if (x1 > crossX && x2 <= crossX) {
       const t = (crossX - x1) / (x2 - x1);
       const intersectZ = z1 + t * (z2 - z1);
-      if (intersectZ >= -8.0 - halfOpening && intersectZ <= -8.0 + halfOpening) return true;
+      if (intersectZ >= -8.0 - acceptableHalfOpening && intersectZ <= -8.0 + acceptableHalfOpening) return true;
     }
   } else if (id === 2) {
-    // Gate 2: cross line is at Z = 2.0, moving from South (z1 < 2.0) to North (z2 >= 2.0)
-    const crossZ = 2.0;
+    // Gate 2: center at Z = 2.0. Moving from Z < cross to Z >= cross (increasing Z)
+    const crossZ = 2.0 + CLEARANCE;
     if (z1 < crossZ && z2 >= crossZ) {
       const t = (crossZ - z1) / (z2 - z1);
       const intersectX = x1 + t * (x2 - x1);
-      if (intersectX >= -5.5 - halfOpening && intersectX <= -5.5 + halfOpening) return true;
+      if (intersectX >= -5.5 - acceptableHalfOpening && intersectX <= -5.5 + acceptableHalfOpening) return true;
     }
   } else if (id === 3) {
-    // Gate 3: cross line is at Z = 0.0, moving from North (z1 > 0.0) to South (z2 <= 0.0)
-    const crossZ = 0.0;
+    // Gate 3: center at Z = 0.0. Moving from Z > cross to Z <= cross (decreasing Z)
+    const crossZ = 0.0 - CLEARANCE;
     if (z1 > crossZ && z2 <= crossZ) {
       const t = (crossZ - z1) / (z2 - z1);
       const intersectX = x1 + t * (x2 - x1);
-      if (intersectX >= 5.5 - halfOpening && intersectX <= 5.5 + halfOpening) return true;
+      if (intersectX >= 5.5 - acceptableHalfOpening && intersectX <= 5.5 + acceptableHalfOpening) return true;
     }
   }
   return false;
@@ -136,6 +146,7 @@ const checkGatePass = (id: number, x1: number, z1: number, x2: number, z2: numbe
 interface CameraPresetData {
   position: [number, number, number];
   target:   [number, number, number];
+  duration?: number;
 }
 
 interface CameraControllerProps {
@@ -151,6 +162,7 @@ function CameraController({ resetCounter, gotoPresetRef, getCurrentCameraRef }: 
   // --- Smooth preset lerp state ---
   const isLerpingRef   = useRef(false);
   const lerpProgRef    = useRef(0);
+  const lerpDurationRef = useRef(1.6);
   const lerpFromPos    = useRef(new THREE.Vector3());
   const lerpFromTarget = useRef(new THREE.Vector3());
   const lerpToPos      = useRef(new THREE.Vector3());
@@ -169,7 +181,7 @@ function CameraController({ resetCounter, gotoPresetRef, getCurrentCameraRef }: 
       prevCounter.current = resetCounter;
       if (controls) {
         (controls as any).target.set(0, 0, 0);
-        camera.position.set(-16, 12, 0);
+        camera.position.set(0, 6, 11);
         (controls as any).update();
       }
     }
@@ -178,6 +190,8 @@ function CameraController({ resetCounter, gotoPresetRef, getCurrentCameraRef }: 
 
 
   useFrame((state, delta) => {
+    if (!controls) return;
+    
     // Start a new lerp if App requested a preset transition
     if (gotoPresetRef.current) {
       const p = gotoPresetRef.current;
@@ -186,14 +200,24 @@ function CameraController({ resetCounter, gotoPresetRef, getCurrentCameraRef }: 
       lerpFromTarget.current.copy((controls as any).target);
       lerpToPos.current.set(...p.position);
       lerpToTarget.current.set(...p.target);
+      lerpDurationRef.current = p.duration || 1.6;
       lerpProgRef.current = 0;
       isLerpingRef.current = true;
     }
 
-    if (!isLerpingRef.current) return;
+    if (!isLerpingRef.current) {
+      if (controls) {
+        const orbit = controls as any;
+        if (orbit.target.y < -0.1) {
+          orbit.target.y = -0.1;
+          orbit.update();
+        }
+      }
+      return;
+    }
 
-    // Ease-in-out over ~1.6 s (slower panning)
-    lerpProgRef.current = Math.min(lerpProgRef.current + delta / 1.6, 1);
+    // Ease-in-out over specified duration
+    lerpProgRef.current = Math.min(lerpProgRef.current + delta / lerpDurationRef.current, 1);
     const t = lerpProgRef.current;
     const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
@@ -376,6 +400,7 @@ interface PhysicsManagerProps {
   activeStriker: BallId | null;
   ballScores: Record<BallId, BallScore>;
   isPaused: boolean;
+  wasSparkStrokeRef: React.MutableRefObject<boolean>;
 }
 
 function PhysicsManager({
@@ -387,7 +412,8 @@ function PhysicsManager({
   onTouch,
   activeStriker,
   ballScores,
-  isPaused
+  isPaused,
+  wasSparkStrokeRef
 }: PhysicsManagerProps) {
 
   useFrame((_, delta) => {
@@ -415,8 +441,11 @@ function PhysicsManager({
         b.z += b.vz * subDt;
 
         // Apply friction deceleration
-        b.vx *= Math.exp(-0.85 * subDt);
-        b.vz *= Math.exp(-0.85 * subDt);
+        // k=0.85 for smooth natural rolling, snap to high friction once nearly stopped
+        const spd = Math.sqrt(b.vx * b.vx + b.vz * b.vz);
+        const frictionK = spd < 0.05 ? 6.0 : 0.85;
+        b.vx *= Math.exp(-frictionK * subDt);
+        b.vz *= Math.exp(-frictionK * subDt);
 
         // Check if crossed out-of-bounds in this exact step
         const isOutLeft = b.x + BALL_RADIUS < -BOUNDARY_X;
@@ -468,8 +497,24 @@ function PhysicsManager({
             (gateId === 2 && scores.gate1 && !scores.gate2) ||
             (gateId === 3 && scores.gate1 && scores.gate2 && !scores.gate3);
 
-          if (canRun && checkGatePass(gateId, prevX, prevZ, b.x, b.z)) {
+          if (!b.gateArmed) b.gateArmed = {};
+          const wasArmed = b.gateArmed[gateId];
+
+          if (canRun && wasArmed && checkGatePass(gateId, prevX, prevZ, b.x, b.z)) {
             onGatePass(id, gateId);
+          }
+
+          // Update arming state AFTER scoring check
+          const CLEARANCE = 0.02 + BALL_RADIUS;
+          if (gateId === 1) {
+            if (b.x > 3.5 + CLEARANCE) b.gateArmed[1] = true;
+            else if (b.x < 3.5 - CLEARANCE) b.gateArmed[1] = false;
+          } else if (gateId === 2) {
+            if (b.z < 2.0 - CLEARANCE) b.gateArmed[2] = true;
+            else if (b.z > 2.0 + CLEARANCE) b.gateArmed[2] = false;
+          } else if (gateId === 3) {
+            if (b.z > 0.0 + CLEARANCE) b.gateArmed[3] = true;
+            else if (b.z < 0.0 - CLEARANCE) b.gateArmed[3] = false;
           }
         });
 
@@ -530,7 +575,7 @@ function PhysicsManager({
 
         // 5. Clean up slow movements and sync to React on settling
         const speed = Math.sqrt(b.vx * b.vx + b.vz * b.vz);
-        if (speed < 0.04 && b.isRolling) {
+        if (speed < 0.015 && b.isRolling) {
           b.vx = 0; b.vz = 0; b.isRolling = false;
           onPositionChange(id, b.x, b.z);
         }
@@ -547,6 +592,9 @@ function PhysicsManager({
           // Ignore collisions with docked balls unless they were somehow struck
           if ((bA.x > 8.8 && !bA.isRolling) || (bB.x > 8.8 && !bB.isRolling)) continue;
 
+          // Ignore collisions with finished balls (Agari magnet effect on pole)
+          if (ballScores[idA]?.finished || ballScores[idB]?.finished) continue;
+
           // Skip if either ball is being dragged
           if (bA.isDragging || bB.isDragging) continue;
 
@@ -559,46 +607,78 @@ function PhysicsManager({
           if (distSq < minContactDistSq) {
             const dist = Math.sqrt(distSq);
             if (dist > 0.001) {
-              // WGU Touch detection: active striker touches another ball on the court
-              if (activeStriker && onTouch) {
-                if (idA === activeStriker && bB.x <= 8.8) {
+              let currentStriker = activeStriker;
+              if (!currentStriker) {
+                if (bA.isDragging || bA.vx !== 0 || bA.vz !== 0) currentStriker = idA;
+                else if (bB.isDragging || bB.vx !== 0 || bB.vz !== 0) currentStriker = idB;
+                else currentStriker = idA;
+              }
+
+              if (currentStriker && onTouch) {
+                if (idA === currentStriker && bB.x <= 8.8) {
                   onTouch(idA, idB);
-                } else if (idB === activeStriker && bA.x <= 8.8) {
+                } else if (idB === currentStriker && bA.x <= 8.8) {
                   onTouch(idB, idA);
                 }
               }
 
-              const relVX = bA.vx - bB.vx;
-              const relVZ = bA.vz - bB.vz;
-              const dotProduct = dx * relVX + dz * relVZ;
-
-              if (dotProduct < 0) {
-                const nx = dx / dist;
-                const nz = dz / dist;
-                const v_dot_n = relVX * nx + relVZ * nz;
+              if (wasSparkStrokeRef.current && (idA === activeStriker || idB === activeStriker)) {
+                // FOOT-ON-BALL SPARK RULE
+                // The striker ball is pinned under the player's foot and cannot move.
+                // It transfers 100% of the impulse to the target (handled in playShot),
+                // so we just ignore elastic collision and resolve overlap unilaterally.
+                const isAStriker = idA === activeStriker;
+                const striker = isAStriker ? bA : bB;
+                const target = isAStriker ? bB : bA;
                 
-                const restitution = 0.92;
-                const j_impulse = (-(1 + restitution) * v_dot_n) / 2;
+                striker.vx = 0;
+                striker.vz = 0;
+                striker.isRolling = false;
+                
+                // Unilateral overlap resolution (push target away, striker stays pinned)
+                const overlap = minContactDist - dist;
+                if (overlap > 0) {
+                  const nx_pos = dx / dist;
+                  const nz_pos = dz / dist;
+                  target.x += (isAStriker ? -1 : 1) * nx_pos * overlap;
+                  target.z += (isAStriker ? -1 : 1) * nz_pos * overlap;
+                  target.isRolling = true;
+                }
+              } else {
+                const relVX = bA.vx - bB.vx;
+                const relVZ = bA.vz - bB.vz;
+                const dotProduct = dx * relVX + dz * relVZ;
 
-                bA.vx += j_impulse * nx;
-                bA.vz += j_impulse * nz;
-                bB.vx -= j_impulse * nx;
-                bB.vz -= j_impulse * nz;
+                if (dotProduct < 0) {
+                  const nx = dx / dist;
+                  const nz = dz / dist;
+                  const v_dot_n = relVX * nx + relVZ * nz;
+                  
+                  const restitution = 0.92;
+                  const j_impulse = (-(1 + restitution) * v_dot_n) / 2;
 
-                playSound(SOUNDS.collision, 0.4);
+                  bA.vx += j_impulse * nx;
+                  bA.vz += j_impulse * nz;
+                  bB.vx -= j_impulse * nx;
+                  bB.vz -= j_impulse * nz;
+
+                  playSound(SOUNDS.collision, 0.4);
+                }
+
+                // Overlap resolution
+                const overlap = minContactDist - dist;
+                const nx_pos = dx / dist;
+                const nz_pos = dz / dist;
+                bA.x += (nx_pos * overlap) / 2;
+                bA.z += (nz_pos * overlap) / 2;
+                bB.x -= (nx_pos * overlap) / 2;
+                bB.z -= (nz_pos * overlap) / 2;
+
+                if (overlap > 0.001 || dotProduct < 0) {
+                  bA.isRolling = true;
+                  bB.isRolling = true;
+                }
               }
-
-              // Overlap resolution
-              const overlap = minContactDist - dist;
-              const nx_pos = dx / dist;
-              const nz_pos = dz / dist;
-              bA.x += (nx_pos * overlap) / 2;
-              bA.z += (nz_pos * overlap) / 2;
-              bB.x -= (nx_pos * overlap) / 2;
-              bB.z -= (nz_pos * overlap) / 2;
-
-              bA.isRolling = true;
-              bB.isRolling = true;
             }
           }
         }
@@ -665,16 +745,27 @@ export default function App() {
     continuousStrokes: number;
     gateAndTouchSameStroke: boolean;
     angle: number;
+    strictPlayerId: BallId;
   }
 
   // Undo history stack
   const [history, setHistory] = useState<TurnHistorySnapshot[]>([]);
+
+  // Sequence Capture Replay state
+  const [replayIndex, setReplayIndex] = useState(-1);
+
+  // Game Modes
+  type GameMode = 'unselected' | 'free' | 'strict';
+  const [gameMode, setGameMode] = useState<GameMode>('unselected');
+  const [strictPlayerId, setStrictPlayerId] = useState<BallId>('r1');
 
   // Toast / HUD banner notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
 
   const showToast = (message: string) => {
+    if (gameMode === 'free') return;
+    if (!showMessages) return;
     if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
     setToastMessage(message);
     toastTimeoutRef.current = window.setTimeout(() => setToastMessage(null), 3000);
@@ -684,7 +775,7 @@ export default function App() {
   const [selectedBall, setSelectedBall] = useState<BallId | null>(null);
   const [activeStriker, setActiveStriker] = useState<BallId | null>(null);
   const [isStriking, setIsStriking] = useState(false);
-  const [ballSet, setBallSet] = useState<'primary' | 'secondary'>('primary');
+  const [ballSet] = useState<'primary' | 'secondary'>('primary');
   const [angle, setAngle] = useState(0); // Aim Angle (0 to 360)
   const [speed, setSpeed] = useState(80); // Speed/power slider (1 to 200)
   const [isPowerShot, setIsPowerShot] = useState(false);
@@ -693,8 +784,16 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [showScoresPanel, setShowScoresPanel] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
-  const [cameraResetCounter, setCameraResetCounter] = useState(0);
+  const [cameraResetCounter] = useState(0);
   const [scoringEvent, setScoringEvent] = useState<{ text: string; team: 'red' | 'white' | 'generic'; id: number } | null>(null);
+  const [turnTimeLeft, setTurnTimeLeft] = useState(10);
+  const [gameTimeLeft, setGameTimeLeft] = useState(30 * 60);
+  const [isGameClockRunning, setIsGameClockRunning] = useState(false);
+  const endTurnRef = useRef<((msg: string) => void) | null>(null);
+  
+  const [turnGates, setTurnGates] = useState<number[]>([]);
+  const [showPlayerPill, setShowPlayerPill] = useState(false);
+  const [showMessages, setShowMessages] = useState(true);
 
   useEffect(() => {
     if (!scoringEvent) return;
@@ -703,7 +802,9 @@ export default function App() {
   }, [scoringEvent]);
 
   // Annotation (Telestrator)
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
   const [drawMode, setDrawMode] = useState(false);
+  const [screenshotPrefix, setScreenshotPrefix] = useState("Gateball_Screenshot");
   const [drawColorIndex, setDrawColorIndex] = useState(0);
   const drawColors = useMemo(() => ['#ffffff', '#ef4444', '#facc15'], []);
   const [drawings, setDrawings] = useState<Array<{ id: string; points: [number, number, number][]; color: string }>>([]);
@@ -715,7 +816,10 @@ export default function App() {
     (window as any).THREE = THREE;
   }, []);
 
-  const [features, setFeatures] = useState({ recording: false });
+
+
+
+  const [features] = useState({ recording: false });
   const [sequence, setSequence] = useState<RecordedShot[]>([]);
   const [isReplaying, setIsReplaying] = useState(false);
   const strikeInitialPos = useRef<[number, number, number]>([0, BALL_RADIUS, 0]);
@@ -727,14 +831,31 @@ export default function App() {
 
   // WGU Official Touch handler — called every sub-step while balls overlap,
   // but the one-shot guard ensures each unique touched ball registers only once.
-  const handleTouch = useCallback((_strikerId: BallId, touchedId: BallId) => {
+  const handleTouch = useCallback((strikerId: BallId, touchedId: BallId) => {
+    // Ignore touches if either ball is off court
+    const sBall = physicsBalls.current[strikerId];
+    const tBall = physicsBalls.current[touchedId];
+    if (sBall && tBall) {
+      // Court is ±7.5m × ±10m. Ball radius ≈ 0.235m.
+      // A ball is off-court only when its CENTRE crosses the line by more than its radius.
+      const isOffCourt = (x: number, z: number) => Math.abs(x) > 7.735 || Math.abs(z) > 10.235;
+      if (isOffCourt(sBall.x, sBall.z) || isOffCourt(tBall.x, tBall.z)) {
+        return;
+      }
+    }
+
     // Guard 1: already queued for this stroke
     if (touchFiredThisStrokeRef.current.has(touchedId)) return;
     // Guard 2: already sparked this turn — touching again is a foul (WGU)
-    if (sparkedBallsThisTurnRef.current.has(touchedId)) return;
+    if (sparkedBallsThisTurnRef.current.has(touchedId)) {
+      doubleTouchFoulRef.current = true;
+      return;
+    }
 
     touchFiredThisStrokeRef.current.add(touchedId);
     sparkQueueRef.current.push(touchedId);
+
+    showToast('Touch');
 
     // Sound — actual UI transitions happen when isPlaying → false (balls at rest)
     playSound(SOUNDS.collision, 0.5);
@@ -787,6 +908,7 @@ export default function App() {
 
   // Balls already sparked this turn — re-touching is a foul (WGU)
   const sparkedBallsThisTurnRef = useRef<Set<BallId>>(new Set());
+  const doubleTouchFoulRef = useRef<boolean>(false);
 
   // Position of the spark target ball just BEFORE the spark impulse fires
   // Used for the >10cm (0.30 world-unit) success check
@@ -799,6 +921,7 @@ export default function App() {
   // WGU Continuous Strokes (Article 12 Clause 3)
   const [continuousStrokes, setContinuousStrokes] = useState<number>(0);
   const strokePassedGateRef = useRef(false);
+  const lastGatePassedRef = useRef<number | null>(null);
   const gateAndTouchSameStrokeRef = useRef(false);
   const wasSparkStrokeRef = useRef(false);
   const wasStrokeActiveRef = useRef(false);
@@ -813,6 +936,13 @@ export default function App() {
   const currentDemoActionsRef = useRef<DemoAction[]>([]);
   const { isMuted, isSpeaking, toggleMute, speak, stop: stopNarration } = useAudioNarration();
   const tutorialDemoTimeout = useRef<any>(null);
+
+  const isPlaying = isStriking || Object.values(balls).some((_, i) => {
+    const id = BALL_IDS[i];
+    // Stationary if docked or velocity zero
+    const phys = physicsBalls.current[id];
+    return phys.vx !== 0 || phys.vz !== 0 || phys.isRolling;
+  });
 
   const executeTutorialAction = useCallback((actionIdx: number) => {
     if (!isTutorialActiveRef.current) return;
@@ -1080,7 +1210,11 @@ export default function App() {
 
     // Do not steal selection if dragging the sparked ball
     if (!(sparkPhase === 'positioning' && id === sparkTargetId)) {
-      setSelectedBall(id);
+      if (gameMode === 'strict' && id !== strictPlayerId) {
+        // showToast(`Strict Play: It's Player ${strictPlayerId.replace(/[^\d]/g, '')}'s turn!`);
+      } else {
+        setSelectedBall(id);
+      }
     }
 
     // Instantly sync visual WebGL mesh if present (matches clean-court sync pattern to prevent wobbly drag)
@@ -1088,6 +1222,12 @@ export default function App() {
     if (mesh) {
       mesh.position.x = finalX;
       mesh.position.z = finalZ;
+    }
+
+    // When a pre-Gate-1 ball is dragged into the Start Box, confirm placement
+    if (!ballScoresRef.current[id]?.gate1 && isInStartBox(finalX, finalZ) && finalX <= 8.5) {
+      setIsGameClockRunning(true);
+      showToast(`Ball ${id.replace(/[^\d]/g, '')} in Start Box — ready to play!`);
     }
   }, [sparkPhase, sparkTargetId, activeStriker]);
 
@@ -1109,15 +1249,16 @@ export default function App() {
       sparkPhase,
       continuousStrokes,
       gateAndTouchSameStroke: gateAndTouchSameStrokeRef.current,
-      angle
+      angle,
+      strictPlayerId
     };
 
     setHistory(prev => {
       const next = [...prev, snapshot];
-      if (next.length > 50) next.shift();
+      if (next.length > 10) next.shift();
       return next;
     });
-  }, [selectedBall, activeStriker, sparkTargetId, sparkPhase, continuousStrokes, angle]);
+  }, [selectedBall, activeStriker, sparkTargetId, sparkPhase, continuousStrokes, angle, strictPlayerId]);
 
   const handleUndo = useCallback(() => {
     if (history.length === 0 || isStriking || isReplaying) return;
@@ -1164,6 +1305,7 @@ export default function App() {
     strokePassedGateRef.current = false;
     wasSparkStrokeRef.current = false;
     wasStrokeActiveRef.current = false;
+    setStrictPlayerId(prev.strictPlayerId);
 
     // 6. Restore angle & player stance
     setAngle(prev.angle);
@@ -1184,9 +1326,17 @@ export default function App() {
 
   // Hitting trigger
   const playShot = useCallback(() => {
-    console.log("[DEBUG] playShot triggered! isStriking:", isStriking, "isReplaying:", isReplaying, "selectedBall:", selectedBall);
-    if (isStriking || isReplaying || !selectedBall) {
-      console.log("[DEBUG] playShot ignored early return condition met.");
+    if (isStriking || !selectedBall) {
+      return;
+    }
+    // Block shot if ball hasn't passed Gate 1 and is still docked in lineup
+    // (WGU rule: ball must be dragged from lineup into Start Box before stroking)
+    // Only block if NOT already placed in the start box zone
+    const bPhys = physicsBalls.current[selectedBall];
+    if (!ballScoresRef.current[selectedBall].gate1 &&
+        bPhys.x > 7.5 &&
+        !isInStartBox(bPhys.x, bPhys.z)) {
+      showToast(`Drag Ball ${selectedBall.replace(/[^\d]/g, '')} into the Start Box first!`);
       return;
     }
     if (autoPlayTimeout.current) clearTimeout(autoPlayTimeout.current);
@@ -1203,6 +1353,7 @@ export default function App() {
     }
 
     wasStrokeActiveRef.current = true;
+    setIsGameClockRunning(true);
     
     const snap: any = {};
     BALL_IDS.forEach(id => { snap[id] = { x: physicsBalls.current[id].x, z: physicsBalls.current[id].z }; });
@@ -1221,12 +1372,13 @@ export default function App() {
       sparkQueueRef.current = [];
     }
 
+    setTurnTimeLeft(10);
     setPlayerState('striking');
     setActiveStriker(selectedBall);
     setIsStriking(true);
 
     // Setup sequence capture if active
-    if (features.recording && sequence.length === 0) {
+    if (features.recording && !isReplaying && sequence.length === 0) {
       setSequence([{
         id: Date.now(),
         activeBallId: selectedBall,
@@ -1247,6 +1399,60 @@ export default function App() {
   useEffect(() => {
     playShotRef.current = playShot;
   }, [playShot]);
+
+
+
+  // ── 30 Minute Game Timer ──
+  useEffect(() => {
+    if (gameMode === 'unselected' || isPaused || isTutorialActive || !isGameClockRunning) {
+      return;
+    }
+    const timerId = setInterval(() => {
+      setGameTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerId);
+          showToast('Game Over! 30 Minutes Expired.');
+          setIsGameClockRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerId);
+  }, [gameMode, isPaused, isTutorialActive, isGameClockRunning]);
+
+  useEffect(() => {
+    if (gameMode !== 'unselected') {
+      setGameTimeLeft(30 * 60);
+      setTurnTimeLeft(10);
+      setIsGameClockRunning(false);
+    }
+  }, [gameMode]);
+
+  // ── 10 Second Stroke Timer ──
+  useEffect(() => {
+    if (gameMode === 'unselected' || isPlaying || isReplaying || isPaused || isTutorialActive || !isGameClockRunning) {
+      return;
+    }
+    const timerId = setInterval(() => {
+      setTurnTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerId);
+          showToast('10 Seconds Expired! Turn ends.');
+          if (endTurnRef.current) endTurnRef.current('Time violation');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerId);
+  }, [gameMode, isPlaying, isReplaying, isPaused, isTutorialActive, isGameClockRunning]);
+
+  useEffect(() => {
+    if (!isPlaying && gameMode !== 'unselected') {
+      setTurnTimeLeft(10);
+    }
+  }, [isPlaying, strictPlayerId, gameMode, continuousStrokes, sparkPhase]);
 
   const handleImpact = () => {
     console.log("[DEBUG] handleImpact triggered! activeStriker:", activeStriker, "angle:", angle, "speed:", speed);
@@ -1294,9 +1500,9 @@ export default function App() {
       b.vz = 0;
       b.isRolling = false;
 
-      // Clear spark target & phase — resolution happens in turn-end effect
-      setSparkTargetId(null);
-      setSparkPhase('none');
+      // NOTE: Do NOT clear sparkPhase/sparkTargetId here — they are cleared in the
+      // turn-resolution effect (after balls settle) so wasSparkStrokeRef is
+      // evaluated against the correct state.
     } else {
       // Standard Stroke
       b.vx = vx;
@@ -1315,7 +1521,7 @@ export default function App() {
     // Note: activeStriker and ball selection are evaluated once all balls settle in isPlaying effect
     
     // Capture step in sequence
-    if (features.recording) {
+    if (features.recording && !isReplaying) {
       setSequence(prev => [
         ...prev,
         {
@@ -1334,19 +1540,17 @@ export default function App() {
   // physics events callbacks
   const handleGatePass = useCallback((ballId: BallId, gateId: number) => {
     playSound(SOUNDS.cheer, 0.5);
-    const isRed = ballId.startsWith('r');
-    const ballNum = ballId.replace(/[^\d]/g, '');
     if (ballId === activeStriker) {
       strokePassedGateRef.current = true;
+      lastGatePassedRef.current = gateId;
+      // Note: WGU rule - you cannot touch the same ball twice in a turn even after passing a gate
     }
     setBallScores(prev => {
       const key = `gate${gateId}` as keyof BallScore;
       const nextScores = { ...prev, [ballId]: { ...prev[ballId], [key]: true } };
-      setScoringEvent({
-        text: `Ball ${ballNum} ran Gate ${gateId}!`,
-        team: isRed ? 'red' : 'white',
-        id: Date.now()
-      });
+      if (ballId === activeStriker) {
+        setTurnGates([gateId]);
+      }
       setShowScoresPanel(true);
       return nextScores;
     });
@@ -1354,19 +1558,23 @@ export default function App() {
 
   const handlePegHit = useCallback((ballId: BallId) => {
     playSound(SOUNDS.cheer, 0.7);
-    const isRed = ballId.startsWith('r');
     const ballNum = ballId.replace(/[^\d]/g, '');
+    // Move finished balls beyond the outside line in corner 4 after 2 seconds
+    setTimeout(() => {
+      const ballNumInt = parseInt(ballNum, 10);
+      const finishX = 7.5 - (ballNumInt * 0.5); // Arrange neatly starting from corner 4
+      const finishZ = -11.5; // Beyond the outer line
+      handleBallChange(ballId, finishX, finishZ);
+    }, 2000);
+
     setBallScores(prev => {
       const nextScores = { ...prev, [ballId]: { ...prev[ballId], finished: true } };
-      setScoringEvent({
-        text: `Ball ${ballNum} Finished (Agari)!`,
-        team: isRed ? 'red' : 'white',
-        id: Date.now()
-      });
+      if (ballId === activeStriker) {
+        setTurnGates([4]);
+      } else {
+        showToast(`PLAYER ${ballNum} - AGARI`);
+      }
       setShowScoresPanel(true);
-      
-      // Move finished ball off court/hide
-      handleBallChange(ballId, 100, 100);
       return nextScores;
     });
   }, [handleBallChange]);
@@ -1375,6 +1583,7 @@ export default function App() {
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
 
   const handleCourtPointerDown = (e: any) => {
+    if (gameMode === 'unselected') return;
     if (isPlaying || isReplaying) return;
     if (drawMode) {
       e.stopPropagation();
@@ -1495,31 +1704,50 @@ export default function App() {
       // Any camera orbit drag cancels the action entirely
       if (dragDistance > 6) { console.log("[DEBUG] dragDistance > 6"); return; }
 
-      // Only act if the selected ball is already on the court or in the Start Box — docked balls
-      // must be positioned by dragging, not by clicking the court.
-      if (ball.x > 8.8) { console.log("[DEBUG] ball.x > 8.8"); return; }
-      console.log("[DEBUG] Passed basic checks. sparkPhase:", sparkPhase, "sparkTargetId:", sparkTargetId);
+      // Only act if the selected ball is on the court, in the Start Box, or an out-ball.
+      // We block playing docked balls or balls randomly dragged far off the court.
+      const isOnCourt = Math.abs(ball.x) <= 7.5 && Math.abs(ball.z) <= 10.0;
+      const isInStartBox = ball.x >= 7.0 && ball.x <= 9.0 && ball.z >= -9.5 && ball.z <= -6.5; // Generous Start Box bounds
+      const isDocked = ball.x >= 8.2 && ball.x <= 8.8 && ball.z >= -6.5 && ball.z <= -1.0; // Dock rack bounds
+      const isOutBall = !isOnCourt && !isDocked && Math.abs(ball.x) <= 8.5 && Math.abs(ball.z) <= 11.0;
+
+      if (!isOnCourt && !isInStartBox && !isOutBall) {
+        console.log("[DEBUG] Ball is off court (docked or invalid). Ignoring play click.");
+        return;
+      }
 
       // Standard Aiming/Striking Logic (Only runs if the ball is already on the court)
       const aimDx = clickX - ball.x;
       const aimDz = clickZ - ball.z;
+      
+      // Ignore the click if it was directly on or very near the selected ball itself
+      // (prevents accidental self-aiming when a player tries to re-select the live ball)
+      const distFromBall = Math.sqrt(aimDx * aimDx + aimDz * aimDz);
+      if (distFromBall < 0.35) { // BALL_RADIUS is 0.235
+        console.log("[DEBUG] Clicked on the live ball, ignoring to prevent accidental aim");
+        return;
+      }
+
       let angleDeg = Math.round((Math.atan2(aimDx, -aimDz) * 180) / Math.PI);
       if (angleDeg < 0) angleDeg += 360;
 
       // ── SPARK PHASE HANDLING ─────────────────────────────────────────────────
       if (sparkPhase === 'positioning' && sparkTargetId) {
-        // A click during SPARK_POSITIONING locks the current ring angle as the direction
-        // and transitions to SPARK_AIMING for power selection.
-        const tbPhys = physicsBalls.current[sparkTargetId];
-        const sparkDx = tbPhys.x - ball.x;
-        const sparkDz = tbPhys.z - ball.z;
-        // Compute the locked direction angle from the two ball centers
-        let lockedAngle = Math.round((Math.atan2(sparkDx, -sparkDz) * 180) / Math.PI);
-        if (lockedAngle < 0) lockedAngle += 360;
-        setAngle(lockedAngle);
+        // The click itself determines the exact spark angle and power, ignoring physical placement
+        setAngle(angleDeg);
         strikeInitialPos.current = [ball.x, BALL_RADIUS, ball.z];
-        strikeInitialAngle.current = lockedAngle;
-        strikeTargetDist.current = Math.sqrt(aimDx * aimDx + aimDz * aimDz);
+        strikeInitialAngle.current = angleDeg;
+        strikeTargetDist.current = distFromBall;
+        setSpeed(Math.min(100, distFromBall * 10)); // Simplified speed calc
+        
+        // Teleport/snap the sparked ball to perfectly align with the clicked aim direction
+        const rad = (angleDeg * Math.PI) / 180;
+        const tbPhys = physicsBalls.current[sparkTargetId];
+        tbPhys.x = ball.x + Math.sin(rad) * (2 * BALL_RADIUS);
+        tbPhys.z = ball.z - Math.cos(rad) * (2 * BALL_RADIUS);
+        // Force sync back to React state so it renders correctly
+        setBalls(prev => ({ ...prev, [sparkTargetId]: { x: tbPhys.x, z: tbPhys.z } }));
+
         setSparkPhase('aiming');
         setPlayerState('stalking');
         setShowAimingLines(true);
@@ -1531,23 +1759,20 @@ export default function App() {
       }
 
       if (sparkPhase === 'aiming' && sparkTargetId) {
-        // During SPARK_AIMING, direction is LOCKED — only power (click distance) matters.
-        // Override angleDeg with the locked ball-to-ball axis.
-        const tbPhys = physicsBalls.current[sparkTargetId];
-        const sparkDx2 = tbPhys.x - ball.x;
-        const sparkDz2 = tbPhys.z - ball.z;
-        let lockedAngle = Math.round((Math.atan2(sparkDx2, -sparkDz2) * 180) / Math.PI);
-        if (lockedAngle < 0) lockedAngle += 360;
-        setAngle(lockedAngle);
+        // If they click again during the 1.2s aiming delay, allow them to override the aim
+        setAngle(angleDeg);
         strikeInitialPos.current = [ball.x, BALL_RADIUS, ball.z];
-        strikeInitialAngle.current = lockedAngle;
-        strikeTargetDist.current = Math.sqrt(aimDx * aimDx + aimDz * aimDz);
-        setPlayerState('stalking');
-        setShowAimingLines(true);
+        strikeInitialAngle.current = angleDeg;
+        strikeTargetDist.current = distFromBall;
+        
+        const rad = (angleDeg * Math.PI) / 180;
+        const tbPhys = physicsBalls.current[sparkTargetId];
+        tbPhys.x = ball.x + Math.sin(rad) * (2 * BALL_RADIUS);
+        tbPhys.z = ball.z - Math.cos(rad) * (2 * BALL_RADIUS);
+        setBalls(prev => ({ ...prev, [sparkTargetId]: { x: tbPhys.x, z: tbPhys.z } }));
+
         if (autoPlayTimeout.current) clearTimeout(autoPlayTimeout.current);
-        autoPlayTimeout.current = setTimeout(() => {
-          if (playShotRef.current) playShotRef.current();
-        }, 1200);
+        playShotRef.current();
         return;
       }
       // ─────────────────────────────────────────────────────────────────────────
@@ -1586,41 +1811,57 @@ export default function App() {
   };
 
   // Replay Sequence Auto Player
-  const startSequenceReplay = async () => {
-    if (sequence.length < 2 || isPlaying || isReplaying) return;
+  /*
+  const startSequenceReplay = () => {
+    if (sequence.length === 0 || isPlaying || isReplaying) return;
     setIsReplaying(true);
-    let index = 0;
-    
-    const playNextFrame = () => {
-      if (index >= sequence.length) {
-        setIsReplaying(false);
-        return;
-      }
-      const frame = sequence[index];
+    setReplayIndex(0);
+  };
+  */
+
+  useEffect(() => {
+    if (!isReplaying || replayIndex < 0) return;
+
+    if (replayIndex >= sequence.length) {
+      setIsReplaying(false);
+      setReplayIndex(-1);
+      showToast("Replay Complete");
+      return;
+    }
+
+    if (!isPlaying) {
+      const frame = sequence[replayIndex];
+      
       setBalls(frame.positions);
       setBallScores(frame.scores);
       setSelectedBall(frame.activeBallId);
       setAngle(frame.angle);
       setSpeed(frame.speed);
       setIsPowerShot(frame.isPowerShot);
-
-      // Sync physics
+      
       BALL_IDS.forEach(id => {
         physicsBalls.current[id].x = frame.positions[id].x;
         physicsBalls.current[id].z = frame.positions[id].z;
         physicsBalls.current[id].vx = 0;
         physicsBalls.current[id].vz = 0;
         physicsBalls.current[id].isRolling = false;
+        const mesh = meshRefs.current[id]?.current;
+        if (mesh) {
+          mesh.position.x = frame.positions[id].x;
+          mesh.position.z = frame.positions[id].z;
+        }
       });
-
-      index++;
-      setTimeout(playNextFrame, 1500); // 1.5s step delay
-    };
-
-    playNextFrame();
-  };
+      
+      const t = setTimeout(() => {
+        playShotRef.current();
+      }, 500);
+      
+      return () => clearTimeout(t);
+    }
+  }, [isReplaying, replayIndex, isPlaying, sequence]);
 
   // Save/Load sequence files
+  /*
   const downloadSequence = () => {
     if (sequence.length === 0) return;
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(sequence));
@@ -1651,22 +1892,39 @@ export default function App() {
     };
     reader.readAsText(file);
   };
+  */
 
-  const activeBall = selectedBall ? balls[selectedBall] : null;
-  const isSelectedBallOffCourt = activeBall ? activeBall.x > 8.8 : true;
+  // const activeBall = selectedBall ? balls[selectedBall] : null;
+  // const isSelectedBallOffCourt = activeBall ? activeBall.x > 8.8 : true;
 
   const isDraggingBallRef   = useRef(false);
   const gotoPresetRef       = useRef<CameraPresetData | null>(null);
   const getCurrentCameraRef = useRef<(() => CameraPresetData) | null>(null);
 
+  useEffect(() => {
+    (window as any).testCamera = () => {
+      gotoPresetRef.current = { position: [0, 16, 2], target: [0, 0, 0], duration: 1.2 };
+      console.log("Triggered testCamera!");
+    };
+  }, []);
+
   // --- Camera Presets (6 slots, persisted to localStorage) ---
-  const PRESET_KEY = 'gateball-camera-presets-v1';
+  const PRESET_KEY = 'gateball-camera-presets-v3';
+  const DEFAULT_CAMERA_PRESETS: (CameraPresetData | null)[] = [
+    { position: [21.182, 9.336, -8.115], target: [2.215, 0, -5.652] }, // 1: User Custom View
+    { position: [11.5, 4.5, -12.5], target: [4.5, 0, -4.5] }, // 2: Start Box & Gate 1
+    { position: [-10.5, 4.5, 1.5], target: [-4.0, 0, 2.5] }, // 3: Gate 2
+    { position: [10.5, 4.5, 7.5], target: [3.5, 0, 6.0] },  // 4: Gate 3
+    { position: [-1, 6, -9], target: [0, 0, 0] },         // 5: Center Peg
+    { position: [-13, 3, 0], target: [0, 0, 0] }          // 6: Low Side View
+  ];
+
   const [cameraPresets, setCameraPresets] = useState<(CameraPresetData | null)[]>(() => {
     try {
       const saved = localStorage.getItem(PRESET_KEY);
       if (saved) return JSON.parse(saved) as (CameraPresetData | null)[];
     } catch { /* ignore */ }
-    return Array(6).fill(null);
+    return DEFAULT_CAMERA_PRESETS;
   });
 
   const saveCurrentViewToSlot = useCallback((index: number) => {
@@ -1697,9 +1955,32 @@ export default function App() {
     gotoPresetRef.current = preset;
   }, [cameraPresets]);
 
+  const handleTakeScreenshot = useCallback(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    
+    const prefix = window.prompt("Enter a base name for your screenshot (the time will be appended):", screenshotPrefix);
+    if (!prefix) return; // User cancelled
+    
+    setScreenshotPrefix(prefix); // Remember for next time
+
+    // Format current time
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { hour12: false }).replace(/:/g, '-');
+    const fullFileName = `${prefix}_${timeString}`;
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `${fullFileName}.png`;
+    link.href = dataUrl;
+    link.click();
+  }, [screenshotPrefix]);
+
   // Reset court positions
   const handleReset = useCallback(() => {
-    saveToHistory();
+    setGameMode('unselected');
+    setStrictPlayerId('r1');
+    setHistory([]);
     setBalls(resetPositions);
     setSparkTargetId(null);
     setSparkPhase('none');
@@ -1711,8 +1992,12 @@ export default function App() {
     touchFiredThisStrokeRef.current.clear();
     sparkQueueRef.current = [];
     sparkedBallsThisTurnRef.current.clear();
+    setSelectedBall('r1');
+    setActiveStriker(null);
     sparkBallPrePosRef.current = null;
     lastSparkedBallIdRef.current = null;
+    setTurnGates([]);
+    setShowPlayerPill(false);
 
     const freshScores = {} as Record<BallId, BallScore>;
     BALL_IDS.forEach(id => {
@@ -1728,11 +2013,28 @@ export default function App() {
     setPlayerState('hidden');
     if (autoPlayTimeout.current) clearTimeout(autoPlayTimeout.current);
     
-    // Default to camera angle 5 (index 4) on reset
-    activateCameraPreset(4);
+    // Cinematic intro: Look at clubhouse first, then slow pan to starting corner
+    gotoPresetRef.current = { position: [-5, 6, 0], target: [25, 0, 0], duration: 0.001 };
+    setTimeout(() => {
+      const p = cameraPresets[0];
+      if (p) gotoPresetRef.current = { ...p, duration: 6.0 };
+    }, 100);
+    setTimeout(() => setShowPlayerPill(true), 6100);
     
     showToast("Simulation Reset");
   }, [resetPositions, saveToHistory, activateCameraPreset]);
+
+  // Initial camera setup
+  useEffect(() => {
+    // Cinematic intro: Look at clubhouse first, then slow pan to starting corner
+    gotoPresetRef.current = { position: [-5, 6, 0], target: [25, 0, 0], duration: 0.001 };
+    setTimeout(() => {
+      const p = cameraPresets[0];
+      if (p) gotoPresetRef.current = { ...p, duration: 6.0 };
+    }, 100);
+    setTimeout(() => setShowPlayerPill(true), 6100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keyboard shortcut listener — must come AFTER the preset declarations above
   useEffect(() => {
@@ -1754,25 +2056,20 @@ export default function App() {
       }
 
       // Number keys 1–6: go to preset  |  Shift+1–6: save current view
-      const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= 6) {
-        if (e.shiftKey) {
-          saveCurrentViewToSlot(num - 1);
-        } else {
-          activateCameraPreset(num - 1);
+      if (e.code && e.code.startsWith('Digit')) {
+        const num = parseInt(e.code.replace('Digit', ''), 10);
+        if (num >= 1 && num <= 6) {
+          if (e.shiftKey) {
+            saveCurrentViewToSlot(num - 1);
+          } else {
+            activateCameraPreset(num - 1);
+          }
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, drawMode, activateCameraPreset, saveCurrentViewToSlot]);
-
-  const isPlaying = isStriking || Object.values(balls).some((_, i) => {
-    const id = BALL_IDS[i];
-    // Stationary if docked or velocity zero
-    const phys = physicsBalls.current[id];
-    return phys.vx !== 0 || phys.vz !== 0 || phys.isRolling;
-  });
 
   const prevIsPlayingRef = useRef(false);
 
@@ -1783,7 +2080,11 @@ export default function App() {
       const strikerPhys = physicsBalls.current[strikerId];
       strikeInitialPos.current = [strikerPhys.x, BALL_RADIUS, strikerPhys.z];
 
-      const failedGate1 = !ballScoresRef.current[strikerId].gate1 && !strokePassedGateRef.current;
+      if (isReplaying) {
+        setReplayIndex(prev => prev + 1);
+      } else {
+
+      const failedGate1 = gameMode !== 'free' && !ballScoresRef.current[strikerId].gate1 && !strokePassedGateRef.current;
       
       // ── Find balls that moved and check boundaries ─────────────────────────
       const movedBalls = BALL_IDS.filter(id => {
@@ -1794,7 +2095,9 @@ export default function App() {
 
       const outBalls = movedBalls.filter(id => {
         const phys = physicsBalls.current[id];
-        return (Math.abs(phys.x) > 7.5 || Math.abs(phys.z) > 10.0) && phys.x < 8.8;
+        // A ball is only OUT if it completely crosses the boundary line.
+        // The ball radius is ~0.14, so the center must exceed the line by at least that amount.
+        return (Math.abs(phys.x) > 7.64 || Math.abs(phys.z) > 10.14) && phys.x < 8.8;
       });
       const isOutBall = outBalls.length > 0;
 
@@ -1807,22 +2110,22 @@ export default function App() {
         return next;
       });
 
-      const getNextBallMessage = () => {
+      const getNextBallId = () => {
         const currentNum = parseInt(strikerId.replace(/[^\d]/g, ''), 10);
         const nextBallNum = (currentNum % 10) + 1;
-        const nextBallId = BALL_IDS.find(id => id.replace(/[^\d]/g, '') === nextBallNum.toString());
-        if (!nextBallId) return '';
-        const scores = ballScoresRef.current[nextBallId];
-        let target = 'Gate 1';
-        if (scores.finished) target = 'Finished';
-        else if (scores.gate3) target = 'Goal Pole';
-        else if (scores.gate2) target = 'Gate 3';
-        else if (scores.gate1) target = 'Gate 2';
-        return `Next: Ball ${nextBallNum} (${target})`;
+        return BALL_IDS.find(id => id.replace(/[^\d]/g, '') === nextBallNum.toString()) as BallId;
+      };
+
+      const getNextBallMessage = () => {
+        const nextId = getNextBallId();
+        const nextNum = nextId.replace(/[^\d]/g, '');
+        return `Player ${nextNum}`;
       };
 
       // ── Helper: end the turn entirely ──────────────────────────────────────
-      const endTurn = (message: string) => {
+      const endTurn = (_message: string) => {
+        setTurnTimeLeft(10);
+        setTurnGates([]);
         setSparkTargetId(null);
         setSparkPhase('none');
         wasSparkStrokeRef.current = false;
@@ -1830,12 +2133,19 @@ export default function App() {
         sparkedBallsThisTurnRef.current.clear();
         touchFiredThisStrokeRef.current.clear();
         setContinuousStrokes(0);
-        setSelectedBall(null);
         setActiveStriker(null);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast(message);
+        if (gameMode === 'strict') {
+          const nextId = getNextBallId();
+          setStrictPlayerId(nextId);
+          setSelectedBall(nextId);
+        } else {
+          setSelectedBall(null);
+        }
+        // showToast(getNextBallMessage());
       };
+      endTurnRef.current = endTurn;
 
 
       // ── Helper: enter SPARK_POSITIONING for next queued ball ────────────────
@@ -1849,23 +2159,37 @@ export default function App() {
         setShowAimingLines(false);
         const ballNum = nextTouchedId.replace(/[^\d]/g, '');
         if (gateAndTouchSameStrokeRef.current) {
-          showToast(`GATE & TOUCH! Drag Ball ${ballNum} against your ball to spark`);
+          showToast(`GATE & TOUCH! Click court to set spark direction for Ball ${ballNum}`);
         } else {
-          showToast(`Touch! Drag Ball ${ballNum} against your ball to spark`);
+          showToast(`Touch! Click court to set spark direction for Ball ${ballNum}`);
         }
       };
 
       if (failedGate1) {
-        // ── FIRST-STROKE GATE FAILURE: return to start row ──────────────────
+        // ── FIRST-STROKE GATE FAILURE: return ball to docked lineup position ───
+        // Any other balls that were bumped go back to their pre-stroke positions
+        movedBalls.forEach(id => {
+          if (id !== strikerId) {
+            const pre = preStrokePositionsRef.current[id];
+            handleBallChange(id, pre.x, pre.z);
+          }
+        });
+
+        // Return striker to its docked reset position in the lineup
         const resetPos = resetPositions[strikerId];
         handleBallChange(strikerId, resetPos.x, resetPos.z);
-        endTurn(`Ball ${strikerId.replace(/[^\d]/g, '')} failed Gate 1. ${getNextBallMessage()}`);
+        endTurn(`Miss — Ball ${strikerId.replace(/[^\d]/g, '')} returns to lineup`);
+
+      } else if (doubleTouchFoulRef.current) {
+        // ── DOUBLE TOUCH FOUL (Chokinggai) ────────────────────────────────────
+        doubleTouchFoulRef.current = false;
+        endTurn("Foul: Touching the same ball twice!");
 
       } else if (isOutBall && (!wasSparkStrokeRef.current || outBalls.includes(strikerId))) {
         // ── OUT BALL (Normal stroke, or Striker fouled during spark) ──────────
-        endTurn(getNextBallMessage());
+        endTurn('Out Ball');
 
-      } else if (wasSparkStrokeRef.current) {
+      } else if (wasSparkStrokeRef.current || sparkPhase === 'aiming') {
         // ── SPARK STROKE JUST RESOLVED ────────────────────────────────────────
         wasSparkStrokeRef.current = false;
         const sparkedId = lastSparkedBallIdRef.current;
@@ -1888,9 +2212,8 @@ export default function App() {
           endTurn(`Spark failed! Turn ends. ${getNextBallMessage()}`);
         } else {
           // Successful spark — check if more balls are queued
-          const nextQueued = sparkQueueRef.current.shift();
-          if (nextQueued) {
-            // Another touched ball to spark — re-enter SPARK_POSITIONING
+          if (sparkQueueRef.current.length > 0) {
+            const nextQueued = sparkQueueRef.current.shift()!;
             enterSparkPositioning(nextQueued);
           } else {
             // All sparks done — grant extra stroke(s)
@@ -1900,17 +2223,17 @@ export default function App() {
             setSelectedBall(strikerId);
             setPlayerState('hidden');
             setShowAimingLines(false);
-            const msg = extraStrokes === 2
-              ? 'Spark Complete! 2 CONTINUATION STROKES (Gate + Touch combo)!'
-              : 'Spark Complete! 1 CONTINUATION STROKE gained!';
-            showToast(msg);
+            setSparkPhase('none');
+            setSparkTargetId(null);
           }
         }
 
       } else if (sparkQueueRef.current.length > 0) {
         // ── NORMAL STROKE JUST ENDED — touches detected, enter spark sequence ─
         if (strokePassedGateRef.current) {
-          gateAndTouchSameStrokeRef.current = true;
+          if (lastGatePassedRef.current !== null && lastGatePassedRef.current > 1) {
+            gateAndTouchSameStrokeRef.current = true;
+          }
           strokePassedGateRef.current = false;
         }
         const nextTouchedId = sparkQueueRef.current.shift()!;
@@ -1922,29 +2245,42 @@ export default function App() {
         setSelectedBall(strikerId);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast('Gate Cleared! 1 CONTINUATION STROKE gained!');
+        // showToast(`Gate ${lastGatePassedRef.current}`);
       } else if (continuousStrokes > 1) {
         setContinuousStrokes(prev => prev - 1);
         setSelectedBall(strikerId);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast(`Continuation Stroke remaining: ${continuousStrokes - 1}`);
+        // showToast(`Continuation Stroke remaining: ${continuousStrokes - 1}`);
       } else if (continuousStrokes === 1) {
         setContinuousStrokes(0);
+        setTurnGates([]);
         sparkedBallsThisTurnRef.current.clear();
-        setSelectedBall(null);
         setActiveStriker(null);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast(`Turn Completed. ${getNextBallMessage()}`);
+        if (gameMode === 'strict') {
+          const nextId = getNextBallId();
+          setStrictPlayerId(nextId);
+          setSelectedBall(nextId);
+        } else {
+          setSelectedBall(null);
+        }
       } else {
+        setTurnGates([]);
         sparkedBallsThisTurnRef.current.clear();
-        setSelectedBall(null);
         setActiveStriker(null);
         setPlayerState('hidden');
         setShowAimingLines(false);
-        showToast(`Turn Completed. ${getNextBallMessage()}`);
+        if (gameMode === 'strict') {
+          const nextId = getNextBallId();
+          setStrictPlayerId(nextId);
+          setSelectedBall(nextId);
+        } else {
+          setSelectedBall(null);
+        }
       }
+      } // End of !isReplaying block
 
       // Tutorial next-action chaining
       if (isTutorialActiveRef.current && currentDemoActionIdxRef.current >= 0) {
@@ -1962,7 +2298,7 @@ export default function App() {
       }
     }
     prevIsPlayingRef.current = isPlaying;
-  }, [isPlaying, activeStriker, sparkTargetId, continuousStrokes, executeTutorialAction, resetPositions, handleBallChange]);
+  }, [isPlaying, activeStriker, sparkTargetId, continuousStrokes, executeTutorialAction, resetPositions, handleBallChange, isReplaying]);
 
 
 
@@ -1972,7 +2308,7 @@ export default function App() {
       style={{ width: '100vw', height: '100vh', margin: 0, padding: 0, overflow: 'hidden', background: '#0a0f0d', position: 'relative' }}
     >
       {/* 3D WebGL Canvas Scene */}
-      <Canvas camera={{ position: [-16, 12, 0], fov: 42, far: 200 }} shadows>
+      <Canvas dpr={[1, 2]} gl={{ preserveDrawingBuffer: true }} camera={{ position: [0, 6, 11], fov: 42, far: 200 }} shadows>
         <color attach="background" args={['#a0c4de']} />
         <fog attach="fog" args={['#a0c4de', 40, 150]} />
         
@@ -2117,13 +2453,18 @@ export default function App() {
               color={ballHex}
               x={balls[id].x}
               z={balls[id].z}
-              isSelected={selectedBall === id}
+              isSelected={selectedBall === id || (gameMode === 'strict' && strictPlayerId === id) || (gameMode === 'free' && !selectedBall && !isPlaying && strictPlayerId === id)}
               onPositionChange={(nx, nz) => handleBallChange(id, nx, nz)}
               onPointerDown={() => {
-                // Do not steal selection if clicking the sparked ball during spark setup
-                if (sparkPhase === 'positioning' && id === sparkTargetId) return;
+                if (gameMode === 'unselected') return;
+                // Do not steal selection if clicking any ball during spark setup
+                if (sparkPhase !== 'none') return;
 
                 if (!isPlaying) {
+                  if (gameMode === 'strict' && id !== strictPlayerId) {
+                    // showToast(`Strict Play: It's Player ${strictPlayerId.replace(/[^\d]/g, '')}'s turn!`);
+                    return;
+                  }
                   if (id !== selectedBall) {
                     setSelectedBall(id);
                     setSparkTargetId(null);
@@ -2140,6 +2481,55 @@ export default function App() {
               onDragEnd={() => {
                 physicsBalls.current[id].isDragging = false;
                 isDraggingBallRef.current = false;
+                
+                // Allow manual drag-to-touch triggering in Free Play
+                if (gameMode === 'free' && !isPlaying && sparkPhase === 'none') {
+                  const bA = physicsBalls.current[id];
+                  for (const bId of BALL_IDS) {
+                    if (bId === id) continue;
+                    const bB = physicsBalls.current[bId];
+                    if (bB.x > 8.8) continue;
+                    const dx = bA.x - bB.x;
+                    const dz = bA.z - bB.z;
+                    // If balls overlap physically
+                    if (dx * dx + dz * dz < (2 * BALL_RADIUS) * (2 * BALL_RADIUS)) {
+                      handleTouch(id as BallId, bId);
+                      wasStrokeActiveRef.current = true;
+                      prevIsPlayingRef.current = true;
+                      setActiveStriker(id as BallId);
+                      break;
+                    }
+                  }
+                }
+                
+                // Generous spark recognition: if dropping the ball anywhere near the striker, auto-snap and advance!
+                if (sparkPhase === 'positioning' && id === sparkTargetId && activeStriker) {
+                  const tbPhys = physicsBalls.current[id];
+                  const striker = physicsBalls.current[activeStriker];
+                  const dx = tbPhys.x - striker.x;
+                  const dz = tbPhys.z - striker.z;
+                  const dist = Math.sqrt(dx * dx + dz * dz);
+                  
+                  // Tolerance: anything within ~3 ball radii is considered an intent to spark
+                  if (dist < 3.0 * BALL_RADIUS) {
+                    let lockedAngle = Math.round((Math.atan2(dx, -dz) * 180) / Math.PI);
+                    if (lockedAngle < 0) lockedAngle += 360;
+                    
+                    // Physically snap it perfectly to the contact ring
+                    const rad = (lockedAngle * Math.PI) / 180;
+                    tbPhys.x = striker.x + Math.sin(rad) * (2 * BALL_RADIUS);
+                    tbPhys.z = striker.z - Math.cos(rad) * (2 * BALL_RADIUS);
+                    handleBallChange(id as BallId, tbPhys.x, tbPhys.z);
+                    
+                    // Set the initial aim to match their drag placement
+                    setAngle(lockedAngle);
+                    strikeInitialPos.current = [striker.x, BALL_RADIUS, striker.z];
+                    strikeInitialAngle.current = lockedAngle;
+                    
+                    setSparkPhase('aiming');
+                    // showToast("Spark Set! Click court to aim & play.");
+                  }
+                }
               }}
               ref={meshRefs.current[id]}
             />
@@ -2188,12 +2578,13 @@ export default function App() {
           activeStriker={activeStriker}
           ballScores={ballScores}
           isPaused={isPaused}
+          wasSparkStrokeRef={wasSparkStrokeRef}
         />
 
         <OrbitControls 
           makeDefault
           enabled={!drawMode || !isDrawingActive}
-          maxPolarAngle={Math.PI / 2.1} 
+          maxPolarAngle={Math.PI / 2 - 0.1} 
           minDistance={3} 
           maxDistance={45} 
         />
@@ -2201,93 +2592,93 @@ export default function App() {
       </Canvas>
 
       {/* --- HUD Glassmorphic Overlay UI --- */}
+      {gameMode === 'unselected' && (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%) scale(0.75)', zIndex: 1000, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(20px)', border: '2px solid rgba(255, 255, 255, 0.2)', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', boxShadow: '0 12px 30px rgba(0, 0, 0, 0.8)' }}>
+          <h2 style={{ color: '#fff', margin: 0, fontSize: '18px', fontWeight: '800', letterSpacing: '0.05em', textShadow: '0 2px 6px rgba(0,0,0,0.5)' }}>Select Game Mode</h2>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <button onClick={() => setGameMode('strict')} style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(59,130,246,0.5)' }}>Strict Play</button>
+            <button onClick={() => setGameMode('free')} style={{ padding: '12px 24px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', cursor: 'pointer', fontSize: '14px', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(16,185,129,0.5)' }}>Free Play</button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Main Left Control Panel */}
-      <div className="hud-panel" style={{ position: 'absolute', top: '16px', left: '16px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 10, width: '210px' }}>
+      <div className="hud-panel" style={{ 
+        position: 'absolute', top: '16px', left: '16px', display: 'flex', flexDirection: 'column', gap: '10px', 
+        zIndex: 10, width: '210px',
+        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(30, 58, 138, 0.55))',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid rgba(16, 185, 129, 0.35)',
+        borderRadius: '16px',
+        padding: '12px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+        transform: isLeftPanelOpen ? 'translateX(0)' : 'translateX(calc(-100% - 16px))',
+        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}>
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          style={{
+            position: 'absolute',
+            right: '-24px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '24px',
+            height: '48px',
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.35), rgba(30, 58, 138, 0.65))',
+            border: '1px solid rgba(16, 185, 129, 0.35)',
+            borderLeft: 'none',
+            borderRadius: '0 8px 8px 0',
+            backdropFilter: 'blur(16px)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: 0,
+            boxShadow: '4px 0 12px rgba(0, 0, 0, 0.2)'
+          }}
+        >
+          <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{isLeftPanelOpen ? '◀' : '▶'}</span>
+        </button>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }}></div>
-          <h1 style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.05em', color: '#ffffff', margin: 0, textTransform: 'uppercase' }}>Gateball 3D</h1>
+          <h1 style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.05em', color: '#ffffff', margin: 0, lineHeight: '1.2' }}>
+            3D GATEBALL<br />
+            <span style={{ fontSize: '10px', color: '#94a3b8' }}>by Murray ©2026</span>
+          </h1>
         </div>
 
-        {/* Selected Ball Info */}
-        <div className="hud-left-column" style={{ padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="panel-title" style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Selected Striker</div>
-          {selectedBall ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '16px', height: '16px', borderRadius: '50%',
-                background: selectedBall.startsWith('r') ? BALL_SETS[ballSet].red.hex : BALL_SETS[ballSet].white.hex,
-                border: '1px solid rgba(255,255,255,0.2)'
-              }} />
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#ffffff' }}>
-                Ball {selectedBall.replace(/[^\d]/g, '')} ({selectedBall.startsWith('r') ? 'Red' : 'White'})
-              </span>
-              {isSelectedBallOffCourt && <span style={{ fontSize: '8px', color: '#f59e0b', fontWeight: '600' }}>(Docked)</span>}
-            </div>
-          ) : (
-            <span style={{ fontSize: '10px', color: '#64748b' }}>Select a ball to play</span>
-          )}
+        {/* Main Controls */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+          <button
+            onClick={handleReset}
+            style={{ flex: '1', padding: '6px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.2)', color: '#fca5a5', cursor: 'pointer', transition: 'all 0.2s' }}
+          >
+            🔄 Restart
+          </button>
+          <button
+            onClick={handleUndo}
+            disabled={history.length === 0 || isPlaying}
+            style={{ flex: '1', padding: '6px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', cursor: history.length === 0 || isPlaying ? 'not-allowed' : 'pointer', opacity: history.length === 0 || isPlaying ? 0.5 : 1, transition: 'all 0.2s' }}
+          >
+            ↩ Undo
+          </button>
+          <button
+            onClick={() => setShowScoresPanel(!showScoresPanel)}
+            style={{ width: '100%', padding: '6px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', cursor: 'pointer', transition: 'all 0.2s' }}
+          >
+            🎯 Scoring {showScoresPanel ? 'On' : 'Off'}
+          </button>
         </div>
 
-        {/* Action Button: Play Stroke / Play Spark */}
-        <button 
-          className="hud-action-row" 
-          onClick={playShot} 
-          disabled={isPlaying || !selectedBall}
-          style={{ 
-            width: '100%',
-            padding: '9px 14px', 
-            background: sparkMode ? '#f59e0b' : continuousStrokes > 0 ? '#38bdf8' : '#10b981', 
-            color: '#000000', 
-            border: 'none', 
-            borderRadius: '8px', 
-            fontWeight: '800', 
-            fontSize: '11px', 
-            letterSpacing: '0.05em', 
-            cursor: isPlaying || !selectedBall ? 'not-allowed' : 'pointer', 
-            boxShadow: sparkMode 
-              ? '0 4px 12px rgba(245,158,11,0.35)' 
-              : continuousStrokes > 0 
-                ? '0 4px 12px rgba(56,189,248,0.35)' 
-                : '0 4px 12px rgba(16,185,129,0.3)', 
-            transition: 'all 0.2s ease' 
-          }}
-        >
-          {sparkMode 
-            ? 'PLAY SPARK' 
-            : continuousStrokes > 0 
-              ? `CONTINUATION STROKE (${continuousStrokes})` 
-              : 'PLAY STROKE'}
-        </button>
 
-        {/* Undo / Replay Turn Button */}
-        <button 
-          onClick={handleUndo} 
-          disabled={history.length === 0 || isPlaying}
-          style={{ 
-            width: '100%', 
-            padding: '8px 12px', 
-            borderRadius: '8px', 
-            background: history.length === 0 || isPlaying ? 'rgba(255,255,255,0.03)' : 'rgba(59, 130, 246, 0.20)', 
-            border: history.length === 0 || isPlaying ? '1px solid rgba(255,255,255,0.06)' : '1.5px solid rgba(59, 130, 246, 0.45)', 
-            color: history.length === 0 || isPlaying ? '#475569' : '#93c5fd', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: '6px',
-            fontSize: '11px',
-            fontWeight: '800',
-            cursor: history.length === 0 || isPlaying ? 'not-allowed' : 'pointer',
-            boxShadow: history.length > 0 && !isPlaying ? '0 4px 12px rgba(59, 130, 246, 0.25)' : 'none',
-            transition: 'all 0.15s ease'
-          }}
-          title="Replay the current turn or spark (Undo)"
-        >
-          <span style={{ fontSize: '13px' }}>↩</span>
-          <span>REPLAY TURN (UNDO)</span>
-        </button>
 
-        {/* Capture Panel */}
+
+
+        {/* Capture Panel (Hidden for now) */}
+        {/*
         <div className="hud-left-column" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 'bold' }}>Sequence Capture</span>
@@ -2310,188 +2701,243 @@ export default function App() {
             <input type="file" accept=".json" onChange={loadSequence} style={{ fontSize: '8px', color: '#64748b', width: '85px' }} />
           </div>
         </div>
+        */}
+
+        {/* Camera Views Selector (Moved from top-right) */}
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px',
+          padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '8px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '13px', lineHeight: 1 }}>📷</span>
+            <span style={{ fontSize: '10px', color: '#ffe680', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 0 8px rgba(255, 230, 128, 0.3)' }}>Camera Views</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+            {cameraPresets.map((preset, i) => (
+              <button
+                key={i}
+                title={preset
+                  ? `Go to View ${i + 1}  (key: ${i + 1})\nRight-click to overwrite  (Shift+${i + 1})`
+                  : `View ${i + 1} empty — right-click or press Shift+${i + 1} to save`}
+                onClick={() => activateCameraPreset(i)}
+                onContextMenu={e => { e.preventDefault(); saveCurrentViewToSlot(i); }}
+                style={{
+                  height: '24px', borderRadius: '8px', cursor: 'pointer',
+                  background: '#0f172a',
+                  border: preset ? '1px solid #10b981' : '1px solid transparent',
+                  color: preset ? '#10b981' : '#475569',
+                  boxShadow: preset ? '0 0 12px rgba(16,185,129,0.5)' : 'inset 0 2px 4px rgba(0,0,0,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '11px', fontWeight: '900', transition: 'all 0.2s'
+                }}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Draw Tools */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '10px', color: '#ffe680', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 0 8px rgba(255, 230, 128, 0.3)' }}>✏️ Draw Tools</span>
+            <div 
+              onClick={() => { setDrawMode(!drawMode); if (drawMode) { setIsDrawingActive(false); setCurrentDrawingPoints([]); } }}
+              style={{
+                width: '36px', height: '18px', borderRadius: '10px',
+                background: drawMode ? '#10b981' : 'rgba(255,255,255,0.2)',
+                position: 'relative', cursor: 'pointer', transition: 'background 0.3s',
+                boxShadow: drawMode ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'inset 0 2px 4px rgba(0,0,0,0.3)'
+              }}
+            >
+              <div style={{
+                width: '14px', height: '14px', borderRadius: '50%', background: '#ffffff',
+                position: 'absolute', top: '2px', left: drawMode ? '20px' : '2px',
+                transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+              }} />
+            </div>
+          </div>
+          {drawMode && (
+            <>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['pencil', 'arrow', 'circle'].map(tool => (
+                  <button key={tool} onClick={() => setDrawTool(tool as any)} style={{
+                    flex: 1, fontSize: '9px', padding: '5px 0', borderRadius: '8px', cursor: 'pointer',
+                    background: '#0f172a',
+                    color: drawTool === tool ? '#10b981' : '#475569',
+                    border: drawTool === tool ? '1px solid #10b981' : '1px solid transparent',
+                    boxShadow: drawTool === tool ? '0 0 12px rgba(16,185,129,0.5)' : 'inset 0 2px 4px rgba(0,0,0,0.3)',
+                    fontWeight: '900', textTransform: 'uppercase', transition: 'all 0.2s'
+                  }}>
+                    {tool}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {drawColors.map((c, i) => (
+                    <div key={c} onClick={() => setDrawColorIndex(i)} style={{ width: '12px', height: '12px', borderRadius: '50%', background: c, cursor: 'pointer', border: drawColorIndex === i ? '2px solid #ffe680' : '1px solid rgba(255,255,255,0.3)' }} />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button onClick={() => setDrawings(prev => prev.slice(0, -1))} disabled={drawings.length === 0} style={{ fontSize: '8px', padding: '3px 8px', borderRadius: '6px', background: '#0f172a', color: drawings.length === 0 ? '#334155' : '#94a3b8', border: '1px solid transparent', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)', cursor: drawings.length === 0 ? 'not-allowed' : 'pointer', fontWeight: '900', textTransform: 'uppercase' }}>Undo</button>
+                  <button onClick={() => setDrawings([])} style={{ fontSize: '8px', padding: '3px 8px', borderRadius: '6px', background: '#0f172a', color: '#ef4444', border: '1px solid rgba(239,68,68,0.5)', boxShadow: '0 0 8px rgba(239,68,68,0.3)', cursor: 'pointer', fontWeight: '900', textTransform: 'uppercase' }}>Clear</button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Help Button */}
+        <button onClick={() => setShowHelp(!showHelp)} style={{ width: '100%', fontSize: '10px', padding: '8px 0', borderRadius: '8px', background: '#0f172a', border: showHelp ? '1px solid #10b981' : '1px solid transparent', color: showHelp ? '#10b981' : '#cbd5e1', boxShadow: showHelp ? '0 0 12px rgba(16,185,129,0.5)' : 'inset 0 2px 4px rgba(0,0,0,0.3)', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s' }}>
+          ❓ Help
+        </button>
+
+        {/* Messages Toggle */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '10px', color: '#93c5fd', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 0 8px rgba(147, 197, 253, 0.3)' }}>💬 Messages</span>
+            <div
+              onClick={() => setShowMessages(v => !v)}
+              style={{
+                width: '36px', height: '18px', borderRadius: '10px',
+                background: showMessages ? '#10b981' : 'rgba(255,255,255,0.2)',
+                position: 'relative', cursor: 'pointer', transition: 'background 0.3s',
+                boxShadow: showMessages ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'inset 0 2px 4px rgba(0,0,0,0.3)'
+              }}
+            >
+              <div style={{
+                width: '14px', height: '14px', borderRadius: '50%', background: '#ffffff',
+                position: 'absolute', top: '2px', left: showMessages ? '20px' : '2px',
+                transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+              }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Fullscreen Button */}
+        <button onClick={toggleFullscreen} style={{ width: '100%', fontSize: '10px', padding: '8px 0', borderRadius: '8px', background: '#0f172a', border: '1px solid transparent', color: '#cbd5e1', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s', marginBottom: '8px' }}>
+          ⛶ Full Screen
+        </button>
+
+        {/* Screenshot Button */}
+        <button onClick={handleTakeScreenshot} style={{ width: '100%', fontSize: '10px', padding: '8px 0', borderRadius: '8px', background: '#0f172a', border: '1px solid transparent', color: '#cbd5e1', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)', fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s' }}>
+          📷 Screenshot
+        </button>
       </div>
 
-      {/* --- Unified Top-Centre Information & Control Pill --- */}
-      <div
-        className="hud-pill-container"
-        style={{
+      {/* --- Unified Top-Centre Information & Control Pill removed --- */}
+
+      {/* 1.5. Top-Center Player Pill */}
+      {showPlayerPill && gameMode !== 'unselected' && (
+        <div style={{
           position: 'absolute',
-          top: '16px',
+          top: '24px',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 100,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
           background: 'rgba(15, 23, 42, 0.90)',
           backdropFilter: 'blur(20px)',
           border: '1.5px solid rgba(255, 255, 255, 0.18)',
-          boxShadow: '0 12px 35px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 12px 35px rgba(0, 0, 0, 0.55)',
           borderRadius: '9999px',
-          padding: '6px 14px 6px 16px',
-          maxWidth: 'calc(100vw - 420px)',
-          whiteSpace: 'nowrap',
-          userSelect: 'none',
-        }}
-      >
-        {/* 1. Selected Striker Section */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {selectedBall ? (
-            <>
-              <div
-                style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '50%',
-                  background: selectedBall.startsWith('r') ? BALL_SETS[ballSet].red.hex : BALL_SETS[ballSet].white.hex,
-                  color: selectedBall.startsWith('r') ? '#ffffff' : '#991b1b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: '900',
-                  fontSize: '13px',
-                  boxShadow: 'inset -1px -1px 3px rgba(0,0,0,0.4), 0 2px 5px rgba(0,0,0,0.3)',
-                  border: '1.5px solid rgba(255,255,255,0.35)',
-                  flexShrink: 0
-                }}
-              >
-                {selectedBall.replace(/[^\d]/g, '')}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-                <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>
-                  Ball {selectedBall.replace(/[^\d]/g, '')}
-                  <span style={{ fontSize: '11px', fontWeight: '600', color: selectedBall.startsWith('r') ? '#fca5a5' : '#cbd5e1', marginLeft: '4px' }}>
-                    ({selectedBall.startsWith('r') ? 'Red' : 'White'})
-                  </span>
-                </span>
-                {isSelectedBallOffCourt && (
-                  <span style={{ fontSize: '10px', color: '#f59e0b', fontWeight: '700' }}>Docked (Drag to Start)</span>
-                )}
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800' }}>?</div>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8' }}>Select Striker</span>
-            </div>
-          )}
+          padding: '8px 24px',
+          color: '#e2e8f0',
+          fontSize: '18px',
+          fontWeight: '800',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          pointerEvents: 'none'
+        }}>
+          {(() => {
+            const currentPlayerId = (gameMode === 'free' && selectedBall) ? selectedBall : strictPlayerId;
+            const activePlayerNum = currentPlayerId.replace(/[^\d]/g, '');
+            const gateText = turnGates.length > 0 
+              ? turnGates.map(g => g === 4 ? 'AGARI' : `Gate ${g}`).join(', ')
+              : '';
+            return `PLAYER ${activePlayerNum}${gateText ? ` - ${gateText}` : ''}`;
+          })()}
         </div>
+      )}
 
-        {/* Divider */}
-        <div style={{ width: '1px', height: '24px', background: 'rgba(255, 255, 255, 0.16)' }} />
-
-        {/* 2. Dynamic Context & Game Status (Large, highly readable text) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px', minWidth: '220px' }}>
-          {toastMessage ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontSize: '13px', fontWeight: '800', letterSpacing: '0.02em' }}>
-              <span style={{ fontSize: '15px' }}>📢</span>
-              <span>{toastMessage}</span>
-            </div>
-          ) : sparkPhase === 'positioning' && sparkTargetId ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fb923c', fontSize: '13px', fontWeight: '800', letterSpacing: '0.02em' }}>
-              <span style={{ fontSize: '15px' }}>⚡</span>
-              <span>
-                STEP 4 — SET THE SPARK: Drag Ball {sparkTargetId.replace(/[^\d]/g, '')} against your ball
-                {activeStriker && sparkTargetId && (activeStriker.startsWith('r') === sparkTargetId.startsWith('r'))
-                  ? ' (Teammate)'
-                  : ' (Opponent)'}
-                {' '}· Click court to aim
-              </span>
-            </div>
-          ) : sparkPhase === 'aiming' && sparkTargetId ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#facc15', fontSize: '13px', fontWeight: '800', letterSpacing: '0.02em' }}>
-              <span style={{ fontSize: '15px' }}>🦶</span>
-              <span>STEP 5 — STRIKE: Foot on ball · Direction locked · Click court to set power</span>
-            </div>
-          ) : continuousStrokes > 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '13px', fontWeight: '800', letterSpacing: '0.02em' }}>
-              <span style={{ fontSize: '15px' }}>🎯</span>
-              <span>CONTINUATION STROKE · {continuousStrokes} stroke{continuousStrokes > 1 ? 's' : ''} remaining</span>
-            </div>
-          ) : selectedBall ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#e2e8f0', fontSize: '13px', fontWeight: '700' }}>
-              <span style={{ fontSize: '15px' }}>🎯</span>
-              <span>
-                {isSelectedBallOffCourt
-                  ? 'Drag ball into Start Area or onto court to play'
-                  : 'Click court to aim & stroke, or click PLAY STROKE'}
-              </span>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '13px', fontWeight: '600' }}>
-              <span style={{ fontSize: '14px' }}>👈</span>
-              <span>Select any ball on the scoreboard or court to begin turn</span>
-            </div>
-          )}
-        </div>
-
-        {/* Divider */}
-        <div style={{ width: '1px', height: '24px', background: 'rgba(255, 255, 255, 0.16)' }} />
-
-        {/* 3. Controls: Undo, Play */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Undo Button */}
-          <button
-            onClick={handleUndo}
-            disabled={history.length === 0 || isPlaying}
-            style={{
-              width: '32px',
-              height: '32px',
+      {/* Ready-to-Play indicator: shown when balls settled & a ball is awaiting a stroke */}
+      {!isPlaying && !isStriking && (selectedBall || (gameMode === 'strict' && strictPlayerId)) && gameMode !== 'unselected' && sparkPhase === 'none' && (
+        <div style={{
+          position: 'absolute',
+          bottom: '120px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 200,
+          pointerEvents: 'none',
+        }}>
+          <style>{`
+            @keyframes ready-pulse {
+              0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); }
+              70%  { box-shadow: 0 0 0 14px rgba(16,185,129,0); }
+              100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+            }
+            @keyframes ready-fadein {
+              from { opacity: 0; transform: translateY(8px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(15, 23, 42, 0.88)',
+            backdropFilter: 'blur(16px)',
+            border: (() => {
+              const ballId = selectedBall || strictPlayerId;
+              const bPhys = physicsBalls.current[ballId];
+              const needsStartBox = !ballScores[ballId]?.gate1 && bPhys?.x > 7.5 && !isInStartBox(bPhys?.x, bPhys?.z);
+              return `1.5px solid ${needsStartBox ? 'rgba(245,158,11,0.7)' : 'rgba(16,185,129,0.6)'}`;
+            })(),
+            borderRadius: '9999px',
+            padding: '7px 20px 7px 14px',
+            animation: 'ready-fadein 0.35s ease both, ready-pulse 1.6s ease-in-out infinite',
+            whiteSpace: 'nowrap',
+          }}>
+            <div style={{
+              width: '10px',
+              height: '10px',
               borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              color: history.length === 0 || isPlaying ? '#475569' : '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              cursor: history.length === 0 || isPlaying ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title="Replay Turn / Undo (Ctrl+Z)"
-          >
-            ↩
-          </button>
-
-          {/* Play Action Button */}
-          <button
-            onClick={playShot}
-            disabled={isPlaying || !selectedBall}
-            style={{
-              padding: '6px 18px',
-              borderRadius: '20px',
-              background: sparkMode
-                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                : continuousStrokes > 0
-                  ? 'linear-gradient(135deg, #38bdf8, #0284c7)'
-                  : 'linear-gradient(135deg, #10b981, #059669)',
-              color: '#ffffff',
-              border: 'none',
+              background: (() => {
+                const ballId = selectedBall || strictPlayerId;
+                const bPhys = physicsBalls.current[ballId];
+                const needsStartBox = !ballScores[ballId]?.gate1 && bPhys?.x > 7.5 && !isInStartBox(bPhys?.x, bPhys?.z);
+                return needsStartBox ? '#f59e0b' : '#10b981';
+              })(),
+              flexShrink: 0,
+            }} />
+            <span style={{
+              color: '#e2e8f0',
+              fontSize: '13px',
               fontWeight: '800',
-              fontSize: '12px',
-              letterSpacing: '0.04em',
-              cursor: isPlaying || !selectedBall ? 'not-allowed' : 'pointer',
-              opacity: isPlaying || !selectedBall ? 0.45 : 1,
-              boxShadow: sparkMode
-                ? '0 4px 14px rgba(245, 158, 11, 0.45)'
-                : continuousStrokes > 0
-                  ? '0 4px 14px rgba(56, 189, 248, 0.45)'
-                  : '0 4px 14px rgba(16, 185, 129, 0.35)',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            {sparkMode
-              ? 'PLAY SPARK'
-              : continuousStrokes > 0
-                ? `CONTINUATION (${continuousStrokes})`
-                : 'PLAY STROKE'}
-          </button>
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+            }}>
+              {(() => {
+                const ballId = selectedBall || strictPlayerId;
+                const ballNum = ballId.replace(/[^\d]/g, '');
+                const bPhys = physicsBalls.current[ballId];
+                const needsStartBox = !ballScores[ballId]?.gate1 && bPhys?.x > 7.5 && !isInStartBox(bPhys?.x, bPhys?.z);
+                if (needsStartBox) {
+                  return `Ball ${ballNum} · Drag to Start Box to play`;
+                }
+                if (continuousStrokes > 0) {
+                  return `Ball ${ballNum} · ${continuousStrokes} continuation stroke${continuousStrokes > 1 ? 's' : ''}`;
+                }
+                return `Ball ${ballNum} · Ready — click court to aim`;
+              })()}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. Premium Glassmorphic Scoring Event Card (Top Center) */}
+
       {scoringEvent && (
         <div
           key={scoringEvent.id}
@@ -2553,14 +2999,22 @@ export default function App() {
         </div>
       )}
 
+
       {/* 3. Right Scoreboard + Tool Pill (Digital Style, top-right) */}
       <Scoreboard
-        showBody={showScoresPanel}
+        timerValue={turnTimeLeft}
+        gameTimeValue={gameTimeLeft}
+        showBody={gameMode !== 'free' && showScoresPanel}
         ballScores={ballScores}
         selectedBall={selectedBall}
         onBallSelect={(id) => {
-          if (sparkPhase === 'positioning' && id === sparkTargetId) return;
+          if (gameMode === 'unselected') return;
+          if (sparkPhase !== 'none') return;
           if (!isPlaying) {
+            if (gameMode === 'strict' && id !== strictPlayerId) {
+              showToast(`Strict Play: It's Player ${strictPlayerId.replace(/[^\d]/g, '')}'s turn!`);
+              return;
+            }
             if (id !== selectedBall) {
               setSelectedBall(id as BallId);
               setSparkTargetId(null);
@@ -2570,163 +3024,30 @@ export default function App() {
             if (autoPlayTimeout.current) clearTimeout(autoPlayTimeout.current);
           }
         }}
-        toolbar={
-          <>
-            {/* Reset stroke */}
-            <button
-              className="sb-toolbar-btn"
-              onClick={handleReset}
-              style={{ background: 'rgba(239,68,68,0.18)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.35)' }}
-            >
-              🔄 Reset
-            </button>
-
-            {/* Draw toggle */}
-            <button
-              className="sb-toolbar-btn"
-              onClick={() => {
-                setDrawMode(!drawMode);
-                if (drawMode) { setIsDrawingActive(false); setCurrentDrawingPoints([]); }
-              }}
-              style={{ background: drawMode ? '#10b981' : 'rgba(255,255,255,0.07)', color: drawMode ? '#000' : '#e2e8f0', border: drawMode ? 'none' : '1px solid rgba(255,255,255,0.12)' }}
-            >
-              ✏️ {drawMode ? 'Drawing ON' : 'Draw'}
-            </button>
-
-            {/* Draw sub-tools — only when draw mode active */}
-            {drawMode && (
-              <>
-                <button className="sb-toolbar-btn" onClick={() => setDrawTool('pencil')}
-                  style={{ background: drawTool === 'pencil' ? '#ffe680' : 'rgba(255,255,255,0.08)', color: drawTool === 'pencil' ? '#000' : '#e2e8f0', border: 'none' }}>
-                  Pencil
-                </button>
-                <button className="sb-toolbar-btn" onClick={() => setDrawTool('arrow')}
-                  style={{ background: drawTool === 'arrow' ? '#ffe680' : 'rgba(255,255,255,0.08)', color: drawTool === 'arrow' ? '#000' : '#e2e8f0', border: 'none' }}>
-                  Arrow
-                </button>
-                <button className="sb-toolbar-btn" onClick={() => setDrawTool('circle')}
-                  style={{ background: drawTool === 'circle' ? '#ffe680' : 'rgba(255,255,255,0.08)', color: drawTool === 'circle' ? '#000' : '#e2e8f0', border: 'none' }}>
-                  Circle
-                </button>
-
-                {/* Colour swatches */}
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  {drawColors.map((c, i) => (
-                    <div
-                      key={c}
-                      onClick={() => setDrawColorIndex(i)}
-                      style={{
-                        width: '14px', height: '14px', borderRadius: '50%',
-                        background: c, cursor: 'pointer',
-                        border: drawColorIndex === i ? '2px solid #ffe680' : '1.5px solid rgba(255,255,255,0.3)',
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <button className="sb-toolbar-btn"
-                  onClick={() => setDrawings(prev => prev.slice(0, -1))}
-                  disabled={drawings.length === 0}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: drawings.length === 0 ? '#475569' : '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)', cursor: drawings.length === 0 ? 'not-allowed' : 'pointer' }}>
-                  Undo
-                </button>
-                <button className="sb-toolbar-btn"
-                  onClick={() => setDrawings([])}
-                  style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>
-                  Clear
-                </button>
-              </>
-            )}
-
-            {/* Utility divider */}
-            <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.12)', margin: '0 1px' }} />
-
-            {/* Balls & Scores toggle */}
-            <button className="sb-toolbar-btn"
-              onClick={() => setShowScoresPanel(!showScoresPanel)}
-              style={{ background: 'rgba(255,255,255,0.06)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
-              📋 Panel
-            </button>
-
-            {/* Help */}
-            <button className="sb-toolbar-btn"
-              onClick={() => setShowHelp(!showHelp)}
-              style={{ background: showHelp ? '#3b82f6' : 'rgba(255,255,255,0.06)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
-              ❓ Help
-            </button>
-          </>
-        }
       />
 
-      {/* Ball Set Toggle & Utilities (below scoreboard panel) */}
-      {showScoresPanel && (
-        <div className="hud-panel" style={{ position: 'absolute', top: '270px', right: '20px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10, width: '300px' }}>
-          {/* Ball Set Toggle */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 'bold' }}>Color Set</span>
-            <button
-              onClick={() => setBallSet(prev => prev === 'primary' ? 'secondary' : 'primary')}
-              style={{ fontSize: '9px', padding: '3px 10px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              {ballSet === 'primary' ? 'PRIMARY' : 'SECONDARY'}
-            </button>
-          </div>
 
-          {/* Recenter / Fullscreen */}
-          <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
-            <button onClick={() => setCameraResetCounter(c => c + 1)} style={{ flex: 1, fontSize: '9px', padding: '5px 0', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#ffffff', fontWeight: 'bold', cursor: 'pointer' }}>Recenter</button>
-            <button onClick={toggleFullscreen} style={{ flex: 1, fontSize: '9px', padding: '5px 0', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#ffffff', fontWeight: 'bold', cursor: 'pointer' }}>Fullscreen</button>
-          </div>
-        </div>
-      )}
-
-      {/* Camera Preset Panel — top-right */}
-      <div style={{
-        position: 'absolute', top: '20px', right: '20px',
-        background: 'rgba(9,13,22,0.65)', backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px',
-        padding: '8px 12px', display: 'flex', alignItems: 'center',
-        gap: '8px', zIndex: 10,
-      }}>
-        <span style={{ fontSize: '13px', lineHeight: 1 }}>📷</span>
-        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: '600', letterSpacing: '0.06em', textTransform: 'uppercase', marginRight: '2px' }}>Views</span>
-        {cameraPresets.map((preset, i) => (
-          <button
-            key={i}
-            title={preset
-              ? `Go to View ${i + 1}  (key: ${i + 1})\nRight-click to overwrite  (Shift+${i + 1})`
-              : `View ${i + 1} empty — right-click or press Shift+${i + 1} to save`}
-            onClick={() => activateCameraPreset(i)}
-            onContextMenu={e => { e.preventDefault(); saveCurrentViewToSlot(i); }}
-            style={{
-              width: '28px', height: '28px', borderRadius: '8px', cursor: 'pointer',
-              border: preset ? '1px solid rgba(59,130,246,0.7)' : '1px dashed rgba(100,116,139,0.5)',
-              background: preset ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.03)',
-              color: preset ? '#93c5fd' : '#475569',
-              fontSize: '11px', fontWeight: '800',
-              boxShadow: preset ? '0 0 8px rgba(59,130,246,0.25)' : 'none',
-              transition: 'all 0.15s ease',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            {i + 1}
-          </button>
-        ))}
-      </div>
 
 
       {/* --- Help Overlay Modal --- */}
       {showHelp && (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(9,13,22,0.85)', backdropFilter: 'blur(20px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontFamily: 'sans-serif' }}>
           <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '24px', padding: '32px', maxWidth: '500px', width: '90%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffe680' }}>3D Gateball Visualiser Manual</h2>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffe680', lineHeight: '1.2' }}>
+              3D GATEBALL VISUALISER<br />
+              <span style={{ fontSize: '14px', color: '#94a3b8' }}>by Murray ©2026 Manual</span>
+            </h2>
             <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p>Welcome to <strong>Gateball 3D</strong>! This sandbox lets you model and visualise game play on a 20m x 15m court.</p>
-              <p><strong>Striker Rules:</strong> Select a ball from the right sidebar or click on it directly in 3D. Odd balls are Red, Even balls are White.</p>
-              <p><strong>Place Mode:</strong> Click on the court to place your selected ball. Balls start docked off-court. You can place them anywhere, but standard rules require launching them inside the <strong>Start Area</strong> (bottom right).</p>
-              <p><strong>Aim Mode:</strong> Move your mouse over the court. Click to point your mallet towards that target spot. The mallet automatically snaps exactly 0.53m behind the ball. Adjust the angle or speed using the sliders in the left panel.</p>
-              <p><strong>Spark Mode:</strong> When your striker ball makes contact with another ball, they touch! In the sandbox, you can aim a spark shot by clicking where you want to send the sparked ball. Hit the striker, and the target ball launches while the striker ball remains stationary!</p>
-              <p><strong>Gate Passing & Agari:</strong> Pass Gate 1, 2, and 3 in order to score 1 point each. Hit the central Goal Pole after running all 3 gates to get Agari (Finish) and earn 2 points!</p>
+              <p>Welcome to the<strong> 3D GATEBALL VISUALISER</strong>! This interactive sandbox lets you model, visualise, and plan game play on a full 20m x 15m court.</p>
+              <p><strong>1. Court Navigation:</strong> Use your mouse to explore the court! <strong>Left-Click & Drag</strong> the background to rotate the camera, <strong>Right-Click & Drag</strong> to pan across the surface, and use the <strong>Scroll Wheel</strong> to zoom in and out.</p>
+              <p><strong>2. Strict Play or Free Play:</strong> Selection of Strict Play will put the app into rules based gateball and the model tries to simulate the actual game of Gateball. In this mode the scoreboard will show scores and the active player. This enables the user to learn, practice or replay the game. Selection of Free Play will enable balls to be played in any order and dragged on to the lawn to demonstrate game rules, tactics and play routines.</p>
+              <p><strong>3. Select & Move:</strong> Select a ball by clicking on it with your left mouse button and dragging it into the <strong>Start Area</strong> in the 3D court or via the right-hand scoreboard. Once selected, <strong>Drag and Drop</strong> the ball to move it anywhere on the court. Balls start docked off-court.</p>
+              <p><strong>4. Standard Strokes:</strong> With a ball selected, simply <strong>click anywhere on the court</strong> to aim. The mallet will automatically appear, stalk to the ball, and execute the stroke. To skip the stalking animation, just click the court again to fire instantly!</p>
+              <p><strong>5. Sparking (Touch):</strong> When you touch another ball, you must perform a spark. Drag the <strong>touched ball</strong> and drop it against <strong>your strokers ball</strong>. It will magically snap into perfect contact! Next, click a target on or off the court to set the spark target direction, and <strong>PLAY SPARK STROKE</strong>.</p>
+              <p><strong>6. Camera Views:</strong> Click the buttons 1-6 in the <strong>Camera Views</strong> grid (or press number keys 1-6) to instantly jump to your saved camera angles.</p>
+              <p><strong>7. Setting Custom Cameras:</strong> Move the camera to your desired angle using your mouse. Then, <strong>Right-Click</strong> any of the 1-6 buttons in the left panel (or press Shift + 1-6) to save your custom view to that slot. The button will light up green to show a view is saved!</p>
+              <p><strong>8. Drawing:</strong> Use the Line, Arrow and Circle tools located in the top left Panel to draw coaching or tactical lines on the court. To enable these tools ensure <strong>Drawing Tools</strong> is active. You must turn it off to resume play</p>
+              <p style={{ textAlign: 'center', marginTop: '16px' }}>Please enjoy! Suggestions and Enquiries to <a href="mailto:2tinkers@gmail.com" style={{ color: '#3b82f6', textDecoration: 'underline' }}>Murray Tinker</a></p>
             </div>
             {/* Interactive Tutorial Launcher Card */}
             <div style={{
@@ -2800,45 +3121,29 @@ export default function App() {
         </div>
       )}
 
-      {/* --- Spark Phase HUD Banner --- */}
-      {/* Step 4: Set the Spark — drag the touched ball against the striker ball to choose direction */}
-      {sparkPhase === 'positioning' && sparkTargetId && (
-        <div style={{
-          position: 'absolute', top: '52px', left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(249, 115, 22, 0.93)', border: '1.5px solid rgba(249,115,22,0.6)',
-          padding: '8px 20px', borderRadius: '30px', color: '#000000',
-          fontSize: '11px', fontWeight: '800', letterSpacing: '0.05em',
-          zIndex: 999, boxShadow: '0 6px 20px rgba(249,115,22,0.45)',
-          display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap'
-        }}>
-          <span>🏃</span>
-          <span>
-            STEP 4 — SET THE SPARK: Drag Ball {sparkTargetId.replace(/[^\d]/g, '')} against your ball
-            {activeStriker && sparkTargetId && (activeStriker.startsWith('r') === sparkTargetId.startsWith('r'))
-              ? ' 🟢 Teammate'
-              : ' 🟠 Opponent'}
-            {' '}· Click court when ready to strike
-          </span>
-        </div>
-      )}
-      {/* Step 5: The Stroke — direction locked to ball-center axis, click sets power only */}
-      {sparkPhase === 'aiming' && sparkTargetId && (
-        <div style={{
-          position: 'absolute', top: '52px', left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(234, 179, 8, 0.93)', border: '1.5px solid rgba(234,179,8,0.6)',
-          padding: '8px 20px', borderRadius: '30px', color: '#000000',
-          fontSize: '11px', fontWeight: '800', letterSpacing: '0.05em',
-          zIndex: 999, boxShadow: '0 6px 20px rgba(234,179,8,0.45)',
-          display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap'
-        }}>
-          <span>🦶</span>
-          <span>STEP 5 — STRIKE: Foot on ball · Direction locked · Click court to set power</span>
-        </div>
-      )}
-
-      {/* --- Toast Banner --- */}
+      {/* --- Spark Phase HUD Banner (Removed per request) --- */}
+      {/* --- Toast Banner (Now styled like Player Pill) --- */}
       {toastMessage && (
-        <div style={{ position: 'absolute', top: '10px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(16,185,129,0.9)', border: '1px solid rgba(16,185,129,0.2)', padding: '8px 22px', borderRadius: '30px', color: '#000000', fontSize: '11px', fontWeight: '800', letterSpacing: '0.05em', zIndex: 999, boxShadow: '0 6px 20px rgba(16,185,129,0.4)', whiteSpace: 'nowrap' }}>
+        <div style={{ 
+          position: 'absolute', 
+          top: '86px', 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          background: 'rgba(15, 23, 42, 0.90)', 
+          backdropFilter: 'blur(20px)',
+          border: '1.5px solid rgba(255, 255, 255, 0.18)', 
+          padding: '8px 24px', 
+          borderRadius: '9999px', 
+          color: '#e2e8f0', 
+          fontSize: '18px', 
+          fontWeight: '800', 
+          letterSpacing: '0.05em', 
+          zIndex: 999, 
+          boxShadow: '0 12px 35px rgba(0, 0, 0, 0.55)', 
+          whiteSpace: 'nowrap',
+          textTransform: 'uppercase',
+          pointerEvents: 'none' 
+        }}>
           {toastMessage}
         </div>
       )}

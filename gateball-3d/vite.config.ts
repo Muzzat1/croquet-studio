@@ -3,11 +3,13 @@ import react from '@vitejs/plugin-react'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cloudflare()],
   build: {
     rollupOptions: {
       input: {

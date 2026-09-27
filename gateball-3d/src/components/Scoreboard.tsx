@@ -1,4 +1,4 @@
-import React from 'react';
+
 // Scoreboard component — digital red/white dual-row display
 // The toolbar pill (Draw Tools + Reset) is rendered directly below the board
 // so it visually adjoins the scoreboard's bottom edge.
@@ -7,12 +7,12 @@ export interface ScoreboardProps {
   ballScores: Record<string, { gate1: boolean; gate2: boolean; gate3: boolean; finished: boolean }>;
   onBallSelect?: (ballId: string) => void;
   selectedBall: string | null;
-  // Toolbar props — passed through so the toolbar can live inside this wrapper
-  toolbar: React.ReactNode;
   showBody?: boolean;
+  timerValue?: number | null;
+  gameTimeValue?: number | null;
 }
 
-export default function Scoreboard({ ballScores, onBallSelect, selectedBall, toolbar, showBody = true }: ScoreboardProps) {
+export default function Scoreboard({ ballScores, onBallSelect, selectedBall, showBody = true, timerValue, gameTimeValue }: ScoreboardProps) {
 
   const getScore = (id: string) => {
     const s = ballScores[id];
@@ -47,7 +47,7 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, too
   );
 
   return (
-    <div style={{
+    <div className="scoreboard-container" style={{
       position: 'absolute',
       top: '20px',
       right: '20px',
@@ -56,9 +56,27 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, too
       width: '300px',
       zIndex: 20,
       userSelect: 'none',
+      transform: 'scale(0.90)',
+      transformOrigin: 'top right',
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 900px), (max-height: 500px) {
+          .scoreboard-container {
+            top: 10px !important;
+            right: 10px !important;
+            transform: scale(0.65) !important;
+            transform-origin: top right;
+          }
+        }
+        @media (max-width: 650px), (max-height: 420px) {
+          .scoreboard-container {
+            transform: scale(0.5) !important;
+          }
+        }
+
         .sb-ball {
           width: 28px; height: 28px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
@@ -136,6 +154,53 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, too
             </div>
           </div>
 
+
+          {/* ── Timers (Middle) ── */}
+          {timerValue !== undefined && timerValue !== null && gameTimeValue !== undefined && gameTimeValue !== null && (
+            <div style={{
+              background: timerValue <= 3 ? '#ef4444' : '#9caaa1', // LCD screen green-grey
+              padding: '8px 12px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '30px',
+              borderBottom: '2px solid #333',
+              color: timerValue <= 3 ? '#fff' : '#0f172a', // LCD digit dark
+              fontFamily: "'Share Tech Mono', 'Courier New', monospace",
+              animation: timerValue <= 3 ? 'pulse-red 1s infinite' : 'none',
+              textShadow: 'none',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', fontSize: '10px', fontWeight: 'bold', lineHeight: '1.2', color: timerValue <= 3 ? '#fee2e2' : '#334155', fontFamily: 'sans-serif', textShadow: 'none', textAlign: 'right' }}>
+                    <span>10 SEC</span>
+                    <span>TIMER</span>
+                 </div>
+                 <div style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '2px', lineHeight: '1' }}>
+                    {timerValue.toString().padStart(2, '0')}
+                 </div>
+              </div>
+
+              <div style={{ width: '2px', height: '30px', background: 'rgba(15, 23, 42, 0.2)' }}></div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <div style={{ display: 'flex', flexDirection: 'column', fontSize: '10px', fontWeight: 'bold', lineHeight: '1.2', color: timerValue <= 3 ? '#fee2e2' : '#334155', fontFamily: 'sans-serif', textShadow: 'none', textAlign: 'right' }}>
+                    <span>GAME</span>
+                    <span>TIME</span>
+                 </div>
+                 <div style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '2px', lineHeight: '1' }}>
+                    {Math.floor(gameTimeValue / 60).toString().padStart(2, '0')}:{(gameTimeValue % 60).toString().padStart(2, '0')}
+                 </div>
+              </div>
+              <style>{`
+                @keyframes pulse-red {
+                  0% { background: #ef4444; }
+                  50% { background: #991b1b; }
+                  100% { background: #ef4444; }
+                }
+              `}</style>
+            </div>
+          )}
+
           {/* White Team (Bottom) */}
           <div style={{
             background: 'linear-gradient(to bottom, #f8fafc, #94a3b8)',
@@ -167,21 +232,6 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, too
         </div>
       )}
 
-      {/* ── Tool Pill — adjoins scoreboard bottom edge (or stands alone) ──── */}
-      <div style={{
-        background: 'rgba(9,13,22,0.88)',
-        backdropFilter: 'blur(16px)',
-        border: '2px solid #444',
-        borderTop: showBody ? '1px solid rgba(255,255,255,0.07)' : '2px solid #444',
-        borderRadius: showBody ? '0 0 12px 12px' : '12px',
-        padding: '8px 12px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: '7px',
-      }}>
-        {toolbar}
-      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef } from 'react';
 import type { ThreeElements } from '@react-three/fiber';
 import { useThree, useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, Line } from '@react-three/drei';
 import * as THREE from 'three';
 
 type GateballBallProps = Omit<ThreeElements['group'], 'position' | 'onPointerDown'> & {
@@ -21,6 +21,43 @@ type GateballBallProps = Omit<ThreeElements['group'], 'position' | 'onPointerDow
 interface CustomThreeState {
   controls?: { enabled: boolean };
   raycaster: THREE.Raycaster;
+}
+
+function DashedSelectionRing({ radius, color }: { radius: number; color: string }) {
+  const ringRef = useRef<THREE.Group>(null);
+  
+  useFrame((_, delta) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.y += delta * 0.8;
+    }
+  });
+
+  const segments = 64;
+  const ringR = radius + 0.08;
+  const points: [number, number, number][] = [];
+  for (let i = 0; i <= segments; i++) {
+    const theta = (i / segments) * Math.PI * 2;
+    points.push([
+      Math.cos(theta) * ringR,
+      -radius + 0.021,
+      Math.sin(theta) * ringR
+    ]);
+  }
+
+  return (
+    <group ref={ringRef}>
+      <Line
+        points={points}
+        color={color}
+        lineWidth={2.5}
+        dashed
+        dashSize={0.06}
+        gapSize={0.06}
+        transparent
+        opacity={0.9}
+      />
+    </group>
+  );
 }
 
 const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
@@ -171,10 +208,7 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
         </group>
 
         {isSelected && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -radius + 0.021, 0]}>
-            <ringGeometry args={[radius + 0.06, radius + 0.09, 32]} />
-            <meshBasicMaterial color={color} transparent opacity={0.8} />
-          </mesh>
+          <DashedSelectionRing radius={radius} color={color} />
         )}
 
         {/* Interactive helper — pointer capture keeps move events firing even outside ball bounds */}
@@ -183,8 +217,8 @@ const GateballBall = forwardRef<THREE.Object3D, GateballBallProps>(
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          onPointerOver={(e) => { /* e.stopPropagation(); Removed to allow aiming clicks to bubble up */ setIsHovered(true); }}
-          onPointerOut={(e) => { /* e.stopPropagation(); Removed to allow aiming clicks to bubble up */ setIsHovered(false); }}
+          onPointerOver={() => { /* e.stopPropagation(); Removed to allow aiming clicks to bubble up */ setIsHovered(true); }}
+          onPointerOut={() => { /* e.stopPropagation(); Removed to allow aiming clicks to bubble up */ setIsHovered(false); }}
         >
           <sphereGeometry args={[radius * 1.30, 16, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />

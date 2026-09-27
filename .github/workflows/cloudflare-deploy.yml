@@ -37,13 +37,11 @@ jobs:
         working-directory: clean-court
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'croquet-studio-3d'
-          directory: 'clean-court/dist'
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy clean-court/dist --project-name=croquet-studio-3d
 
   deploy-gateball:
     name: Deploy 2D Gateball Visualiser
@@ -70,13 +68,11 @@ jobs:
         working-directory: gateball-visualiser
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'croquet-visualiser'
-          directory: 'gateball-visualiser/dist'
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy gateball-visualiser/dist --project-name=croquet-visualiser
 
   deploy-gateball-3d:
     name: Deploy 3D Gateball Visualiser
@@ -104,10 +100,8 @@ jobs:
         working-directory: gateball-3d
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'gateball-3d'
-          directory: 'gateball-3d/dist'
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy gateball-3d/dist --project-name=gateball-3d

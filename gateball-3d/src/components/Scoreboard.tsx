@@ -1,7 +1,7 @@
+import { useState, useEffect } from 'react';
 
 // Scoreboard component — digital red/white dual-row display
-// The toolbar pill (Draw Tools + Reset) is rendered directly below the board
-// so it visually adjoins the scoreboard's bottom edge.
+// Supports manual score increments/decrements (0, 1, 2, 3, 5) in editable modes
 
 export interface ScoreboardProps {
   ballScores: Record<string, { gate1: boolean; gate2: boolean; gate3: boolean; finished: boolean }>;
@@ -10,9 +10,26 @@ export interface ScoreboardProps {
   showBody?: boolean;
   timerValue?: number | null;
   gameTimeValue?: number | null;
+  isEditable?: boolean;
+  onScoreChange?: (ballId: string, newScore: number) => void;
+  onToggleShow?: () => void;
+  onStartScoreEditing?: () => void;
 }
 
-export default function Scoreboard({ ballScores, onBallSelect, selectedBall, showBody = true, timerValue, gameTimeValue }: ScoreboardProps) {
+export default function Scoreboard({
+  ballScores,
+  onBallSelect,
+  selectedBall,
+  showBody = true,
+  timerValue,
+  gameTimeValue,
+  isEditable = false,
+  onScoreChange,
+  onToggleShow,
+  onStartScoreEditing,
+}: ScoreboardProps) {
+
+  const [editingBallId, setEditingBallId] = useState<string | null>(null);
 
   const getScore = (id: string) => {
     const s = ballScores[id];
@@ -32,6 +49,62 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, sho
   const formatDigit = (num: number) => num.toString();
   const formatTotal = (num: number) => num.toString().padStart(2, '0');
 
+  // Step score following Gateball rules: 0 -> 1 -> 2 -> 3 -> 5 (no 4)
+  const stepScore = (id: string, dir: 1 | -1) => {
+    const current = getScore(id);
+    let next: number;
+    if (dir === 1) {
+      if (current === 0) next = 1;
+      else if (current === 1) next = 2;
+      else if (current === 2) next = 3;
+      else if (current >= 3) next = 5;
+      else next = 1;
+    } else {
+      if (current >= 5) next = 3;
+      else if (current === 3) next = 2;
+      else if (current === 2) next = 1;
+      else next = 0;
+    }
+    onScoreChange?.(id, next);
+  };
+
+  // Keyboard shortcut listener for '+' and '-'
+  useEffect(() => {
+    if (!isEditable || !editingBallId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === '+' || e.key === '=' || e.key === 'Add') {
+        e.preventDefault();
+        stepScore(editingBallId, 1);
+      } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
+        e.preventDefault();
+        stepScore(editingBallId, -1);
+      } else if (e.key === 'Escape') {
+        setEditingBallId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditable, editingBallId, ballScores]);
+
+  // Click outside to deselect editing slot
+  useEffect(() => {
+    if (!editingBallId) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const container = document.querySelector('.scoreboard-container');
+      if (container && !container.contains(e.target as Node)) {
+        setEditingBallId(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [editingBallId]);
+
   // Digital number segment display
   const Digits = ({ text }: { text: string }) => (
     <div style={{
@@ -45,6 +118,147 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, sho
       {text}
     </div>
   );
+
+  // Interactive digit slot with click-to-edit and mini +/- controls
+  const DigitSlot = ({ id, score }: { id: string; score: number }) => {
+    const isEditing = isEditable && editingBallId === id;
+    return (
+      <div
+        onClick={(e) => {
+          if (!isEditable) return;
+          e.stopPropagation();
+          // If we're newly selecting (not deselecting) a digit, clear the active player first
+          if (editingBallId !== id) {
+            onStartScoreEditing?.();
+          }
+          setEditingBallId(prev => prev === id ? null : id);
+        }}
+        title={isEditable ? `Ball ${id.replace(/[^\d]/g, '')}: Click to select, then press + or - (scores: 0, 1, 2, 3, 5)` : undefined}
+        style={{
+          position: 'relative',
+          cursor: isEditable ? 'pointer' : 'default',
+          padding: '1px 3px',
+          borderRadius: '4px',
+          border: isEditing ? '1.5px solid #fbbf24' : isEditable ? '1.5px dashed rgba(251, 191, 36, 0.25)' : '1.5px solid transparent',
+          background: isEditing ? 'rgba(251, 191, 36, 0.15)' : 'transparent',
+          boxShadow: isEditing ? '0 0 10px rgba(251, 191, 36, 0.5)' : 'none',
+          transition: 'all 0.15s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Digits text={formatDigit(score)} />
+        {isEditing && (
+          <div style={{
+            position: 'absolute',
+            top: '-26px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '3px',
+            background: '#090d16',
+            border: '1px solid #fbbf24',
+            borderRadius: '4px',
+            padding: '2px 3px',
+            zIndex: 50,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.8)',
+          }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                stepScore(id, -1);
+              }}
+              title="Decrease (- key)"
+              style={{
+                background: '#ef4444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '2px',
+                width: '16px',
+                height: '16px',
+                fontSize: '11px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                lineHeight: 1
+              }}
+            >
+              -
+            </button>
+            <span style={{ fontSize: '9px', fontWeight: 800, color: '#fbbf24', alignSelf: 'center', padding: '0 1px' }}>
+              +/-
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                stepScore(id, 1);
+              }}
+              title="Increase (+ key)"
+              style={{
+                background: '#10b981',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '2px',
+                width: '16px',
+                height: '16px',
+                fontSize: '11px',
+                fontWeight: 900,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                lineHeight: 1
+              }}
+            >
+              +
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // When scoreboard is hidden, offer a floating toggle button
+  if (!showBody) {
+    if (!onToggleShow) return null;
+    return (
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        zIndex: 20,
+      }}>
+        <button
+          onClick={onToggleShow}
+          title="Open Scoreboard"
+          style={{
+            background: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1.5px solid rgba(251, 191, 36, 0.6)',
+            borderRadius: '20px',
+            color: '#fbbf24',
+            padding: '6px 14px',
+            fontSize: '11px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span>🎯</span>
+          <span>Scoreboard</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="scoreboard-container" style={{
@@ -116,121 +330,173 @@ export default function Scoreboard({ ballScores, onBallSelect, selectedBall, sho
       `}</style>
 
       {/* ── Scoreboard body ─────────────────────────────── */}
-      {showBody && (
-        <div style={{
-          boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
-          borderRadius: '8px 8px 0 0',
-          overflow: 'hidden',
-          border: '2px solid #444',
-          borderBottom: 'none',
-        }}>
-          {/* Red Team (Top) */}
-          <div style={{
-            background: 'linear-gradient(to bottom, #ef4444, #991b1b)',
-            padding: '10px 12px',
-            borderBottom: '2px solid #333',
-          }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', paddingLeft: '4px' }}>
-              {redIds.map((id, i) => (
-                <div
-                  key={id}
-                  className={`sb-ball ${selectedBall === id ? 'sb-ball-selected' : ''}`}
-                  onClick={() => onBallSelect?.(id)}
-                  style={{
-                    background: '#ef4444', color: '#ffffff', border: '1px solid #fca5a5',
-                  }}
-                >
-                  {(i * 2) + 1}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-              <div className="sb-display-bg" style={{ flex: 1, justifyContent: 'space-between' }}>
-                {redScores.map((score, i) => <Digits key={i} text={formatDigit(score)} />)}
-              </div>
-              <div className="sb-display-bg" style={{ padding: '7px 10px' }}>
-                <Digits text={formatTotal(redTotal)} />
-              </div>
-            </div>
-          </div>
-
-
-          {/* ── Timers (Middle) ── */}
-          {timerValue !== undefined && timerValue !== null && gameTimeValue !== undefined && gameTimeValue !== null && (
-            <div style={{
-              background: timerValue <= 3 ? '#ef4444' : '#9caaa1', // LCD screen green-grey
-              padding: '8px 12px',
+      <div style={{
+        boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: '2px solid #444',
+        position: 'relative',
+      }}>
+        {/* Optional close button */}
+        {onToggleShow && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleShow();
+            }}
+            title="Hide Scoreboard"
+            style={{
+              position: 'absolute',
+              top: '6px',
+              right: '6px',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.4)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              color: '#cbd5e1',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
               display: 'flex',
-              justifyContent: 'center',
               alignItems: 'center',
-              gap: '30px',
-              borderBottom: '2px solid #333',
-              color: timerValue <= 3 ? '#fff' : '#0f172a', // LCD digit dark
-              fontFamily: "'Share Tech Mono', 'Courier New', monospace",
-              animation: timerValue <= 3 ? 'pulse-red 1s infinite' : 'none',
-              textShadow: 'none',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 <div style={{ display: 'flex', flexDirection: 'column', fontSize: '10px', fontWeight: 'bold', lineHeight: '1.2', color: timerValue <= 3 ? '#fee2e2' : '#334155', fontFamily: 'sans-serif', textShadow: 'none', textAlign: 'right' }}>
-                    <span>10 SEC</span>
-                    <span>TIMER</span>
-                 </div>
-                 <div style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '2px', lineHeight: '1' }}>
-                    {timerValue.toString().padStart(2, '0')}
-                 </div>
-              </div>
+              justifyContent: 'center',
+              zIndex: 30,
+            }}
+          >
+            ✕
+          </button>
+        )}
 
-              <div style={{ width: '2px', height: '30px', background: 'rgba(15, 23, 42, 0.2)' }}></div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 <div style={{ display: 'flex', flexDirection: 'column', fontSize: '10px', fontWeight: 'bold', lineHeight: '1.2', color: timerValue <= 3 ? '#fee2e2' : '#334155', fontFamily: 'sans-serif', textShadow: 'none', textAlign: 'right' }}>
-                    <span>GAME</span>
-                    <span>TIME</span>
-                 </div>
-                 <div style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '2px', lineHeight: '1' }}>
-                    {Math.floor(gameTimeValue / 60).toString().padStart(2, '0')}:{(gameTimeValue % 60).toString().padStart(2, '0')}
-                 </div>
+        {/* Red Team (Top) */}
+        <div style={{
+          background: 'linear-gradient(to bottom, #ef4444, #991b1b)',
+          padding: '10px 12px',
+          borderBottom: '2px solid #333',
+        }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '10px', paddingLeft: '4px' }}>
+            {redIds.map((id, i) => (
+              <div
+                key={id}
+                className={`sb-ball ${selectedBall === id ? 'sb-ball-selected' : ''}`}
+                onClick={() => onBallSelect?.(id)}
+                style={{
+                  background: '#ef4444', color: '#ffffff', border: '1px solid #fca5a5',
+                }}
+              >
+                {(i * 2) + 1}
               </div>
-              <style>{`
-                @keyframes pulse-red {
-                  0% { background: #ef4444; }
-                  50% { background: #991b1b; }
-                  100% { background: #ef4444; }
-                }
-              `}</style>
-            </div>
-          )}
-
-          {/* White Team (Bottom) */}
-          <div style={{
-            background: 'linear-gradient(to bottom, #f8fafc, #94a3b8)',
-            padding: '10px 12px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <div className="sb-display-bg" style={{ flex: 1, justifyContent: 'space-between' }}>
-                {whiteScores.map((score, i) => <Digits key={i} text={formatDigit(score)} />)}
-              </div>
-              <div className="sb-display-bg" style={{ padding: '7px 10px' }}>
-                <Digits text={formatTotal(whiteTotal)} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', paddingLeft: '4px' }}>
-              {whiteIds.map((id, i) => (
-                <div
-                  key={id}
-                  className={`sb-ball ${selectedBall === id ? 'sb-ball-selected' : ''}`}
-                  onClick={() => onBallSelect?.(id)}
-                  style={{
-                    background: '#ffffff', color: '#ef4444', border: '1px solid #cbd5e1',
-                  }}
-                >
-                  {(i * 2) + 2}
-                </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            <div className="sb-display-bg" style={{ flex: 1, justifyContent: 'space-between' }}>
+              {redScores.map((score, i) => (
+                <DigitSlot key={redIds[i]} id={redIds[i]} score={score} />
               ))}
+            </div>
+            <div className="sb-display-bg" style={{ padding: '7px 10px' }}>
+              <Digits text={formatTotal(redTotal)} />
             </div>
           </div>
         </div>
-      )}
+
+        {/* ── Timers (Middle) ── */}
+        {timerValue !== undefined && timerValue !== null && gameTimeValue !== undefined && gameTimeValue !== null && (
+          <div style={{
+            background: timerValue <= 3 ? '#ef4444' : '#9caaa1', // LCD screen green-grey
+            padding: '8px 12px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '30px',
+            borderBottom: '2px solid #333',
+            color: timerValue <= 3 ? '#fff' : '#0f172a', // LCD digit dark
+            fontFamily: "'Share Tech Mono', 'Courier New', monospace",
+            animation: timerValue <= 3 ? 'pulse-red 1s infinite' : 'none',
+            textShadow: 'none',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <div style={{ display: 'flex', flexDirection: 'column', fontSize: '10px', fontWeight: 'bold', lineHeight: '1.2', color: timerValue <= 3 ? '#fee2e2' : '#334155', fontFamily: 'sans-serif', textShadow: 'none', textAlign: 'right' }}>
+                  <span>10 SEC</span>
+                  <span>TIMER</span>
+               </div>
+               <div style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '2px', lineHeight: '1' }}>
+                  {timerValue.toString().padStart(2, '0')}
+               </div>
+            </div>
+
+            <div style={{ width: '2px', height: '30px', background: 'rgba(15, 23, 42, 0.2)' }}></div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <div style={{ display: 'flex', flexDirection: 'column', fontSize: '10px', fontWeight: 'bold', lineHeight: '1.2', color: timerValue <= 3 ? '#fee2e2' : '#334155', fontFamily: 'sans-serif', textShadow: 'none', textAlign: 'right' }}>
+                  <span>GAME</span>
+                  <span>TIME</span>
+               </div>
+               <div style={{ fontSize: '30px', fontWeight: 'bold', letterSpacing: '2px', lineHeight: '1' }}>
+                  {Math.floor(gameTimeValue / 60).toString().padStart(2, '0')}:{(gameTimeValue % 60).toString().padStart(2, '0')}
+               </div>
+            </div>
+            <style>{`
+              @keyframes pulse-red {
+                0% { background: #ef4444; }
+                50% { background: #991b1b; }
+                100% { background: #ef4444; }
+              }
+            `}</style>
+          </div>
+        )}
+
+        {/* White Team (Bottom) */}
+        <div style={{
+          background: 'linear-gradient(to bottom, #f8fafc, #94a3b8)',
+          padding: '10px 12px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+            <div className="sb-display-bg" style={{ flex: 1, justifyContent: 'space-between' }}>
+              {whiteScores.map((score, i) => (
+                <DigitSlot key={whiteIds[i]} id={whiteIds[i]} score={score} />
+              ))}
+            </div>
+            <div className="sb-display-bg" style={{ padding: '7px 10px' }}>
+              <Digits text={formatTotal(whiteTotal)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', paddingLeft: '4px' }}>
+            {whiteIds.map((id, i) => (
+              <div
+                key={id}
+                className={`sb-ball ${selectedBall === id ? 'sb-ball-selected' : ''}`}
+                onClick={() => onBallSelect?.(id)}
+                style={{
+                  background: '#ffffff', color: '#ef4444', border: '1px solid #cbd5e1',
+                }}
+              >
+                {(i * 2) + 2}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hint banner when score editing is enabled */}
+        {isEditable && (
+          <div style={{
+            background: 'rgba(10, 10, 10, 0.95)',
+            borderTop: '1px solid #333',
+            padding: '5px 8px',
+            fontSize: '9.5px',
+            color: '#fbbf24',
+            textAlign: 'center',
+            fontWeight: 600,
+            letterSpacing: '0.04em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}>
+            <span>✎ Click score & press <strong>+</strong> / <strong>-</strong> (0, 1, 2, 3, 5)</span>
+          </div>
+        )}
+      </div>
 
     </div>
   );

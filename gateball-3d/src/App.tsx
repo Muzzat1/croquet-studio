@@ -734,6 +734,28 @@ export default function App() {
     ballScoresRef.current = ballScores;
   }, [ballScores]);
 
+  // Handler to manually update score for a ball in Free Play mode
+  const handleScoreChange = useCallback((ballId: string, newScore: number) => {
+    setBallScores(prev => {
+      let gate1 = false;
+      let gate2 = false;
+      let gate3 = false;
+      let finished = false;
+
+      if (newScore >= 1) gate1 = true;
+      if (newScore >= 2) gate2 = true;
+      if (newScore >= 3) gate3 = true;
+      if (newScore >= 5) finished = true;
+
+      const next = {
+        ...prev,
+        [ballId as BallId]: { gate1, gate2, gate3, finished }
+      };
+      ballScoresRef.current = next;
+      return next;
+    });
+  }, []);
+
   // Full turn snapshot for replaying strokes & sparks
   interface TurnHistorySnapshot {
     balls: Record<BallId, { x: number; z: number }>;
@@ -2667,9 +2689,20 @@ export default function App() {
           </button>
           <button
             onClick={() => setShowScoresPanel(!showScoresPanel)}
-            style={{ width: '100%', padding: '6px', fontSize: '11px', fontWeight: 'bold', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', cursor: 'pointer', transition: 'all 0.2s' }}
+            style={{
+              width: '100%',
+              padding: '6px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              borderRadius: '6px',
+              border: showScoresPanel ? '1px solid rgba(16,185,129,0.5)' : '1px solid rgba(255,255,255,0.2)',
+              background: showScoresPanel ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.1)',
+              color: showScoresPanel ? '#a7f3d0' : '#e2e8f0',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
           >
-            🎯 Scoring {showScoresPanel ? 'On' : 'Off'}
+            🎯 Scoreboard: {showScoresPanel ? 'On' : 'Off'}
           </button>
         </div>
 
@@ -3002,9 +3035,22 @@ export default function App() {
 
       {/* 3. Right Scoreboard + Tool Pill (Digital Style, top-right) */}
       <Scoreboard
-        timerValue={turnTimeLeft}
-        gameTimeValue={gameTimeLeft}
-        showBody={gameMode !== 'free' && showScoresPanel}
+        timerValue={gameMode === 'strict' ? turnTimeLeft : null}
+        gameTimeValue={gameMode === 'strict' ? gameTimeLeft : null}
+        showBody={gameMode !== 'unselected' && showScoresPanel}
+        onToggleShow={gameMode !== 'unselected' ? () => setShowScoresPanel(prev => !prev) : undefined}
+        isEditable={gameMode === 'free'}
+        onScoreChange={handleScoreChange}
+        onStartScoreEditing={() => {
+          // Immediately clear the active player so clicking off the scoreboard
+          // doesn't trigger an accidental shot at the click-off point
+          setSelectedBall(null);
+          setActiveStriker(null);
+          setPlayerState('hidden');
+          setSparkTargetId(null);
+          setSparkPhase('none');
+          if (autoPlayTimeout.current) clearTimeout(autoPlayTimeout.current);
+        }}
         ballScores={ballScores}
         selectedBall={selectedBall}
         onBallSelect={(id) => {

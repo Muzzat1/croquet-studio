@@ -19,6 +19,16 @@ const isInStartBox = (x: number, z: number) =>
   z >= START_BOX.zMin - BALL_RADIUS && z <= START_BOX.zMax + BALL_RADIUS;
 const BOUNDARY_Z = 10;
 const BALL_RADIUS = 0.1425; // 3× real (0.0475 × 3)
+
+// ── Screen-space assisted ball selection tuning constants ─────────────────
+// Maximum pixel distance from the pointer within which an unambiguous
+// ball can be snap-selected when the direct 3-D raycast misses.
+const ASSISTED_SELECT_RADIUS_PX = 20;
+// Minimum pixel gap between the nearest and second-nearest candidate.
+// If two balls are closer together than this, we refuse to guess and make
+// no selection — essential for touching balls and Spark Shot clusters.
+const ASSISTED_SELECT_AMBIGUITY_PX = 5;
+// ─────────────────────────────────────────────────────────────────────────
 const GOAL_POLE_RADIUS = 0.03;  // 3× real (0.01 × 3)
 const GATE_WIDTH = 0.69;        // 3× real (0.23 × 3)
 
@@ -87,6 +97,13 @@ interface BallScore {
   gate2: boolean;
   gate3: boolean;
   finished: boolean;
+}
+
+export interface CourtSnapshot {
+  id: string;
+  name: string;
+  balls: Record<BallId, { x: number; z: number }>;
+  scores: Record<BallId, BallScore>;
 }
 
 interface RecordedShot {
@@ -781,6 +798,21 @@ export default function App() {
   const [gameMode, setGameMode] = useState<GameMode>('unselected');
   const [strictPlayerId, setStrictPlayerId] = useState<BallId>('r1');
 
+  // Court Setups (Snapshots)
+  const SNAPSHOTS_STORAGE_KEY = 'gateball_snapshots_v1';
+  const [snapshots, setSnapshots] = useState<CourtSnapshot[]>([]);
+  const [newSnapshotName, setNewSnapshotName] = useState('');
+  const [isSnapshotsExpanded, setIsSnapshotsExpanded] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SNAPSHOTS_STORAGE_KEY);
+      if (stored) setSnapshots(JSON.parse(stored));
+    } catch (e) {
+      console.warn("Failed to load snapshots", e);
+    }
+  }, []);
+
   // Toast / HUD banner notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimeoutRef = useRef<number | null>(null);
@@ -825,6 +857,7 @@ export default function App() {
 
   // Annotation (Telestrator)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isTeachingToolsOpen, setIsTeachingToolsOpen] = useState(false);
   const [drawMode, setDrawMode] = useState(false);
   const [screenshotPrefix, setScreenshotPrefix] = useState("Gateball_Screenshot");
   const [drawColorIndex, setDrawColorIndex] = useState(0);
@@ -1716,7 +1749,86 @@ export default function App() {
 
     e.stopPropagation();
     const clickPoint = e.point;
-    
+
+    // ── SCREEN-SPACE ASSISTED BALL SELECTION ────────────────────────────────
+    // Runs when a clean click (≤6 px drag) misses every ball's 3-D hit sphere.
+    // Projects all ball centres into canvas pixels, picks the nearest within
+    // ASSISTED_SELECT_RADIUS_PX, but only if the margin over the second-nearest
+    // is at least ASSISTED_SELECT_AMBIGUITY_PX (protects touching/grouped balls).
+    // Does NOT run during Spark Shot phases, replays, or drag gestures.
+    if (
+      dragDistance <= 6 &&
+      !isPlaying &&
+      gameMode !== 'unselected' &&
+      sparkPhase === 'none'
+    ) {
+      const camera = e.camera as THREE.Camera | undefined;
+      const nativeEvt = e.nativeEvent as PointerEvent | undefined;
+      const canvas = nativeEvt?.target as HTMLElement | undefined;
+      const rect = canvas?.getBoundingClientRect?.();
+      if (camera && rect && rect.width > 0 && rect.height > 0) {
+        const pointerPxX = (nativeEvt?.clientX ?? clientX) - rect.left;
+        const pointerPxY = (nativeEvt?.clientY ?? clientY) - rect.top;
+        const canvasW = rect.width;
+        const canvasH = rect.height;
+
+        const tempVec = new THREE.Vector3();
+        let nearest: BallId | null = null;
+        let nearestDist = Infinity;
+        let secondDist = Infinity;
+
+        for (const id of BALL_IDS) {
+          const b = balls[id];
+          tempVec.set(b.x, BALL_RADIUS, b.z);
+          tempVec.project(camera);
+
+          // Reject balls behind the camera or outside the NDC cube
+          // NDC z == 1.0 is the far plane; z > 1 means behind the near plane.
+          if (tempVec.z > 1.0) continue;
+          // Also reject if projected outside the canvas area (e.g. extreme angles)
+          if (tempVec.x < -1 || tempVec.x > 1 || tempVec.y < -1 || tempVec.y > 1) continue;
+
+          // NDC → canvas pixels  (NDC y is flipped relative to screen y)
+          const bPxX = (tempVec.x * 0.5 + 0.5) * canvasW;
+          const bPxY = (-tempVec.y * 0.5 + 0.5) * canvasH;
+
+          const ddx = pointerPxX - bPxX;
+          const ddy = pointerPxY - bPxY;
+          const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+
+          if (dist < nearestDist) {
+            secondDist = nearestDist;
+            nearestDist = dist;
+            nearest = id;
+          } else if (dist < secondDist) {
+            secondDist = dist;
+          }
+        }
+
+        const margin = secondDist - nearestDist;
+        if (
+          nearest !== null &&
+          nearestDist <= ASSISTED_SELECT_RADIUS_PX &&
+          margin >= ASSISTED_SELECT_AMBIGUITY_PX   // unambiguous winner
+        ) {
+          // Honour strict-play turn order
+          if (gameMode === 'strict' && nearest !== strictPlayerId) {
+            showToast(`Strict Play: It's Player ${strictPlayerId.replace(/[^\d]/g, '')}'s turn!`);
+            return;
+          }
+          if (nearest !== selectedBall) {
+            setSelectedBall(nearest);
+            setSparkTargetId(null);
+            setContinuousStrokes(0);
+          }
+          setPlayerState('hidden');
+          if (autoPlayTimeout.current) clearTimeout(autoPlayTimeout.current);
+          return; // assisted selection done — do not fall through to aiming
+        }
+      }
+    }
+    // ── END ASSISTED SELECTION ──────────────────────────────────────────────
+
     if (clickPoint && selectedBall) {
       console.log("[DEBUG] clickPoint and selectedBall found. selectedBall:", selectedBall, "dragDistance:", dragDistance);
       const clickX = clickPoint.x;
@@ -1999,6 +2111,68 @@ export default function App() {
   }, [screenshotPrefix]);
 
   // Reset court positions
+  const handleSaveSnapshot = () => {
+    if (!newSnapshotName.trim()) return;
+    const newSnap: CourtSnapshot = {
+      id: crypto.randomUUID(),
+      name: newSnapshotName.trim(),
+      balls: JSON.parse(JSON.stringify(balls)),
+      scores: JSON.parse(JSON.stringify(ballScores))
+    };
+    const updated = [...snapshots, newSnap];
+    setSnapshots(updated);
+    try {
+      localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Failed to save snapshot", e);
+    }
+    setNewSnapshotName('');
+  };
+
+  const handleDeleteSnapshot = (id: string) => {
+    const updated = snapshots.filter(s => s.id !== id);
+    setSnapshots(updated);
+    try {
+      localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Failed to update snapshots", e);
+    }
+  };
+
+  const handleLoadSnapshot = (snap: CourtSnapshot) => {
+    setGameMode('free');
+    
+    // Restore React states
+    setBalls(JSON.parse(JSON.stringify(snap.balls)));
+    setBallScores(JSON.parse(JSON.stringify(snap.scores)));
+    
+    // Force physics sync immediately
+    Object.entries(snap.balls).forEach(([id, pos]) => {
+      const bId = id as BallId;
+      if (physicsBalls.current[bId]) {
+        physicsBalls.current[bId].x = pos.x;
+        physicsBalls.current[bId].z = pos.z;
+        physicsBalls.current[bId].vx = 0;
+        physicsBalls.current[bId].vz = 0;
+        physicsBalls.current[bId].isRolling = false;
+        physicsBalls.current[bId].isDragging = false;
+        physicsBalls.current[bId].gateArmed = {};
+      }
+      if (meshRefs.current[bId]?.current) {
+        meshRefs.current[bId].current.position.set(pos.x, BALL_RADIUS, pos.z);
+      }
+    });
+
+    // Reset interaction states
+    setSelectedBall(null);
+    setActiveStriker(null);
+    setIsStriking(false);
+    setPlayerState('hidden');
+    setShowAimingLines(false);
+    setSparkTargetId(null);
+    setSparkPhase('none');
+  };
+
   const handleReset = useCallback(() => {
     setGameMode('unselected');
     setStrictPlayerId('r1');
@@ -2736,6 +2910,21 @@ export default function App() {
         </div>
         */}
 
+        {/* Teaching Tools Toggle Button */}
+        <button 
+          onClick={() => setIsTeachingToolsOpen(!isTeachingToolsOpen)} 
+          style={{ 
+            width: '100%', fontSize: '10px', padding: '8px 0', borderRadius: '8px', 
+            background: isTeachingToolsOpen ? 'rgba(16,185,129,0.2)' : '#0f172a', 
+            border: isTeachingToolsOpen ? '1px solid #10b981' : '1px solid transparent', 
+            color: isTeachingToolsOpen ? '#10b981' : '#cbd5e1', 
+            boxShadow: isTeachingToolsOpen ? '0 0 12px rgba(16,185,129,0.5)' : 'inset 0 2px 4px rgba(0,0,0,0.3)', 
+            fontWeight: '900', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s' 
+          }}
+        >
+          🎓 Teaching Tools
+        </button>
+
         {/* Camera Views Selector (Moved from top-right) */}
         <div style={{
           background: 'rgba(255,255,255,0.03)',
@@ -2859,6 +3048,101 @@ export default function App() {
           📷 Screenshot
         </button>
       </div>
+
+      {/* Teaching Tools Panel */}
+      {isTeachingToolsOpen && (
+        <div className="teaching-tools-panel" style={{
+          position: 'absolute', top: '16px', left: isLeftPanelOpen ? '240px' : '16px', display: 'flex', flexDirection: 'column', gap: '10px',
+          zIndex: 9, width: '210px',
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(30, 58, 138, 0.55))',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(16, 185, 129, 0.35)',
+          borderRadius: '16px',
+          padding: '12px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', lineHeight: 1 }}>🎓</span>
+              <h2 style={{ fontSize: '12px', fontWeight: '800', letterSpacing: '0.05em', color: '#ffffff', margin: 0 }}>TEACHING TOOLS</h2>
+            </div>
+            <button
+              onClick={() => setIsTeachingToolsOpen(false)}
+              style={{ fontSize: '12px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0' }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Court Setups / Snapshots */}
+          <div style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px',
+            padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '8px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', lineHeight: 1 }}>💾</span>
+                <span style={{ fontSize: '10px', color: '#ffe680', fontWeight: '800', letterSpacing: '0.08em', textTransform: 'uppercase', textShadow: '0 0 8px rgba(255, 230, 128, 0.3)' }}>Court Setups</span>
+              </div>
+              {snapshots.length > 0 && (
+                <button 
+                  onClick={() => setIsSnapshotsExpanded(!isSnapshotsExpanded)}
+                  style={{ fontSize: '10px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                >
+                  {isSnapshotsExpanded ? '▼' : '▶'}
+                </button>
+              )}
+            </div>
+            
+            {/* Save Current */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input 
+                type="text" 
+                placeholder="Setup name..." 
+                value={newSnapshotName}
+                onChange={(e) => setNewSnapshotName(e.target.value)}
+                style={{ flex: 1, fontSize: '9px', padding: '4px 6px', borderRadius: '4px', background: 'rgba(0,0,0,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+              <button 
+                onClick={handleSaveSnapshot}
+                disabled={!newSnapshotName.trim()}
+                style={{ fontSize: '9px', padding: '4px 8px', borderRadius: '4px', background: newSnapshotName.trim() ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: newSnapshotName.trim() ? 'pointer' : 'not-allowed', fontWeight: 'bold' }}
+              >
+                + Save
+              </button>
+            </div>
+
+            {/* Saved Setups List */}
+            {isSnapshotsExpanded && snapshots.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto', paddingRight: '4px' }}>
+                {snapshots.map(snap => (
+                  <div key={snap.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.2)', padding: '4px 6px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '9px', color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>
+                      {snap.name}
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button 
+                        onClick={() => handleLoadSnapshot(snap)}
+                        style={{ fontSize: '8px', padding: '2px 6px', background: 'rgba(59,130,246,0.3)', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                      >
+                        Load
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteSnapshot(snap.id)}
+                        style={{ fontSize: '8px', padding: '2px 4px', background: 'rgba(239,68,68,0.3)', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* --- Unified Top-Centre Information & Control Pill removed --- */}
 
